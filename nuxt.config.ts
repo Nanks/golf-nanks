@@ -8,10 +8,7 @@ export default defineNuxtConfig({
   },
 
   // Modules
-  modules: [
-    '@nuxtjs/tailwindcss',
-    '@vite-pwa/nuxt'
-  ],
+  modules: ['@nuxtjs/tailwindcss', '@vite-pwa/nuxt', '@nuxtjs/color-mode'],
 
   // PWA Settings
   pwa: {
@@ -26,12 +23,32 @@ export default defineNuxtConfig({
       ]
     }
   },
+
+  colorMode: {
+    classSuffix: '', // Important: Tailwind v3/v4 expects 'dark' not 'dark-mode'
+    preference: 'system',
+    fallback: 'light'
+  },
+
   nitro: {
     preset: 'firebase',
     firebase: {
       gen: 2 // Use 2nd generation functions (faster, better)
     }
   },
+
+  vite: {
+    optimizeDeps: {
+      include: [
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
+      ]
+    }
+  },
+
   // Ensure Firebase only runs on the client side
   ssr: false 
 })

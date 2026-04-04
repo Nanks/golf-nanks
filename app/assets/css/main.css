@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* 1. Define the manual dark mode trigger for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 2. Set global base styles using standard CSS variables or utilities */
+@layer base {
+  body {
+    background-color: white;
+    color: #0f172a; /* slate-900 */
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  /* When the .dark class is on <html>, these styles apply */
+  .dark body {
+    background-color: #020617; /* slate-950 */
+    color: #f1f5f9; /* slate-100 */
+  }
+}
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Optional: Prevent transitions on load to avoid a "flash" */
+.preload * {
+  transition: none !important;
+}
+
