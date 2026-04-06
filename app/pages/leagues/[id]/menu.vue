@@ -1,55 +1,86 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 pt-24 max-w-md mx-auto">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 max-w-2xl mx-auto">
     <header class="mb-10">
       <NuxtLink to="/" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
         ← All Leagues
       </NuxtLink>
-      <h1 class="text-3xl font-black text-emerald-600 uppercase tracking-tighter mt-2">{{ league?.name || 'Loading...' }}</h1>
-      <div v-if="isAdmin" class="inline-block mt-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 rounded-full">
-        <span class="text-[9px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">League Admin</span>
+      <h1 class="text-4xl font-black text-emerald-600 uppercase tracking-tighter mt-2 leading-none">
+        {{ league?.name || 'Loading...' }}
+      </h1>
+      
+      <div v-if="isAdmin" class="mt-3 inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md border border-emerald-100 dark:border-emerald-800">
+        <Icon name="mdi:shield-check" class="text-emerald-600 size-3" />
+        <span class="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter">League Admin</span>
       </div>
     </header>
 
-    <div class="grid grid-cols-1 gap-4">
-      <!-- Standard Player Options -->
-      <NuxtLink :to="`/leagues/${route.params.id}`" class="menu-card">
-        <div class="icon-box">📅</div>
-        <div class="text-left">
-          <p class="title">Calendar</p>
-          <p class="subtitle">View schedule & tee times</p>
+    <div class="space-y-1.5">
+      <!-- Calendar -->
+      <NuxtLink :to="`/leagues/${route.params.id}/calendar`" class="menu-item group">
+        <div class="flex items-center gap-3">
+          <div class="icon-circle">
+            <Icon name="mdi:calendar-month" class="size-4 text-slate-600 group-hover:text-emerald-600 transition" />
+          </div>
+          <p class="menu-title">Calendar</p>
         </div>
+        <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
 
-      <NuxtLink :to="`/leagues/${route.params.id}/standings`" class="menu-card">
-        <div class="icon-box">🏆</div>
-        <div class="text-left">
-          <p class="title">Standings</p>
-          <p class="subtitle">Season points & rankings</p>
+      <!-- Birds (Specific Leagues Only) -->
+      <NuxtLink 
+        v-if="['I7LCsEb1va49YU1lkRmu', 'fGi9I5ISmgoeYoVuOfvt'].includes(route.params.id as string)"
+        :to="`/leagues/${route.params.id}/games/birds`" 
+        class="menu-item group"
+      >
+        <div class="flex items-center gap-3">
+          <div class="icon-circle">
+            <Icon name="mdi:bird" class="size-4 text-slate-600 group-hover:text-emerald-600 transition" />
+          </div>
+          <p class="menu-title">Birds</p>
         </div>
+        <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
 
-      <!-- Admin Only Options -->
-      <template v-if="isAdmin">
-        <div class="mt-4 mb-2">
-          <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Management</p>
+      <!-- Deuces (One Specific League Only) -->
+      <NuxtLink 
+        v-if="route.params.id === 'I7LCsEb1va49YU1lkRmu'"
+        :to="`/leagues/${route.params.id}/games/deuces`" 
+        class="menu-item group"
+      >
+        <div class="flex items-center gap-3">
+          <div class="icon-circle">
+            <Icon name="mdi:numeric-2-circle-outline" class="size-4 text-slate-600 group-hover:text-emerald-600 transition" />
+          </div>
+          <p class="menu-title">Deuces</p>
         </div>
+        <Icon name="mdi:chevron-right" class="arrow-icon" />
+      </NuxtLink>
+
+      <!-- Roster -->
+      <NuxtLink :to="`/leagues/${route.params.id}/roster`" class="menu-item group">
+        <div class="flex items-center gap-3">
+          <div class="icon-circle">
+            <Icon name="mdi:account-group" class="size-4 text-slate-600 group-hover:text-emerald-600 transition" />
+          </div>
+          <p class="menu-title">Roster</p>
+        </div>
+        <Icon name="mdi:chevron-right" class="arrow-icon" />
+      </NuxtLink>
+
+      <!-- Admin Tools Section -->
+      <div v-if="isAdmin" class="pt-4 space-y-1.5">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Management</p>
         
-        <NuxtLink :to="`/admin/leagues/${route.params.id}/players`" class="menu-card admin-card">
-          <div class="icon-box">👥</div>
-          <div class="text-left">
-            <p class="title">Roster</p>
-            <p class="subtitle">Add or edit league players</p>
+        <NuxtLink :to="`/admin/leagues/${route.params.id}/settings`" class="menu-item group border-emerald-100/50 dark:border-emerald-900/30">
+          <div class="flex items-center gap-3">
+            <div class="icon-circle bg-emerald-50 dark:bg-emerald-900/20">
+              <Icon name="mdi:cog" class="size-4 text-emerald-600" />
+            </div>
+            <p class="menu-title">League Settings</p>
           </div>
+          <Icon name="mdi:chevron-right" class="arrow-icon" />
         </NuxtLink>
-
-        <button class="menu-card admin-card text-left">
-          <div class="icon-box">⚙️</div>
-          <div class="text-left">
-            <p class="title">Settings</p>
-            <p class="subtitle">Edit league info & rules</p>
-          </div>
-        </button>
-      </template>
+      </div>
     </div>
   </div>
 </template>
@@ -69,26 +100,22 @@ onMounted(async () => {
   const snap = await getDoc(docRef);
   if (snap.exists()) {
     league.value = snap.data();
-    // Check if the current user is an admin for this specific leagueID
     isAdmin.value = isAdminOf(league.value.leagueID);
   }
 });
 </script>
 
 <style scoped>
-.menu-card {
-  @apply flex items-center gap-5 p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-emerald-500 transition-all active:scale-[0.98];
+.menu-item {
+  @apply flex items-center justify-between p-2.5 px-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 transition-all active:scale-[0.99];
 }
-.admin-card {
-  @apply border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/30 dark:bg-emerald-900/10;
+.icon-circle {
+  @apply w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl transition;
 }
-.icon-box {
-  @apply w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-2xl text-2xl;
+.menu-title {
+  @apply font-bold text-slate-800 dark:text-slate-100 uppercase text-xs tracking-tight;
 }
-.title {
-  @apply font-black text-slate-800 dark:text-white uppercase tracking-tight;
-}
-.subtitle {
-  @apply text-[10px] font-bold text-slate-400 uppercase tracking-wide;
+.arrow-icon {
+  @apply text-slate-300 group-hover:text-emerald-500 transition-colors size-4;
 }
 </style>

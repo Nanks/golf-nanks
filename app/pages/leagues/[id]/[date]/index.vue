@@ -1,81 +1,65 @@
 <template>
-  <div class="p-6 max-w-3xl mx-auto pt-20">
+  <div class="p-6 max-w-3xl mx-auto">
     <!-- Header -->
-    <header class="mb-8">
-      <NuxtLink :to="`/leagues/${route.params.id}`" class="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
-        ← Back to Dates
-      </NuxtLink>
-      <div class="flex justify-between items-end mt-2">
-        <div>
-          <h1 class="text-3xl font-black text-emerald-600 tracking-tighter uppercase">Leaderboard</h1>
-          <p class="text-slate-500 font-medium">{{ formatDate(route.params.date) }}</p>
-        </div>
-        
-        <!-- Gross/Net Toggle -->
-        <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          <button 
-            @click="viewMode = 'gross'" 
-            :class="viewMode === 'gross' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-400'" 
-            class="px-4 py-2 rounded-lg font-bold text-xs uppercase transition"
-          >
-            Gross
-          </button>
-          <button 
-            @click="viewMode = 'net'" 
-            :class="viewMode === 'net' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-400'" 
-            class="px-4 py-2 rounded-lg font-bold text-xs uppercase transition"
-          >
-            Net
-          </button>
-        </div>
+    <header class="mb-8 flex justify-between items-end">
+      <div>
+        <NuxtLink :to="`/leagues/${route.params.id}/calendar`" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
+          ← Back to Dates
+        </NuxtLink>
+        <h1 class="text-3xl font-black text-emerald-600 uppercase tracking-tighter mt-1 leading-none">Leaderboard</h1>
+        <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-2">{{ formatDate(route.params.date) }}</p>
+      </div>
+      
+      <!-- Status Badge (Optional replacement for the picker) -->
+      <div v-if="isWeekFinal" class="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 rounded text-[8px] font-black text-emerald-600 uppercase tracking-widest">
+        Official Results
       </div>
     </header>
 
     <!-- Loading State -->
-    <div v-if="loading" class="space-y-3">
-      <div v-for="i in 5" :key="i" class="h-20 bg-slate-100 dark:bg-slate-900 animate-pulse rounded-2xl"></div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else-if="leaderboard.length === 0" class="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-      <p class="text-slate-400 italic">No rounds recorded for this date yet.</p>
+    <div v-if="loading" class="space-y-2">
+      <div v-for="i in 6" :key="i" class="h-16 bg-white dark:bg-slate-900 animate-pulse rounded-2xl border border-slate-200 dark:border-slate-800"></div>
     </div>
 
     <!-- Results List -->
-    <div v-else class="space-y-3">
+    <div v-else class="space-y-1.5">
       <div 
         v-for="(entry, index) in sortedLeaderboard" 
         :key="entry.id" 
-        @click.stop="openRecap(entry)"
-        class="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm"
+        @click="openRecap(entry)"
+        class="group flex items-center justify-between p-2.5 px-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 transition-all active:scale-[0.99] cursor-pointer"
       >
-        <!-- Rank Badge -->
-        <div class="w-10 h-10 flex items-center justify-center rounded-full font-black text-sm" 
-             :class="index < 3 ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'">
-          {{ index + 1 }}
+        <div class="flex items-center gap-4">
+          <!-- Rank Badge: Highlight Top 6 -->
+          <div class="w-8 h-8 flex items-center justify-center rounded-full font-black text-[12px]" 
+               :class="index < 6 ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'">
+            {{ index + 1 }}
+          </div>
+
+          <div>
+            <p class="font-bold text-slate-800 dark:text-slate-100 uppercase text-s tracking-tight">
+              {{ entry.playerName }}
+            </p>
+            <!-- Subtitle with Gross and Index -->
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              Gross: {{ entry.totalScore }} • Index: {{ entry.hcpIndex.toFixed(3) }}
+            </p>
+          </div>
         </div>
 
-        <!-- Player Info -->
-        <div class="flex-1">
-          <p class="font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-            {{ entry.playerName }}
-          </p>
-          <p class="text-[10px] text-slate-400 font-bold uppercase">
-            HCP Index: {{ entry.hcpIndex.toFixed(3) }} • {{ entry.courseName }}
-          </p>
-        </div>
-
-        <!-- Score Display -->
-        <div class="text-right">
-          <p class="text-2xl font-black text-emerald-600 tabular-nums">
-            {{ viewMode === 'net' ? entry.netScore.toFixed(3) : entry.totalScore }}
-          </p>
-          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-            {{ viewMode }}
-          </p>
+        <!-- Net Score (Primary Value) -->
+        <div class="text-right flex items-center gap-3">
+          <div>
+            <p class="text-xl font-black text-emerald-600 tabular-nums leading-none">
+              {{ entry.netScore.toFixed(3) }}
+            </p>
+            <p class="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-1">Net</p>
+          </div>
+          <Icon name="mdi:chevron-right" class="text-slate-300 group-hover:text-emerald-500 size-4" />
         </div>
       </div>
     </div>
+
     <Teleport to="body">
       <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
         <div v-click-outside="() => isModalOpen = false" class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
@@ -151,84 +135,58 @@ const modalBack = computed(() => selectedRound.value?.scores?.slice(9, 18).reduc
 
 const fetchLeaderboard = async () => {
   try {
-    // 1. Get League Data (for leagueID string)
+    loading.value = true;
+    
+    // 1. Fetch coursesMap once at the start
+    const coursesMap = await fetchFullCourseData($db);
+
     const leagueSnap = await getDoc(doc($db, "leagues", route.params.id));
-    if (!leagueSnap.exists()) return;
-    const leagueIDString = leagueSnap.data().leagueID;
+    const leagueIDString = leagueSnap.data()?.leagueID;
 
-    // 2. Fetch the specific Calendar event status for this date
-    let isChecked = false;
-    const calRef = collection($db, "leagues", route.params.id, "calendar");
-    const calQuery = query(calRef, where("iso", "==", route.params.date));
-    const calSnap = await getDocs(calQuery);
-    
-    if (calSnap.empty) {
-      console.warn("No calendar entry found for this date.");
-      loading.value = false;
-      return;
-    }
-
-    const scheduledEvent = calSnap.docs[0].data();
-    // These fields in your calendar must match the IDs in your 'courses' collection
-    const scheduledCourseName = scheduledEvent.course; 
-    const scheduledTeeName = scheduledEvent.tees;
-
-    const courseRef = collection($db, "courses")
-    const courseQuery = query(courseRef, where("name", "==", scheduledCourseName)) 
-    const courseSnap = await getDocs(courseQuery);
-    if (!courseSnap.empty) {
-      selectedCourseData.value = { id: courseSnap.docs[0].id, ...courseSnap.docs[0].data() };
-      
-      const teesRef = collection($db, "courses", courseSnap.docs[0].id, "tees");
-      const teeQuery = query(teesRef, where("name", "==", scheduledTeeName));
-      const teeSnap = await getDocs(teeQuery);
-      if (!teeSnap.empty) {
-        selectedTeeData.value = teeSnap.docs[0].data();
-      }
-    }
-
-    // 3. Query Rounds
-    const roundsRef = collectionGroup($db, "rounds");
-    const q = query(
-      roundsRef, 
-      where("type", "==", leagueIDString), 
+    const calSnap = await getDocs(query(
+      collection($db, "leagues", route.params.id, "calendar"), 
       where("iso", "==", route.params.date)
-    );
-
-    const querySnapshot = await getDocs(q);
+    ));
     
-    const rawRounds = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      const scores = Array.isArray(data.scores) ? data.scores : [];
+    if (calSnap.empty) return;
+    const isWeekFinal = calSnap.docs[0].data().status === 'mdi-check-bold';
+
+    const roundsSnap = await getDocs(query(
+      collectionGroup($db, "rounds"),
+      where("type", "==", leagueIDString),
+      where("iso", "==", route.params.date)
+    ));
+
+    const rawResults = roundsSnap.docs.map((rDoc) => {
+      const roundData = rDoc.data();
+      const pData = roundData.playerData || {}; // Assuming you have player names in the round or fetching separately
       
-      // Calculate total
-      const gross = scores.reduce((a, b) => a + (b || 0), 0);
-      const hcp = parseFloat(data.index || 0);
+      const scores = roundData.scores || [];
+      const grossScore = scores.reduce((a, b) => a + b, 0);
+      const hcpIndex = roundData.index || 0;
+      
+      // Calculate Net: Gross - Index
+      const netScore = grossScore - hcpIndex;
 
       return {
-        roundId: doc.id,
-        playerName: data.name || 'Unknown',
-        courseName: data.course || '',
-        course: selectedCourseData,
-        tees: selectedTeeData,
-        scores: data.scores,
-        totalScore: gross,
-        hcpIndex: hcp,
-        netScore: gross - hcp,
-        hasZeroScore: scores.some(s => s === 0) // Check if any hole is 0
+        id: rDoc.id,
+        playerName: roundData.name || "Unknown", // Adjust based on your data structure
+        scores,
+        totalScore: grossScore,
+        hcpIndex: hcpIndex,
+        netScore: netScore, 
+        courseName: roundData.course,
       };
     });
 
-    // 4. Apply the conditional filter
-    if (isChecked) {
-      // If status is mdi-check-bold, remove players with any 0 scores
-      leaderboard.value = rawRounds.filter(r => !r.hasZeroScore);
-    } else {
-      leaderboard.value = rawRounds;
-    }
+    // Apply the mdi-check-bold filter
+    if (isWeekFinal) {
+      leaderboard.value = rawResults.filter(entry => 
+        entry.scores.length > 0 && !entry.scores.includes(0)
+    )};
 
   } catch (err) {
-    console.error("Leaderboard error:", err);
+    console.error(err);
   } finally {
     loading.value = false;
   }
@@ -236,8 +194,11 @@ const fetchLeaderboard = async () => {
 
 // Handle sorting toggle between Net and Gross
 const sortedLeaderboard = computed(() => {
-  const field = viewMode.value === 'net' ? 'netScore' : 'totalScore';
-  return [...leaderboard.value].sort((a, b) => a[field] - b[field]);
+  return [...leaderboard.value].sort((a, b) => {
+    return viewMode.value === 'net' 
+      ? a.netScore - b.netScore 
+      : a.totalScore - b.totalScore;
+  });
 });
 
 onMounted(fetchLeaderboard);

@@ -3,18 +3,48 @@
 /* 1. Define the manual dark mode trigger for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* 2. Set global base styles using standard CSS variables or utilities */
+/* 2. Remap colors globally */
+@theme {
+  /* This forces all emerald classes to use lime values */
+  --color-emerald-50: var(--color-lime-50);
+  --color-emerald-100: var(--color-lime-100);
+  --color-emerald-200: var(--color-lime-200);
+  --color-emerald-300: var(--color-lime-300);
+  --color-emerald-400: var(--color-lime-400);
+  --color-emerald-500: var(--color-lime-500);
+  --color-emerald-600: var(--color-lime-600);
+  --color-emerald-700: var(--color-lime-700);
+  --color-emerald-800: var(--color-lime-800);
+  --color-emerald-900: var(--color-lime-900);
+  --color-emerald-950: var(--color-lime-950);
+
+  /* This forces all slate classes to use stone values */
+  --color-slate-50: var(--color-stone-50);
+  --color-slate-100: var(--color-stone-100);
+  --color-slate-200: var(--color-stone-200);
+  --color-slate-300: var(--color-stone-300);
+  --color-slate-400: var(--color-stone-400);
+  --color-slate-500: var(--color-stone-500);
+  --color-slate-600: var(--color-stone-600);
+  --color-slate-700: var(--color-stone-700);
+  --color-slate-800: var(--color-stone-800);
+  --color-slate-900: var(--color-stone-900);
+  --color-slate-950: var(--color-stone-950);
+}
+
+/* 3. Global base styles */
 @layer base {
   body {
-    background-color: white;
-    color: #0f172a; /* slate-900 */
+    background-color: var(--color-white);
+    /* Updated to use your new stone alias */
+    color: var(--color-slate-900); 
     transition: background-color 0.3s, color 0.3s;
   }
 
-  /* When the .dark class is on <html>, these styles apply */
   .dark body {
-    background-color: #020617; /* slate-950 */
-    color: #f1f5f9; /* slate-100 */
+    /* Updated to use your new stone alias */
+    background-color: var(--color-slate-950);
+    color: var(--color-slate-100);
   }
 }
 
@@ -22,8 +52,6 @@ html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Optional: Prevent transitions on load to avoid a "flash" */
 .preload * {
   transition: none !important;
 }
-

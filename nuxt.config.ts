@@ -1,5 +1,6 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
+// https://nuxt.com
 import { defineNuxtConfig } from 'nuxt/config'
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
   // Enables Nuxt 4 features and directory structure
@@ -8,7 +9,25 @@ export default defineNuxtConfig({
   },
 
   // Modules
-  modules: ['@nuxtjs/tailwindcss', '@vite-pwa/nuxt', '@nuxtjs/color-mode'],
+  modules: ['@vite-pwa/nuxt', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxt/icon'],
+
+  // Combine both into a SINGLE vite block
+  vite: {
+    plugins: [
+      tailwindcss(),
+    ],
+    optimizeDeps: {
+      include: [
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
+      ]
+    }
+  },
+
+  css: ['~/assets/css/main.css'],
 
   // PWA Settings
   pwa: {
@@ -18,14 +37,14 @@ export default defineNuxtConfig({
       short_name: 'Nanks',
       theme_color: '#000000',
       icons: [
-        { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-        { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' }
+        { src: 'pwa-xpng', sizes: 'x', type: 'image/png' },
+        { src: 'pwa-xpng', sizes: 'x', type: 'image/png' }
       ]
     }
   },
 
   colorMode: {
-    classSuffix: '', // Important: Tailwind v3/v4 expects 'dark' not 'dark-mode'
+    classSuffix: '', 
     preference: 'system',
     fallback: 'light'
   },
@@ -33,19 +52,7 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'firebase',
     firebase: {
-      gen: 2 // Use 2nd generation functions (faster, better)
-    }
-  },
-
-  vite: {
-    optimizeDeps: {
-      include: [
-        '@vue/devtools-core',
-        '@vue/devtools-kit',
-        'firebase/app',
-        'firebase/auth',
-        'firebase/firestore',
-      ]
+      gen: 2 
     }
   },
 

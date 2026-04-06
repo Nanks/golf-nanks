@@ -1,6 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 pt-24 max-w-2xl mx-auto space-y-10">
     
+    <!-- Syncing State -->
     <div v-if="isInitialLoading" class="p-20 text-center animate-pulse text-emerald-600 font-bold">
       SYNCING...
     </div>
@@ -23,16 +24,15 @@
               <p class="text-xl font-black leading-none">{{ player.leagues?.length || 0 }}</p>
             </div>
           </div>
-          <!-- Decorative subtle "G" or background shape -->
           <div class="absolute -right-4 -bottom-6 text-[120px] font-black opacity-10 select-none">G</div>
         </div>
 
-        <!-- Player's Specific Leagues (Horizontal Scroll or List) -->
+        <!-- Section 1: My Active Leagues (Only leagues you ARE in) -->
         <div v-if="myLeagues.length > 0">
           <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 ml-1">My Active Leagues</h3>
           <div class="grid gap-3">
             <NuxtLink 
-              v-for="ml in myLeagues" :key="ml.id" :to="`/leagues/${ml.id}`"
+              v-for="ml in myLeagues" :key="ml.id" :to="`/leagues/${ml.id}/menu`"
               class="flex items-center justify-between p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 transition-all active:scale-[0.98]"
             >
               <span class="font-bold text-slate-800 dark:text-slate-100 uppercase text-sm">{{ ml.name }}</span>
@@ -42,11 +42,12 @@
         </div>
       </section>
 
-      <section>
-        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-1">Leagues</h3>
+      <!-- Section 2: Other Available Leagues (Only leagues you are NOT in) -->
+      <section v-if="otherLeagues.length > 0">
+        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-1">Other Available Leagues</h3>
         <div class="grid gap-3">
           <NuxtLink 
-            v-for="league in allLeagues" 
+            v-for="league in otherLeagues" 
             :key="league.id" 
             :to="`/leagues/${league.id}/menu`"
             class="flex items-center justify-between p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 transition-all active:scale-[0.98]"
@@ -64,14 +65,23 @@
 </template>
 
 <script setup lang="ts">
-import { collection, query, where, getDocs, orderBy, documentId } from "firebase/firestore";
+import { collection, query, getDocs, orderBy, where, documentId } from "firebase/firestore";
 
-const { player, isLoggedIn, isInitialLoading, isAnyAdmin, isAdminOf } = useAuth();
+const { player, isInitialLoading } = useAuth();
 const { $db } = useNuxtApp();
 
 const allLeagues = ref<any[]>([]);
 const myLeagues = ref<any[]>([]);
-const loadingAll = ref(true);
+
+/**
+ * COMPUTED: This keeps your leagues appearing only once.
+ * It filters the full list to show only those NOT in 'myLeagues'.
+ * [Nuxt 3 automatically imports 'computed'](https://nuxt.com/docs/3.x/guide/concepts/auto-imports)
+ */
+const otherLeagues = computed(() => {
+  const myIds = myLeagues.value.map(l => l.id);
+  return allLeagues.value.filter(league => !myIds.includes(league.id));
+});
 
 // 1. Fetch Every League (Global List)
 const fetchAllLeagues = async () => {
@@ -81,17 +91,13 @@ const fetchAllLeagues = async () => {
     allLeagues.value = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error("Error fetching all leagues:", e);
-  } finally {
-    loadingAll.value = false;
   }
 };
 
 // 2. Fetch only the logged-in player's specific leagues
 const fetchMyLeagues = async () => {
-  // Access the array from the player ref
   const leagueIds = player.value?.leagues;
 
-  // IMPORTANT: Firestore 'in' query fails if the array is empty or undefined
   if (!leagueIds || leagueIds.length === 0) {
     myLeagues.value = [];
     return;
@@ -109,16 +115,14 @@ const fetchMyLeagues = async () => {
   }
 };
 
-// 3. Orchestrate data fetching
 onMounted(() => {
   fetchAllLeagues();
 });
 
-// Watch the player ref. When it changes from null -> Player, fetch their leagues.
+// Watch the player ref. When it changes from null -> Player (after login/sync), fetch their leagues.
 watch(() => player.value, (newVal) => {
   if (newVal) {
     fetchMyLeagues();
   }
 }, { immediate: true });
 </script>
-

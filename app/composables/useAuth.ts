@@ -80,7 +80,7 @@ export const useAuth = () => {
 
   const verifyOtp = async (otp: string) => {
     if (!confirmationResult) throw new Error("No pending verification");
-    await confirmationResult.confirm(otp);
+    return await confirmationResult.confirm(otp);
   };
 
   const logout = async () => {

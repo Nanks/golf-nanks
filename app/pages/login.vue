@@ -18,6 +18,7 @@
               <input 
                 v-model="phoneNumber" 
                 type="tel" 
+                @input="formatDisplay"
                 placeholder="555 555 5555" 
                 class="w-full p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none transition font-bold"
                 :disabled="isLoading"
@@ -75,66 +76,88 @@
 </template>
 
 <script setup>
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, arrayUnion, doc, updateDoc } from "firebase/firestore";
+import { usePlayerStore } from "~/stores/player";
 
-const { initRecaptcha, sendOtp, verifyOtp } = useAuth()
+const { $db } = useNuxtApp();
+const { initRecaptcha, sendOtp, verifyOtp } = useAuth();
+const playerStore = usePlayerStore();
+const toast = useToast();
 
-const toast = useToast() // Access the global toast helper
-
-const phoneNumber = ref('')
-const otpCode = ref('')
-const otpSent = ref(false)
-const isLoading = ref(false)
+const phoneNumber = ref('');
+const otpCode = ref('');
+const otpSent = ref(false);
+const isLoading = ref(false);
 
 onMounted(() => {
-  // Ensure the button ID matches exactly
-  initRecaptcha('login-button')
-})
+  initRecaptcha('login-button');
+});
+
+// Optional helper to format the input as user types
+const formatDisplay = () => {
+  let x = phoneNumber.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+  phoneNumber.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+};
 
 const handleSendOtp = async () => {
   if (!phoneNumber.value) return;
   
   isLoading.value = true;
   try {
-    // 1. Standardize formatting to E.164 (+16055551234)
+    // 1. FORMATTING LOGIC: Strip everything and force E.164 (+1XXXXXXXXXX)
     let digits = phoneNumber.value.replace(/\D/g, '');
-    if (digits.length === 10) digits = `1${digits}`;
-    const formatted = `+${digits}`;
+    if (digits.length === 10) {
+      digits = `1${digits}`; // Add US country code if missing
+    }
+    const formattedE164 = `+${digits}`;
 
     // 2. CHECK: Does this player exist in Firestore?
     const q = query(
       collection($db, "players"), 
-      where("phone", "==", formatted),
-      limit(1) // Matching our security rule limit
+      where("phone", "==", formattedE164),
+      limit(1)
     );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      toast.show("No account found for this number.")
-      return; // Exit before sending OTP
+      toast.show("No account found for this number.");
+      isLoading.value = false;
+      return;
     }
 
-    // 3. PROCEED: If player exists, send the SMS
-    await sendOtp(formatted);
+    // 3. PERSIST: Save the player ID to the store before proceeding
+    playerStore.setPlayerId(querySnapshot.docs[0].id);
+
+    // 4. PROCEED: Send the SMS via Auth service
+    await sendOtp(formattedE164);
     otpSent.value = true;
   } catch (err) {
     console.error(err);
-    toast.show("System error. Please try again.")
+    toast.show("System error. Please try again.");
   } finally {
     isLoading.value = false;
   }
 };
 
 const handleVerifyOtp = async () => {
-  isLoading.value = true
+  isLoading.value = true;
   try {
-    await verifyOtp(otpCode.value)
-    // Redirect to home or rounds after success
-    navigateTo('/')
+    // FIX: Ensure you pass the string value, not the Ref object
+    const result = await verifyOtp(otpCode.value); 
+    const user = result.user;
+
+    if (playerStore.playerId) {
+      const playerRef = doc($db, "players", playerStore.playerId);
+      await updateDoc(playerRef, {
+        uids: arrayUnion(user.uid)
+      });
+    }
+    navigateTo('/');
   } catch (err) {
-    alert("Invalid code. Please try again.")
+    console.error("Verification failed:", err);
+    toast.show("Invalid code. Please try again.");
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}
+};
 </script>

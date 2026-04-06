@@ -13,6 +13,8 @@ declare global {
     phone: string;
     ghin: number;
     leagues: string[];
+    leagueHcp?: string;
+    auditRounds?: any[];
   }
 
   interface League {

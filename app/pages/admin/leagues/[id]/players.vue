@@ -1,11 +1,22 @@
 <template>
-  <div class="min-h-screen p-6 max-w-2xl mx-auto pt-24">
-    <header class="mb-8">
-      <NuxtLink :to="`/leagues/${route.params.id}`" class="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
-        ← Back to League
-      </NuxtLink>
-      <h1 class="text-3xl font-black text-emerald-600 uppercase tracking-tighter mt-2">Manage Players</h1>
-      <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">League ID: {{ route.params.id }}</p>
+  <div class="min-h-screen p-6 max-w-2xl mx-auto">
+    <header class="mb-8 flex justify-between items-center">
+      <div>
+        <NuxtLink :to="`/leagues/${route.params.id}/roster`" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
+          ← Back to League
+        </NuxtLink>
+        <h1 class="text-3xl font-black text-emerald-600 uppercase tracking-tighter mt-1 leading-none">Manage Players</h1>
+        <p class="text-slate-400 text-[9px] font-bold uppercase tracking-widest mt-1">ID: {{ route.params.id }}</p>
+      </div>
+
+      <!-- Subtle, Right-Aligned Button -->
+      <button 
+        @click="isAddModalOpen = true"
+        class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 text-slate-400 hover:text-emerald-600 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 rounded-xl transition-all active:scale-95 group"
+      >
+        <Icon name="mdi:account-plus" class="size-4" />
+        <span class="text-[10px] font-black uppercase tracking-widest">New</span>
+      </button>
     </header>
 
     <!-- Search Section -->
@@ -121,14 +132,24 @@ const handleSaveGhin = async (newGhin: number) => {
 };
 
 const handleCreatePlayer = async (newPlayerData: any) => {
-  const leagueId = adminUser.value?.admin;
-  if (!leagueId) return;
+  const currentLeagueId = route.params.id as string;
+  
   try {
-    const docRef = await addDoc(collection($db, "players"), { ...newPlayerData, leagues: [leagueId], uids: [] });
-    allPlayers.value.push({ id: docRef.id, ...newPlayerData, leagues: [leagueId] });
+    const docRef = await addDoc(collection($db, "players"), { 
+      ...newPlayerData, 
+      leagues: [currentLeagueId],
+      uids: [], // Start with empty array for future auth linking
+      created_at: new Date().toISOString()
+    });
+
+    // Add to local list for immediate searchability
+    allPlayers.value.push({ id: docRef.id, ...newPlayerData, leagues: [currentLeagueId] });
+    
     isAddModalOpen.value = false;
-    toast.show("Player created!", "success");
-  } catch { toast.show("Create failed", "error"); }
+    toast.show(`${newPlayerData.fname} created!`, "success");
+  } catch (err) {
+    toast.show("Error creating player", "error");
+  }
 };
 
 onMounted(fetchAllPlayers);
