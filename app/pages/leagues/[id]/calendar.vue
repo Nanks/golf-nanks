@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 max-w-2xl mx-auto">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 max-w-2xl mx-auto pb-32">
     <header class="mb-6 flex justify-between items-end">
       <div>
         <NuxtLink :to="`/leagues/${route.params.id}/menu`" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
@@ -10,19 +10,28 @@
         </h1>
       </div>
 
-      <!-- Admin Toggle -->
-      <button 
-        v-if="isAdmin" 
-        @click="isEditMode = !isEditMode"
-        :class="isEditMode ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-800'"
-        class="px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center gap-2"
-      >
-        <Icon :name="isEditMode ? 'mdi:check' : 'mdi:cog'" class="size-3" />
-        {{ isEditMode ? 'Done' : 'Edit' }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button 
+          v-if="isAdmin && isEditMode" 
+          @click="openEventEditor()"
+          class="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 px-3 py-1.5 rounded-xl border border-emerald-100 dark:border-emerald-800 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center gap-1 active:scale-95"
+        >
+          <Icon name="mdi:plus" class="size-3" />
+          Add
+        </button>
+
+        <button 
+          v-if="isAdmin" 
+          @click="isEditMode = !isEditMode"
+          :class="isEditMode ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-800'"
+          class="px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center gap-2 active:scale-95"
+        >
+          <Icon :name="isEditMode ? 'mdi:check' : 'mdi:cog'" class="size-3" />
+          {{ isEditMode ? 'Done' : 'Edit' }}
+        </button>
+      </div>
     </header>
 
-    <!-- Year Selection Chips -->
     <div v-if="availableYears.length > 0" class="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
       <button 
         v-for="year in availableYears" :key="year"
@@ -34,43 +43,51 @@
       </button>
     </div>
 
-    <!-- Calendar List -->
     <div v-if="!loading" class="space-y-1.5">
       <div v-for="item in filteredItems" :key="item.id" class="flex items-center gap-2">
         
-        <!-- Selection Button: Only in Edit Mode -->
-        <button 
-          v-if="isEditMode" 
-          @click="openEditor(item)"
-          class="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 active:scale-90 transition"
-        >
-          <Icon name="mdi:pencil" class="size-4" />
-        </button>
+        <div v-if="isEditMode" class="flex gap-1 flex-shrink-0">
+          <button @click="openEventEditor(item)" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 active:scale-90 transition hover:border-emerald-500">
+            <Icon name="mdi:pencil" class="size-4" />
+          </button>
+          <button @click="editingStatusItem = item" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 active:scale-90 transition hover:border-blue-500">
+            <Icon name="mdi:flag-checkered" class="size-4" />
+          </button>
+          <button @click="confirmDelete(item)" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-red-400 active:scale-90 transition hover:border-red-500">
+            <Icon name="mdi:trash-can-outline" class="size-4" />
+          </button>
+        </div>
 
         <NuxtLink 
           :to="isEditMode ? '' : `/leagues/${route.params.id}/${item.iso}`"
           :class="isEditMode ? 'pointer-events-none opacity-60' : ''"
           class="flex-grow flex items-center justify-between p-2.5 px-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 transition-all active:scale-[0.99]"
         >
-          <p class="font-bold text-slate-800 dark:text-slate-100 uppercase text-xs tracking-tight">
-            {{ getFullDate(item.iso) }}
-          </p>
+          <div class="flex flex-col gap-1.5">
+            <div>
+              <p class="font-bold text-slate-800 dark:text-slate-100 uppercase text-xs tracking-tight">
+                {{ getFullDate(item.iso) }}
+              </p>
+              <p v-if="item.course" class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                {{ item.course }} 
+                <span v-if="item.tees">• {{ item.tees }}</span>
+                <span v-if="leagueData?.cadence !== 'yearly' && item.holes">• {{ item.holes }}H</span>
+              </p>
+            </div>
+
+            <div v-if="item.game?.length" class="flex flex-wrap gap-1">
+              <div v-for="g in item.game" :key="g" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-md text-[8px] font-black uppercase tracking-tighter border border-emerald-100/50 dark:border-emerald-800/50">
+                <Icon name="mdi:flag-variant-outline" class="size-2.5" />
+                {{ g }}
+              </div>
+            </div>
+          </div>
 
           <div class="flex items-center gap-3">
-            <!-- Icon Display -->
             <div v-if="item.status" class="flex items-center">
-              <div v-if="item.status === 'mdi-check-bold'" class="status-dot border-emerald-100 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30">
-                <Icon name="mdi:check-bold" class="text-emerald-600 size-3" />
-              </div>
-              <div v-else-if="item.status === 'mdi-alpha-h-circle-outline'" class="status-dot border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-                <Icon name="mdi:alpha-h-circle-outline" class="text-blue-600 size-4" />
-              </div>
-              <div v-else-if="item.status === 'mdi-alpha-p-circle-outline'" class="status-dot border-amber-100 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
-                <Icon name="mdi:alpha-p-circle-outline" class="text-amber-600 size-4" />
-              </div>
-              <div v-else-if="item.status === 'mdi-weather-pouring'" class="status-dot border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
-                <Icon name="mdi:weather-lightning-rainy" class="text-slate-600 size-3.5" />
-              </div>
+              <Icon v-if="item.status === 'mdi-check-bold'" name="mdi:check-bold" class="text-emerald-600 size-4" />
+              <Icon v-else-if="item.status === 'mdi-alpha-h-circle-outline'" name="mdi:alpha-h-circle-outline" class="text-blue-600 size-5" />
+              <Icon v-else-if="item.status === 'mdi-weather-pouring'" name="mdi:weather-lightning-rainy" class="text-slate-500 size-4" />
             </div>
             <Icon v-if="!isEditMode" name="mdi:chevron-right" class="text-slate-300 size-4" />
           </div>
@@ -78,66 +95,152 @@
       </div>
     </div>
 
-    <!-- Admin Status Modal -->
     <Teleport to="body">
-      <div v-if="editingItem" class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div v-if="eventEditor.isOpen" class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
         <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
-          <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Set Status For</p>
-          <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mb-6">{{ getFullDate(editingItem.iso) }}</h3>
-          
-          <div class="grid grid-cols-2 gap-2">
-            <button v-for="opt in statusOptions" :key="opt.value" 
-              @click="updateStatus(opt.value)"
-              class="flex flex-col items-center gap-2 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500 transition-all bg-slate-50 dark:bg-slate-800/50"
-            >
-              <Icon :name="opt.icon" :class="opt.color" class="size-6" />
-              <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{{ opt.label }}</span>
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">
+              {{ eventEditor.isNew ? 'Add Date' : 'Edit Date' }}
+            </h3>
+            <button @click="eventEditor.isOpen = false" class="text-slate-400">
+              <Icon name="mdi:close" class="size-6" />
             </button>
-            <button @click="updateStatus('')" class="col-span-2 py-3 text-[10px] font-black uppercase text-slate-400">Clear Status</button>
           </div>
-          <button @click="editingItem = null" class="w-full mt-4 py-4 font-bold text-slate-400 uppercase text-xs">Cancel</button>
+          
+          <form @submit.prevent="saveEvent" class="space-y-4">
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Date</label>
+              <input type="date" v-model="eventEditor.data.iso" required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-slate-100" />
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+              <div class="relative">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Course</label>
+                <select v-model="eventEditor.data.course" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-slate-100 appearance-none focus:border-emerald-500 outline-none">
+                  <option value="" disabled>Select Course...</option>
+                  <option v-for="c in courses" :key="c.id" :value="c.name">{{ c.name }}</option>
+                </select>
+                <Icon name="mdi:chevron-down" class="absolute right-4 bottom-3.5 text-slate-400 pointer-events-none" />
+              </div>
+              <div class="relative">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Tees</label>
+                <select v-model="eventEditor.data.tees" :disabled="!availableTees.length" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-slate-100 appearance-none focus:border-emerald-500 outline-none disabled:opacity-50">
+                  <option value="" disabled>Select Tees...</option>
+                  <option v-for="t in availableTees" :key="t" :value="t">{{ t }}</option>
+                </select>
+                <Icon name="mdi:chevron-down" class="absolute right-4 bottom-3.5 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div class="relative">
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Games</label>
+              <button type="button" @click="isGameDropdownOpen = true" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 text-sm font-bold text-slate-800 dark:text-slate-100 flex justify-between items-center text-left">
+                <span class="truncate pr-4">{{ eventEditor.data.games.length ? eventEditor.data.games.join(', ') : 'Select games...' }}</span>
+                <Icon name="mdi:format-list-bulleted" class="size-5 text-emerald-500" />
+              </button>
+            </div>
+
+            <button type="submit" class="w-full mt-2 py-4 bg-emerald-600 text-white font-black rounded-xl uppercase text-xs tracking-widest shadow-lg shadow-emerald-600/20 active:scale-95 transition-all">
+              Save Event
+            </button>
+          </form>
         </div>
       </div>
 
-      <!-- Syncing Overlay -->
-      <div v-if="isProcessing" class="fixed inset-0 z-[300] bg-slate-900/40 backdrop-blur-md flex items-center justify-center">
-        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border border-slate-200 dark:border-slate-800">
-          <div class="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
-          <div class="text-center">
-            <p class="text-xs font-black text-emerald-600 uppercase tracking-widest">Syncing Stats</p>
-            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1">Recalculating season totals...</p>
+      <div v-if="deleteConfirmItem" class="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-xs rounded-3xl p-8 shadow-2xl border border-slate-200 dark:border-slate-800 text-center">
+          <div class="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Icon name="mdi:alert-circle-outline" class="size-10" />
+          </div>
+          <h4 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2">Delete Event?</h4>
+          <p class="text-xs text-slate-500 mb-8 uppercase font-bold tracking-widest leading-relaxed">
+            Removing the round on <br/>
+            <span class="text-slate-800 dark:text-white">{{ getFullDate(deleteConfirmItem.iso) }}</span>
+          </p>
+          <div class="grid gap-2">
+            <button @click="deleteEvent" class="w-full py-4 bg-red-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-lg shadow-red-600/20 active:scale-95">
+              Delete Forever
+            </button>
+            <button @click="deleteConfirmItem = null" class="w-full py-4 text-slate-400 font-black uppercase text-[10px]">
+              Cancel
+            </button>
           </div>
         </div>
       </div>
+
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-y-full"
+        enter-to-class="translate-y-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-y-0"
+        leave-to-class="translate-y-full"
+      >
+        <div v-if="isGameDropdownOpen" class="fixed inset-0 z-[300] flex items-end justify-center px-4 pb-4">
+          <div @click="isGameDropdownOpen = false" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+          <div class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50">
+              <h4 class="text-xs font-black uppercase tracking-widest text-slate-400">Select Games</h4>
+              <button @click="isGameDropdownOpen = false" class="p-2 bg-white dark:bg-slate-800 rounded-full shadow-sm"><Icon name="mdi:check" class="text-emerald-600 size-5" /></button>
+            </div>
+            <div class="p-2 max-h-[60vh] overflow-y-auto">
+              <button v-for="game in gameOptions" :key="game" @click="toggleGame(game)" :class="eventEditor.data.games.includes(game) ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200' : 'bg-transparent border-transparent'" class="w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all">
+                <span class="font-bold text-sm uppercase tracking-tight" :class="eventEditor.data.games.includes(game) ? 'text-emerald-600' : 'text-slate-600'">{{ game }}</span>
+                <div :class="eventEditor.data.games.includes(game) ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-slate-200'" class="w-6 h-6 rounded-full border-2 flex items-center justify-center">
+                  <Icon v-if="eventEditor.data.games.includes(game)" name="mdi:check" class="text-white size-4" />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
 
-<script setup lang="ts">
-import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc, where, collectionGroup, writeBatch } from "firebase/firestore";
-import { calcBirds, calcDeuces, calcChicago } from '~/utils/gameLogic';
-import { fetchFullCourseData } from '~/utils/handicap';
-
+<script setup>
+import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc, addDoc, deleteDoc, where, writeBatch, collectionGroup } from "firebase/firestore";
+import { useData } from '~/stores/data';
 
 const route = useRoute();
 const { $db } = useNuxtApp();
 const { isAdminOf } = useAuth();
+const dataStore = useData();
 const toast = useToast();
 
 const leagueName = ref('Loading...');
-const allItems = ref<any[]>([]);
+const leagueData = ref(null);
+const allItems = ref([]);
 const selectedYear = ref('');
 const loading = ref(true);
 const isEditMode = ref(false);
-const isProcessing = ref(false);
-const editingItem = ref<any>(null);
+const deleteConfirmItem = ref(null);
+const isGameDropdownOpen = ref(false);
 
-const statusOptions = [
-  { label: 'Complete', value: 'mdi-check-bold', icon: 'mdi:check-bold', color: 'text-emerald-500' },
-  { label: 'Handicap', value: 'mdi-alpha-h-circle-outline', icon: 'mdi:alpha-h-circle-outline', color: 'text-blue-500' },
-  { label: 'Practice', value: 'mdi-alpha-p-circle-outline', icon: 'mdi:alpha-p-circle-outline', color: 'text-amber-500' },
-  { label: 'Rain Out', value: 'mdi-weather-pouring', icon: 'mdi:weather-lightning-rainy', color: 'text-slate-500' },
-];
+const gameOptions = ['Stroke Play', 'Chicago Points', 'Modified Chicago', 'Net Skins', 'Gross Skins', 'Deuce Pot'];
+
+const eventEditor = ref({
+  isOpen: false,
+  isNew: false,
+  data: { id: null, iso: '', course: '', tees: '', games: [], holes: 18, per: 20, money: 1 }
+});
+
+const courses = computed(() => Array.from(dataStore.courses.values()));
+const availableTees = computed(() => {
+  // 1. Find the course in the store/computed courses list
+  const match = courses.value.find(c => c.name === eventEditor.value.data.course);
+  
+  if (match && match.tees) {
+    // 2. If tees is an object (from your utility), get the keys (the names)
+    if (typeof match.tees === 'object' && !Array.isArray(match.tees)) {
+      return Object.keys(match.tees);
+    }
+    // 3. If it's already an array, just return it
+    return match.tees;
+  }
+  
+  return [];
+});
 
 const availableYears = computed(() => {
   const years = allItems.value.map(item => item.iso.substring(0, 4));
@@ -146,122 +249,100 @@ const availableYears = computed(() => {
 
 const filteredItems = computed(() => {
   if (!selectedYear.value) return [];
-  return allItems.value
-    .filter(item => item.iso.startsWith(selectedYear.value))
-    .sort((a, b) => a.iso.localeCompare(b.iso));
+  return allItems.value.filter(i => i.iso.startsWith(selectedYear.value)).sort((a,b) => a.iso.localeCompare(b.iso));
 });
 
-const isAdmin = computed(() => {
-  const leagueId = route.params.id as string;
-  // This depends on how you store the leagueID field in your league document
-  // Make sure your useAuth handles this lookup
-  return isAdminOf(leagueId); 
-});
+const isAdmin = computed(() => leagueData.value ? isAdminOf(leagueData.value.leagueID) : false);
 
-const openEditor = (item: any) => { editingItem.value = item; };
+// Data Fetching
+const fetchCalendar = async () => {
+  const leagueId = route.params.id;
+  const leagueSnap = await getDoc(doc($db, "leagues", leagueId));
+  if (leagueSnap.exists()) {
+    leagueData.value = leagueSnap.data();
+    leagueName.value = leagueData.value.shortName;
+  }
+  const q = query(collection($db, "leagues", leagueId, "calendar"), orderBy("iso", "desc"));
+  const snap = await getDocs(q);
+  allItems.value = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  if (availableYears.value.length > 0) selectedYear.value = availableYears.value[0];
+  loading.value = false;
+};
 
-const updateStatus = async (newStatus: string) => {
-  if (!editingItem.value) return;
-  const targetItem = { ...editingItem.value };
-  const leagueDocId = route.params.id as string;
+// Actions
+const openEventEditor = (item = null) => {
+  if (item) {
+    eventEditor.value = { isOpen: true, isNew: false, data: { ...item, games: item.game || [] } };
+  } else {
+    eventEditor.value = { isOpen: true, isNew: true, data: { id: null, iso: new Date().toISOString().split('T')[0], course: leagueData.value?.course || '', tees: leagueData.value?.tees || '', games: ['Stroke Play'], holes: 18, per: 20, money: 1 } };
+  }
+};
+
+const saveEvent = async () => {
+  // Use the ID from the route parameters
+  const leagueId = route.params.id;
   
-  editingItem.value = null; // Close modal
-  isProcessing.value = true;
-
-  try {
-    const docRef = doc($db, "leagues", leagueDocId, "calendar", targetItem.id);
-    await updateDoc(docRef, { status: newStatus });
-
-    // Sync weeklyStats
-    if (newStatus === 'mdi-check-bold') {
-      const coursesMap = await fetchFullCourseData($db);
-      const leagueSnap = await getDoc(doc($db, "leagues", leagueDocId));
-      const targetLeagueId = leagueSnap.data()?.leagueID;
-
-      const roundsQuery = query(
-        collectionGroup($db, "rounds"),
-        where("type", "==", targetLeagueId),
-        where("iso", "==", targetItem.iso)
-      );
-      const roundsSnap = await getDocs(roundsQuery);
-      const batch = writeBatch($db);
-
-      for (const rDoc of roundsSnap.docs) {
-        const roundData = rDoc.data();
-        const playerSnap = await getDoc(rDoc.ref.parent.parent!);
-        const teeData = coursesMap.get(roundData.course)?.tees[roundData.tees];
-
-        if (teeData) {
-          const birds = calcBirds(roundData, targetItem, teeData).reduce((a, b) => a + b, 0);
-          const deuces = calcDeuces(roundData, teeData).reduce((a, b) => a + b, 0);
-          const chicago = calcChicago(roundData, teeData).reduce((a, b) => a + b, 0);
-
-          const statsId = `${playerSnap.id}_${targetItem.iso}`;
-          const statsRef = doc($db, "leagues", leagueDocId, "weeklyStats", statsId);
-
-          batch.set(statsRef, {
-            playerId: playerSnap.id,
-            playerName: `${playerSnap.data()?.fname} ${playerSnap.data()?.lname}`,
-            iso: targetItem.iso,
-            birds, deuces, chicago,
-            updatedAt: new Date()
-          });
-        }
-      }
-      await batch.commit();
-    } else {
-      // Cleanup: Remove existing stats if changing away from Complete
-      const statsRef = collection($db, "leagues", leagueDocId, "weeklyStats");
-      const q = query(statsRef, where("iso", "==", targetItem.iso));
-      const snap = await getDocs(q);
-      const batch = writeBatch($db);
-      snap.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-    }
-
-    // Update Local UI
-    const idx = allItems.value.findIndex(i => i.id === targetItem.id);
-    if (idx !== -1) allItems.value[idx].status = newStatus;
+  const selectedCourse = courses.value.find(c => c.name === eventEditor.value.data.course);
+  
+  const payload = {
+    iso: eventEditor.value.data.iso,
+    course: eventEditor.value.data.course,
+    courseID: selectedCourse?.id || null,
+    tees: eventEditor.value.data.tees,
+    teesID: selectedCourse?.tees?.[eventEditor.value.data.tees]?.id || null,
+    game: eventEditor.value.data.games,
+    holes: eventEditor.value.data.holes,
     
-    toast.show("Status and Stats updated", "success");
-  } catch (err) {
-    console.error(err);
-    toast.show("Sync failed", "error");
-  } finally {
-    isProcessing.value = false;
-  }
-};
+    // FIX: Use the 'leagueId' variable defined above
+    leagueID: leagueId,
+    // Use the type from the league doc if it exists, otherwise fallback to leagueId
+    type: leagueData.value?.type || leagueId,
+    money: eventEditor.value.data.money || 1,
+    per: eventEditor.value.data.per || 20
+  };
 
-onMounted(async () => {
-  const leagueId = route.params.id as string;
   try {
-    const leagueSnap = await getDoc(doc($db, "leagues", leagueId));
-    if (leagueSnap.exists()) leagueName.value = leagueSnap.data().name;
-
-    const calRef = collection($db, "leagues", leagueId, "calendar");
-    const q = query(calRef, orderBy("iso", "desc"));
-    const querySnapshot = await getDocs(q);
-    allItems.value = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    if (availableYears.value.length > 0) {
-      selectedYear.value = availableYears.value[0];
+    if (eventEditor.value.isNew) {
+      await addDoc(collection($db, "leagues", leagueId, "calendar"), payload);
+    } else {
+      await updateDoc(doc($db, "leagues", leagueId, "calendar", eventEditor.value.data.id), payload);
     }
-  } catch (err) {
-    console.error("Load Error:", err);
-  } finally {
-    loading.value = false;
-  }
-});
 
-const getFullDate = (iso: string) => {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { 
-    month: 'short', day: 'numeric', year: 'numeric'
-  });
+    // Refresh store so Home Page sees the changes
+    await dataStore.refreshLeagueRound(leagueId);
+    await fetchCalendar();
+    
+    eventEditor.value.isOpen = false;
+    toast.show("Calendar Updated", "success");
+  } catch (error) {
+    console.error("Save error:", error);
+    toast.show("Failed to save event", "error");
+  }
 };
+
+const confirmDelete = (item) => { deleteConfirmItem.value = item; };
+
+const deleteEvent = async () => {
+  if (!deleteConfirmItem.value) return;
+  const leagueId = route.params.id;
+  await deleteDoc(doc($db, "leagues", leagueId, "calendar", deleteConfirmItem.value.id));
+  await dataStore.refreshLeagueRound(leagueId);
+  await fetchCalendar();
+  deleteConfirmItem.value = null;
+  toast.show("Event Removed", "success");
+};
+
+const toggleGame = (game) => {
+  const idx = eventEditor.value.data.games.indexOf(game);
+  idx === -1 ? eventEditor.value.data.games.push(game) : eventEditor.value.data.games.splice(idx, 1);
+};
+
+const getFullDate = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+onMounted(fetchCalendar);
 </script>
 
 <style scoped>
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-.status-dot { @apply w-5 h-5 flex items-center justify-center rounded-full border flex-shrink-0; }
 </style>

@@ -11,6 +11,11 @@ export default defineNuxtConfig({
   // Modules
   modules: ['@vite-pwa/nuxt', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxt/icon'],
 
+  app: {
+    // Enables a transition named 'page' that waits for the old page to leave before the new one enters
+    pageTransition: { name: 'page', mode: 'out-in' }
+  },
+  
   // Combine both into a SINGLE vite block
   vite: {
     plugins: [

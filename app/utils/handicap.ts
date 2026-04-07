@@ -7,7 +7,6 @@ export const fetchFullCourseData = async ($db: any) => {
   const coursesSnap = await getDocs(collection($db, "courses"));
   coursesSnap.docs.forEach(doc => {
     const data = doc.data();
-    // KEY: Use the 'name' field as the key instead of doc.id
     coursesMap.set(data.name, { ...data, id: doc.id, tees: {} });
   });
 
@@ -17,13 +16,10 @@ export const fetchFullCourseData = async ($db: any) => {
     const data = doc.data();
     const parentCourseDoc = doc.ref.parent.parent;
     
-    // We need to find which course this tee belongs to by name
-    // Since we indexed coursesMap by name, we can find it if we know the parent's name
-    // A more efficient way is to iterate the map to find the matching parent ID
     for (let course of coursesMap.values()) {
       if (course.id === parentCourseDoc?.id) {
-        // KEY: Use the tee's 'name' field as the key
-        course.tees[data.name] = data;
+        // CRITICAL FIX: Attach the doc.id to the object here!
+        course.tees[data.name] = { ...data, id: doc.id };
         break;
       }
     }

@@ -5,7 +5,7 @@
         ← All Leagues
       </NuxtLink>
       <h1 class="text-4xl font-black text-emerald-600 uppercase tracking-tighter mt-2 leading-none">
-        {{ league?.name || 'Loading...' }}
+        {{ league?.shortName || 'Loading...' }}
       </h1>
       
       <div v-if="isAdmin" class="mt-3 inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md border border-emerald-100 dark:border-emerald-800">
@@ -106,6 +106,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+  @reference "@/assets/css/main.css"; 
+
 .menu-item {
   @apply flex items-center justify-between p-2.5 px-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 transition-all active:scale-[0.99];
 }

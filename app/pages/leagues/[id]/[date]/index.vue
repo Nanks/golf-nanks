@@ -209,3 +209,7 @@ const formatDate = (iso) => {
   });
 };
 </script>
+
+<style>
+@reference "../assets/css/main.css";
+</style>

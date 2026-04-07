@@ -55,3 +55,23 @@ html {
 .preload * {
   transition: none !important;
 }
+
+/* The container for the transition */
+.page-enter-active,
+.page-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Entering page starts off-screen to the right */
+.page-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* Leaving page slides slightly to the left and fades out */
+.page-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+body { overflow-x: hidden; }
