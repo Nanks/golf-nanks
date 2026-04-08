@@ -4,29 +4,43 @@
       
       <NuxtLoadingIndicator color="#10b981" :height="3" />
 
-      <AppNavbar v-if="!isInitialLoading" />
-      
-      <main class="pt-16">
-        <NuxtPage />
-      </main>
+      <template v-if="!isInitialLoading && dataStore.isBooted">
+        <AppNavbar />
+        <main class="pt-16">
+          <NuxtPage />
+        </main>
+      </template>
 
-      <div v-if="isInitialLoading" class="fixed inset-0 bg-slate-50 dark:bg-slate-950 flex items-center justify-center z-[200]">
-        <div class="text-emerald-600 font-black animate-pulse uppercase tracking-widest">Golf Nanks...</div>
+      <div v-else class="fixed inset-0 bg-slate-50 dark:bg-slate-950 flex items-center justify-center z-[200]">
+        <div class="text-emerald-600 font-black animate-pulse uppercase tracking-widest flex flex-col items-center gap-4">
+          <Icon name="mdi:golf" class="size-12 opacity-50" />
+          <span>Syncing Data...</span>
+        </div>
       </div>
+      
     </div>
   </div>
 </template>
 
 <script setup>
-// Assuming your useAuth composable now also manages global theme state
-const { isLoggedIn, isInitialLoading, initAuth } = useAuth();
+import { useData } from '~/stores/data';
+
+const { isLoggedIn, isInitialLoading, initAuth, player } = useAuth();
+const dataStore = useData();
 const isDarkMode = useState('darkMode', () => false);
 
 onMounted(() => {
   initAuth();
-  // Check local storage or system preference for dark mode
   if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     isDarkMode.value = true;
   }
 });
+
+// NEW: Global Boot Sequence
+// Watches the player object. The second they log in, it fetches all courses and leagues globally.
+watch(player, async (newPlayer) => {
+  if (newPlayer && !dataStore.isBooted) {
+    await dataStore.bootstrap(newPlayer.leagues || []);
+  }
+}, { immediate: true });
 </script>

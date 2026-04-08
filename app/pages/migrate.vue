@@ -1,94 +1,105 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 pt-24 max-w-2xl mx-auto space-y-8">
-    <button @click="migrateCalendarDocuments($db)" class="bg-emerald-600 text-white p-3 rounded-xl">
-      Update calendars
-    </button>
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 flex flex-col items-center justify-center">
+    <div class="p-10 w-full max-w-xl text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl">
+      
+      <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+        <Icon name="mdi:database-sync" class="size-8" />
+      </div>
 
+      <h1 class="text-2xl font-black text-slate-800 dark:text-white uppercase mb-4 tracking-tight">Database Migration</h1>
+      <p class="text-sm text-slate-500 font-bold mb-8 leading-relaxed">
+        This will sweep all archived rounds and inject the course snapshots so legacy data works with the new Leaderboard and Player History.
+      </p>
+
+      <button
+        @click="runMigration"
+        :disabled="isMigrating"
+        class="w-full py-4 bg-emerald-600 text-white font-black rounded-xl uppercase tracking-widest shadow-lg shadow-emerald-600/30 active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+      >
+        <Icon v-if="isMigrating" name="mdi:loading" class="size-5 animate-spin" />
+        {{ isMigrating ? 'Migrating Data...' : 'Run Migration' }}
+      </button>
+
+      <div v-if="message" class="mt-6 p-4 rounded-xl font-black text-sm uppercase tracking-widest" :class="message.includes('Error') ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'">
+        {{ message }}
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { collection, getDocs, writeBatch } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, updateDoc } from 'firebase/firestore';
 
-const migrateCalendarDocuments = async ($db) => {
+const { $db } = useNuxtApp();
+const isMigrating = ref(false);
+const message = ref('');
+
+const runMigration = async () => {
+  isMigrating.value = true;
+  message.value = "Fetching courses and tees subcollections...";
+
   try {
-    console.log("Starting database migration (Rule-Friendly Version)...");
-
-    // 1. Build the League Dictionary
-    const leagueMap = {};
-    const leaguesSnap = await getDocs(collection($db, "leagues"));
-    leaguesSnap.forEach(d => {
-      const data = d.data();
-      if (data.leagueID) { 
-        leagueMap[data.leagueID] = d.id;
-      }
-    });
-
-    // 2. Build the Course and Tees Dictionaries
-    const courseMap = {}; 
-    const teesMap = {};   
-
+    // 1. Get all courses
     const coursesSnap = await getDocs(collection($db, "courses"));
-    for (const cDoc of coursesSnap.docs) {
-      courseMap[cDoc.data().name] = cDoc.id;
-      teesMap[cDoc.id] = {};
+    const courseDict = {};
+    
+    // 2. Loop through each course and manually fetch its 'tees' subcollection
+    for (const courseDoc of coursesSnap.docs) {
+      const courseData = courseDoc.data();
+      const courseName = courseData.name;
+      const teesObj = {};
 
-      const tSnap = await getDocs(collection($db, `courses/${cDoc.id}/tees`));
-      tSnap.forEach(tDoc => {
-        teesMap[cDoc.id][tDoc.data().name] = tDoc.id;
+      const teesSnap = await getDocs(collection($db, "courses", courseDoc.id, "tees"));
+      teesSnap.forEach(teeDoc => {
+        const teeData = teeDoc.data();
+        // Use the tee's name field as the dictionary key
+        const teeName = teeData.name || teeDoc.id; 
+        teesObj[teeName] = teeData;
       });
+
+      // Save the fully assembled tees object to our dictionary
+      courseDict[courseName] = teesObj;
     }
 
-    // 3. Loop through each League to get Calendars (Bypasses collectionGroup!)
-    const batch = writeBatch($db);
-    let updateCount = 0;
+    message.value = "Sweeping archived rounds and fixing empty snapshots...";
 
-    for (const leagueDoc of leaguesSnap.docs) {
-      // This matches your existing rule: /leagues/{leagueId}/calendar/{entryId}
-      const calendarSnap = await getDocs(collection($db, `leagues/${leagueDoc.id}/calendar`));
-      
-      calendarSnap.forEach(calDoc => {
-        const data = calDoc.data();
-        const updates = {};
-        let needsUpdate = false;
+    // 3. Query ALL 'rounds' subcollections
+    const roundsSnap = await getDocs(collectionGroup($db, "rounds"));
+    let updatedCount = 0;
+    let skippedCount = 0;
 
-        // Match League ID
-        if (data.type && leagueMap[data.type]) {
-          updates.leagueID = leagueMap[data.type];
-          needsUpdate = true;
-        }
+    for (const roundDoc of roundsSnap.docs) {
+      const data = roundDoc.data();
 
-        // Match Course ID
-        if (data.course && courseMap[data.course]) {
-          updates.courseID = courseMap[data.course];
-          needsUpdate = true;
-        }
+      // 4. FIX PREVIOUS RUN: Only skip if the snapshot exists AND actually has tee data inside it
+      const hasValidSnapshot = data.courseSnapshot && 
+                               data.courseSnapshot.tees && 
+                               Object.keys(data.courseSnapshot.tees).length > 0;
 
-        // Match Tees ID
-        const targetCourseId = updates.courseID || data.courseID;
-        if (targetCourseId && data.tees && teesMap[targetCourseId]?.[data.tees]) {
-          updates.teesID = teesMap[targetCourseId][data.tees];
-          needsUpdate = true;
-        }
+      if (hasValidSnapshot) {
+        skippedCount++;
+        continue;
+      }
 
-        // Add to batch if we found matches
-        if (needsUpdate) {
-          batch.update(calDoc.ref, updates);
-          updateCount++;
+      // Find the course match in our newly built dictionary
+      const matchedTees = courseDict[data.course] || {};
+
+      // Overwrite the document
+      await updateDoc(roundDoc.ref, {
+        courseSnapshot: {
+          tees: matchedTees
         }
       });
+
+      updatedCount++;
     }
 
-    // 4. Execute the changes
-    if (updateCount > 0) {
-      await batch.commit();
-      console.log(`Success! Updated ${updateCount} calendar documents. ⛳`);
-    } else {
-      console.log("All calendar documents are already up to date!");
-    }
-
+    message.value = `Success! Updated/Fixed ${updatedCount} rounds. Skipped ${skippedCount} valid rounds.`;
   } catch (error) {
-    console.error("Error migrating calendar documents:", error);
+    console.error("Migration failed:", error);
+    message.value = "Error: Check console for details.";
+  } finally {
+    isMigrating.value = false;
   }
 };
 </script>

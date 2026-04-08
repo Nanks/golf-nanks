@@ -50,9 +50,11 @@
           <button @click="openEventEditor(item)" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 active:scale-90 transition hover:border-emerald-500">
             <Icon name="mdi:pencil" class="size-4" />
           </button>
-          <button @click="editingStatusItem = item" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 active:scale-90 transition hover:border-blue-500">
+          
+          <button @click="openStatusEditor(item)" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 active:scale-90 transition hover:border-blue-500 hover:text-blue-500">
             <Icon name="mdi:flag-checkered" class="size-4" />
           </button>
+          
           <button @click="confirmDelete(item)" class="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-red-400 active:scale-90 transition hover:border-red-500">
             <Icon name="mdi:trash-can-outline" class="size-4" />
           </button>
@@ -147,6 +149,51 @@
         </div>
       </div>
 
+      <div v-if="statusEditor.isOpen" class="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+          
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ getFullDate(statusEditor.item?.iso) }}</p>
+              <h3 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Set Event Status</h3>
+            </div>
+            <button @click="statusEditor.isOpen = false" class="text-slate-400 p-2 bg-slate-50 dark:bg-slate-800 rounded-full hover:text-slate-600 transition">
+              <Icon name="mdi:close" class="size-5" />
+            </button>
+          </div>
+
+          <div class="grid gap-3">
+            <button @click="updateStatus('mdi-check-bold')" class="flex items-center gap-4 p-4 rounded-2xl border-2 border-emerald-100 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all text-left group active:scale-[0.98]">
+              <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0"><Icon name="mdi:check-bold" class="size-5" /></div>
+              <div>
+                <p class="font-black text-emerald-700 dark:text-emerald-400 uppercase text-sm tracking-tight">Finalize & Archive</p>
+                <p class="text-[9px] font-bold text-emerald-600/70 uppercase tracking-widest mt-0.5">Saves live scores to history</p>
+              </div>
+            </button>
+
+            <button @click="updateStatus('mdi-alpha-h-circle-outline')" class="flex items-center gap-4 p-4 rounded-2xl border-2 border-blue-100 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all text-left group active:scale-[0.98]">
+              <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0"><Icon name="mdi:alpha-h-circle-outline" class="size-6" /></div>
+              <div>
+                <p class="font-black text-blue-700 dark:text-blue-400 uppercase text-sm tracking-tight">Half Round</p>
+                <p class="text-[9px] font-bold text-blue-600/70 uppercase tracking-widest mt-0.5">Mark as 9 holes completed</p>
+              </div>
+            </button>
+
+            <button @click="updateStatus('mdi-weather-pouring')" class="flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-left group active:scale-[0.98]">
+              <div class="w-10 h-10 rounded-full bg-slate-500 text-white flex items-center justify-center flex-shrink-0"><Icon name="mdi:weather-lightning-rainy" class="size-5" /></div>
+              <div>
+                <p class="font-black text-slate-700 dark:text-slate-300 uppercase text-sm tracking-tight">Rained Out</p>
+                <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Event canceled</p>
+              </div>
+            </button>
+            
+            <button v-if="statusEditor.item?.status" @click="updateStatus(null)" class="mt-2 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition">
+              Clear Status
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="deleteConfirmItem" class="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
         <div class="bg-white dark:bg-slate-900 w-full max-w-xs rounded-3xl p-8 shadow-2xl border border-slate-200 dark:border-slate-800 text-center">
           <div class="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -199,7 +246,7 @@
 </template>
 
 <script setup>
-import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc, addDoc, deleteDoc, where, writeBatch, collectionGroup } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc, addDoc, deleteDoc, where, serverTimestamp } from "firebase/firestore";
 import { useData } from '~/stores/data';
 
 const route = useRoute();
@@ -216,8 +263,9 @@ const loading = ref(true);
 const isEditMode = ref(false);
 const deleteConfirmItem = ref(null);
 const isGameDropdownOpen = ref(false);
+const statusEditor = ref({ isOpen: false, item: null });
 
-const gameOptions = ['Stroke Play', 'Chicago Points', 'Modified Chicago', 'Net Skins', 'Gross Skins', 'Deuce Pot'];
+const gameOptions = ['Stroke Play', 'Chicago Points', 'Modified Chicago', 'Net Skins', 'Gross Skins', 'Deuce Pot', 'Blind Best Ball'];
 
 const eventEditor = ref({
   isOpen: false,
@@ -227,18 +275,13 @@ const eventEditor = ref({
 
 const courses = computed(() => Array.from(dataStore.courses.values()));
 const availableTees = computed(() => {
-  // 1. Find the course in the store/computed courses list
   const match = courses.value.find(c => c.name === eventEditor.value.data.course);
-  
   if (match && match.tees) {
-    // 2. If tees is an object (from your utility), get the keys (the names)
     if (typeof match.tees === 'object' && !Array.isArray(match.tees)) {
       return Object.keys(match.tees);
     }
-    // 3. If it's already an array, just return it
     return match.tees;
   }
-  
   return [];
 });
 
@@ -269,7 +312,7 @@ const fetchCalendar = async () => {
   loading.value = false;
 };
 
-// Actions
+// UI Triggers
 const openEventEditor = (item = null) => {
   if (item) {
     eventEditor.value = { isOpen: true, isNew: false, data: { ...item, games: item.game || [] } };
@@ -278,10 +321,13 @@ const openEventEditor = (item = null) => {
   }
 };
 
+const openStatusEditor = (item) => {
+  statusEditor.value = { isOpen: true, item };
+};
+
+// Action: Save Event
 const saveEvent = async () => {
-  // Use the ID from the route parameters
   const leagueId = route.params.id;
-  
   const selectedCourse = courses.value.find(c => c.name === eventEditor.value.data.course);
   
   const payload = {
@@ -292,10 +338,7 @@ const saveEvent = async () => {
     teesID: selectedCourse?.tees?.[eventEditor.value.data.tees]?.id || null,
     game: eventEditor.value.data.games,
     holes: eventEditor.value.data.holes,
-    
-    // FIX: Use the 'leagueId' variable defined above
     leagueID: leagueId,
-    // Use the type from the league doc if it exists, otherwise fallback to leagueId
     type: leagueData.value?.type || leagueId,
     money: eventEditor.value.data.money || 1,
     per: eventEditor.value.data.per || 20
@@ -308,7 +351,6 @@ const saveEvent = async () => {
       await updateDoc(doc($db, "leagues", leagueId, "calendar", eventEditor.value.data.id), payload);
     }
 
-    // Refresh store so Home Page sees the changes
     await dataStore.refreshLeagueRound(leagueId);
     await fetchCalendar();
     
@@ -320,6 +362,63 @@ const saveEvent = async () => {
   }
 };
 
+// Action: Status Update & Sweeper
+const updateStatus = async (statusIcon) => {
+  const item = statusEditor.value.item;
+  const leagueId = route.params.id;
+  loading.value = true;
+  statusEditor.value.isOpen = false; 
+
+  try {
+    const q = query(collection($db, "live_rounds"), where("eventId", "==", item.id));
+    const liveSnap = await getDocs(q);
+
+    if (!liveSnap.empty) {
+      const sweepPromises = liveSnap.docs.map(async (liveDoc) => {
+        const data = liveDoc.data();
+        
+        const playerPromises = data.players.map(async (p) => {
+          const playerRoundRef = collection($db, "players", p.id, "rounds");
+          return addDoc(playerRoundRef, {
+            course: data.course, 
+            courseID: data.courseID, 
+            courseSnapshot: data.courseSnapshot || null,
+            date: data.date,
+            tees: data.tees, 
+            holes: data.holes, 
+            leagueId: leagueId,
+            eventId: item.id, 
+            type: data.type, 
+            index: p.index,
+            scores: data.scores[p.id],
+            total: data.scores[p.id].reduce((a, b) => a + (parseInt(b) || 0), 0),
+            createdAt: serverTimestamp(),
+            archiveEventStatus: statusIcon 
+          });
+        });
+
+        await Promise.all(playerPromises);
+        return deleteDoc(doc($db, "live_rounds", liveDoc.id));
+      });
+
+      await Promise.all(sweepPromises);
+    }
+
+    await updateDoc(doc($db, "leagues", leagueId, "calendar", item.id), {
+      status: statusIcon 
+    });
+
+    toast.show("Event Archived & Status Updated", "success");
+    await fetchCalendar();
+  } catch (err) {
+    console.error("Status Update Error:", err);
+    toast.show("Error updating status", "error");
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Action: Delete Event
 const confirmDelete = (item) => { deleteConfirmItem.value = item; };
 
 const deleteEvent = async () => {
@@ -332,6 +431,7 @@ const deleteEvent = async () => {
   toast.show("Event Removed", "success");
 };
 
+// Helpers
 const toggleGame = (game) => {
   const idx = eventEditor.value.data.games.indexOf(game);
   idx === -1 ? eventEditor.value.data.games.push(game) : eventEditor.value.data.games.splice(idx, 1);
