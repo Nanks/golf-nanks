@@ -26,10 +26,9 @@
         <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
 
-      <!-- Birds (Specific Leagues Only) -->
       <NuxtLink 
-        v-if="['I7LCsEb1va49YU1lkRmu', 'fGi9I5ISmgoeYoVuOfvt'].includes(route.params.id as string)"
-        :to="`/leagues/${route.params.id}/games/birds`" 
+        v-if="league?.cadence === 'yearly' || league?.yearly_games?.includes('Birds')"
+        :to="`/leagues/${route.params.id}/birds`" 
         class="menu-item group"
       >
         <div class="flex items-center gap-3">
@@ -41,15 +40,14 @@
         <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
 
-      <!-- Deuces (One Specific League Only) -->
       <NuxtLink 
-        v-if="route.params.id === 'I7LCsEb1va49YU1lkRmu'"
-        :to="`/leagues/${route.params.id}/games/deuces`" 
+        v-if="league?.cadence === 'yearly' || league?.yearly_games?.includes('Deuces')"
+        :to="`/leagues/${route.params.id}/deuces`" 
         class="menu-item group"
       >
         <div class="flex items-center gap-3">
           <div class="icon-circle">
-            <Icon name="mdi:numeric-2-circle-outline" class="size-4 text-slate-600 group-hover:text-emerald-600 transition" />
+            <Icon name="mdi:numeric-2-circle" class="size-4 text-slate-600 group-hover:text-emerald-600 transition" />
           </div>
           <p class="menu-title">Deuces</p>
         </div>
@@ -67,20 +65,6 @@
         <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
 
-      <!-- Admin Tools Section -->
-      <div v-if="isAdmin" class="pt-4 space-y-1.5">
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Management</p>
-        
-        <NuxtLink :to="`/admin/leagues/${route.params.id}/settings`" class="menu-item group border-emerald-100/50 dark:border-emerald-900/30">
-          <div class="flex items-center gap-3">
-            <div class="icon-circle bg-emerald-50 dark:bg-emerald-900/20">
-              <Icon name="mdi:cog" class="size-4 text-emerald-600" />
-            </div>
-            <p class="menu-title">League Settings</p>
-          </div>
-          <Icon name="mdi:chevron-right" class="arrow-icon" />
-        </NuxtLink>
-      </div>
     </div>
   </div>
 </template>

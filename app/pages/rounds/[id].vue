@@ -1,13 +1,11 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
     
-    <header v-if="round" class="p-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm flex justify-between items-start">
+    <header v-if="round" class="py-2 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm flex justify-between items-start">
       <div>
-        <h1 class="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none">
-          {{ round.course }}
-        </h1>
+        <h1 class="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none">{{ round.course }}</h1>
         <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
-          {{ round.tees }} • {{ round.holes }} Holes • {{ getShortDate(round.date) }}
+          {{ round.type }} • {{ round.tees }} • {{ getShortDate(round.date) }}
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -20,44 +18,32 @@
       </div>
     </header>
 
-    <div v-if="round" class="px-1 sm:px-2 mt-6 max-w-2xl mx-auto">
+    <div v-if="round" class="px-2 mt-2 max-w-2xl mx-auto">
       
-      <div v-if="round.holes === 18" class="flex bg-slate-200 dark:bg-slate-800 rounded-xl p-1 mb-6 shadow-inner mx-2">
-        <button @click="activeNine = 'front'" :class="activeNine === 'front' ? 'bg-white dark:bg-slate-900 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all">Front 9</button>
-        <button @click="activeNine = 'back'" :class="activeNine === 'back' ? 'bg-white dark:bg-slate-900 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all">Back 9</button>
+      <div v-if="round.holes === 18" class="flex bg-slate-200 dark:bg-slate-800 rounded-xl p-1 mb-2 shadow-inner mx-1">
+        <button @click="activeNine = 'front'" :class="activeNine === 'front' ? 'bg-white dark:bg-slate-900 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-1 text-xs font-black uppercase tracking-widest rounded-lg transition-all">Front 9</button>
+        <button @click="activeNine = 'back'" :class="activeNine === 'back' ? 'bg-white dark:bg-slate-900 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-1 text-xs font-black uppercase tracking-widest rounded-lg transition-all">Back 9</button>
       </div>
 
-      <div class="flex w-full px-2 mb-2">
+      <div class="flex w-full px-2 mb-2 justify-between">
         <div v-for="h in displayedHoles" :key="'hdr'+h" class="flex-1 text-center text-[10px] font-black text-slate-400 uppercase">#{{ h }}</div>
-        <div class="flex-1 text-center text-[10px] font-black text-emerald-600 uppercase">{{ activeNine === 'front' ? 'OUT' : 'IN' }}</div>
       </div>
 
       <div class="space-y-4">
         <div v-for="p in round.players" :key="p.id" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
           
-          <div class="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 flex justify-between items-center border-b border-slate-100 dark:border-slate-800">
+          <div class="bg-slate-100 dark:bg-slate-800/80 px-4 py-1 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="font-bold text-sm text-slate-800 dark:text-white uppercase tracking-tight">{{ p.fname }} {{ p.lname }}</span>
-              <span class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+              <span class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase bg-white dark:bg-slate-700 px-1.5 py-0.5 rounded shadow-sm border border-slate-200 dark:border-slate-600">
                 CH: {{ isYearlyLeague ? Number(p.index).toFixed(3) : Math.round(p.index) }}
               </span>
             </div>
-            
-            <div class="flex items-center gap-4">
-              <div class="flex flex-col items-end">
-                <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Net</span>
-                <span :class="getNetRelativeColor(p.id)" class="font-black text-sm leading-none">{{ getNetRelativeStr(p.id) }}</span>
-              </div>
-              <div class="flex flex-col items-end border-l border-slate-200 dark:border-slate-700 pl-4">
-                <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Gross</span>
-                <span class="font-black text-base text-slate-800 dark:text-white leading-none">{{ calculateTotal(p.id) }}</span>
-              </div>
-            </div>
           </div>
 
-          <div class="flex w-full p-2 gap-1.5 sm:gap-2">
-            <div v-for="h in displayedHoles" :key="p.id + h" class="flex-1 flex justify-center">
-              <div class="relative w-full aspect-square max-w-[50px] flex items-center justify-center">
+          <div class="flex w-full px-1.5 py-1.5 gap-1 justify-between">
+            <div v-for="h in displayedHoles" :key="p.id + h" class="flex-1 flex justify-center max-w-[48px]">
+              <div class="relative w-full h-[50px] sm:h-[56px] flex items-center justify-center">
                 
                 <div v-if="isYearlyLeague && getGameStat(p.id, h, 'birds') > 0" class="absolute -top-1.5 -left-1 text-emerald-500 flex items-start z-20 pointer-events-none drop-shadow-sm bg-white/50 dark:bg-slate-900/50 rounded-full px-0.5">
                   <span class="text-[10px] font-black leading-none">{{ Math.floor(getGameStat(p.id, h, 'birds')) || '' }}</span>
@@ -68,31 +54,43 @@
                   <span class="text-[8px] font-black leading-none mt-[1px]">2</span>
                 </div>
                 
-                <div v-if="getGameStat(p.id, h, 'chicago') !== 0" class="absolute -bottom-1 -right-1.5 bg-amber-100 dark:bg-amber-900/80 text-amber-700 dark:text-amber-300 px-1 rounded-sm border border-amber-200 dark:border-amber-700 z-20 pointer-events-none drop-shadow-sm">
-                  <span class="text-[8px] font-black leading-none">{{ getGameStat(p.id, h, 'chicago') > 0 ? '+' : '' }}{{ getGameStat(p.id, h, 'chicago') }}</span>
-                </div>
-
                 <button 
                   @click="openKeypad(h, p.id)"
                   :class="getScoreClass(round.scores[p.id][h-1], h)"
                   class="w-full h-full rounded-xl font-black text-lg sm:text-xl transition-all active:scale-75 flex flex-col items-center justify-center border-2 z-10 relative pb-1"
                 >
                   <span class="mt-1">{{ round.scores[p.id][h-1] === 0 ? '' : round.scores[p.id][h-1] }}</span>
-                  
-                  <div v-if="getGameStat(p.id, h, 'pops') > 0" class="absolute bottom-0.5 w-full flex justify-center items-end gap-[1.5px] pointer-events-none">
+                  <div v-if="getGameStat(p.id, h, 'pops') > 0" class="absolute bottom-0.5 w-full flex justify-center items-end gap-[1px] pointer-events-none">
                     <div v-for="dot in Math.floor(getGameStat(p.id, h, 'pops'))" :key="'pop'+dot" class="w-1.5 h-1.5 rounded-full opacity-80 bg-emerald-500"></div>
                     <div v-if="getGameStat(p.id, h, 'pops') % 1 !== 0" class="w-1 h-1 rounded-full opacity-50 bg-emerald-500 mb-[1px]"></div>
                   </div>
                 </button>
               </div>
             </div>
-            
-            <div class="flex-1 flex justify-center items-center font-black text-slate-400 text-lg border-l border-slate-100 dark:border-slate-800 ml-1">
-              {{ calculateNineTotal(p.id, activeNine) }}
+          </div>
+
+          <div class="bg-slate-50 dark:bg-slate-900/50 px-4 py-1 flex justify-between items-center border-t border-slate-100 dark:border-slate-800 text-[10px] font-black tracking-widest uppercase">
+            <div class="text-slate-500">
+              {{ activeNine === 'front' ? 'OUT' : 'IN' }}: <span class="text-slate-800 dark:text-white text-xs">{{ getTotals(round.scores[p.id])[activeNine === 'front' ? 0 : 1] }}</span>
+            </div>
+            <div class="flex gap-4">
+              <div class="text-slate-500">
+                NET: <span :class="getNetColor(p.id)" class="text-xs">{{ getNetRel(p.id) }}</span>
+              </div>
+              <div class="text-slate-500">
+                TOTAL: <span class="text-slate-800 dark:text-white text-xs">{{ getTotals(round.scores[p.id])[2] }}</span>
+              </div>
             </div>
           </div>
 
         </div>
+
+        <div class="flex gap-3 mt-6">
+          <button @click="showPlayerPicker = true" class="flex-1 py-2 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500 rounded-2xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all">+ Manage Group</button>
+          <button v-if="!round.leagueId" @click="finishCasualRound" class="flex-1 py-2 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"><Icon name="mdi:flag-checkered" class="size-4" /> Finish Round</button>
+        </div>
+
+        <PlayerPicker v-model:isOpen="showPlayerPicker" :selectedPlayers="round.players" :isLeague="!!round.leagueId" :leagueId="round.leagueId" @toggle="handlePlayerToggle" />
       </div>
     </div>
 
@@ -101,38 +99,26 @@
         <Transition enter-active-class="transition duration-300 ease-out" enter-from-class="translate-y-full" enter-to-class="translate-y-0" leave-active-class="transition duration-200 ease-in" leave-from-class="translate-y-0" leave-to-class="translate-y-full">
           <div v-if="keypad.isOpen" class="fixed inset-0 z-[100] flex items-end justify-center px-4 pb-4">
             <div @click="keypad.isOpen = false" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-            
             <div class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh]">
-              
               <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                 <div>
-                  <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                    Hole {{ keypad.hole }} <span class="text-emerald-500">Par {{ getHolePar(keypad.hole) }}</span>
-                  </p>
+                  <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">Hole {{ keypad.hole }} <span class="text-emerald-500">Par {{ getHolePar(keypad.hole) }}</span></p>
                   <h4 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">Group Entry</h4>
                 </div>
-                <button @click="keypad.isOpen = false" class="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-full">
-                  <Icon name="mdi:close" class="size-4" />
-                </button>
+                <button @click="keypad.isOpen = false" class="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-full"><Icon name="mdi:close" class="size-4" /></button>
               </div>
-
               <div class="p-4 overflow-y-auto space-y-2">
                 <div v-for="p in round.players" :key="p.id" @click="keypad.activePlayerId = p.id" :class="['p-3 rounded-2xl border-2 flex justify-between items-center transition-all cursor-pointer', keypad.activePlayerId === p.id ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-inner' : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50']">
                   <div class="flex items-center gap-3">
-                    <div :class="['w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs uppercase', keypad.activePlayerId === p.id ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500']">
-                      {{ p.fname[0] }}{{ p.lname[0] }}
-                    </div>
+                    <div :class="['w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs uppercase', keypad.activePlayerId === p.id ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500']">{{ p.fname[0] }}{{ p.lname[0] }}</div>
                     <div>
                       <div :class="['font-bold text-sm', keypad.activePlayerId === p.id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300']">{{ p.fname }} {{ p.lname }}</div>
                       <div class="text-[9px] font-black uppercase text-slate-400">CH: {{ isYearlyLeague ? Number(p.index).toFixed(3) : Math.round(p.index) }}</div>
                     </div>
                   </div>
-                  <div :class="['text-3xl font-black w-14 text-center rounded-xl py-1', keypad.activePlayerId === p.id ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-sm' : 'text-slate-400']">
-                    {{ keypad.tempScores[p.id] || '-' }}
-                  </div>
+                  <div :class="['text-3xl font-black w-14 text-center rounded-xl py-1', keypad.activePlayerId === p.id ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-sm' : 'text-slate-400']">{{ keypad.tempScores[p.id] || '-' }}</div>
                 </div>
               </div>
-
               <div class="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
                 <div class="flex gap-2 mb-4">
                   <button v-for="n in [3, 4, 5]" :key="n" @click="setScore(n)" class="flex-1 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-slate-600 dark:text-slate-300 shadow-sm active:scale-95 transition-all">{{ n }}</button>
@@ -155,9 +141,10 @@
 </template>
 
 <script setup>
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, writeBatch, collection } from "firebase/firestore";
 import { useData } from '~/stores/data';
-import { calcBirds, calcDeuces, calcChicago } from '~/utils/gameLogic'; // Removed calcPops to use local engine
+import { calcPops, calcBirds, calcDeuces, calcChicago, calcNetRelative, getTotals } from '~/utils/gameLogic';
+import { calcUSGACourseHandicap } from '~/utils/handicap';
 
 const { $db } = useNuxtApp();
 const route = useRoute();
@@ -167,142 +154,76 @@ const dataStore = useData();
 const round = ref(null);
 const activeNine = ref('front');
 const keypad = ref({ isOpen: false, hole: 1, activePlayerId: null, tempScores: {} });
+const showPlayerPicker = ref(false);
 
-// Is it a Yearly EMGA League?
 const isYearlyLeague = computed(() => {
   if (!round.value || !round.value.leagueId) return false;
   const league = dataStore.leagues.get(round.value.leagueId);
   return league && (league.yearly_games !== undefined || league.cadence === 'yearly');
 });
 
-// View Logic
 const displayedHoles = computed(() => {
   if (!round.value) return [];
   if (round.value.holes === 9) return [1,2,3,4,5,6,7,8,9];
   return activeNine.value === 'front' ? [1,2,3,4,5,6,7,8,9] : [10,11,12,13,14,15,16,17,18];
 });
 
-// Course Data for Pars & Hcp
 const courseData = computed(() => {
   if (!round.value) return null;
   const c = dataStore.courses.get(round.value.course) || Array.from(dataStore.courses.values()).find(crs => crs.name === round.value.course);
   return c?.tees?.[round.value.tees] || null;
 });
 
-const getHolePar = (h) => {
-  if (!courseData.value || !courseData.value.pars) return 4;
-  return courseData.value.pars[h - 1] || 4;
-};
+const getHolePar = (h) => courseData.value?.pars?.[h - 1] || 4;
 
-// --- FRACTIONAL POP ENGINE ---
-// Distributes full pops, plus places the decimal fraction exactly on the "Next Highest Handicap" hole.
-const calculatePopsArray = (indexVal) => {
-  const arr = new Array(round.value.holes).fill(0);
-  if (!courseData.value || !courseData.value.hnds) return arr;
-  
-  const idx = isYearlyLeague.value ? parseFloat(indexVal) || 0 : Math.round(parseFloat(indexVal) || 0);
-  const isPlus = idx < 0;
-  const absIdx = Math.abs(idx);
-  const baseIdx = Math.floor(absIdx);
-  const remainder = absIdx - baseIdx;
-  
-  const loops = Math.floor(baseIdx / 18);
-  const remBase = baseIdx % 18;
-  
-  for (let i = 0; i < round.value.holes; i++) {
-      const hHcp = courseData.value.hnds[i];
-      if (!hHcp) continue;
-      
-      let pop = loops;
-      if (!isPlus) {
-        if (hHcp <= remBase) pop += 1;
-        // Decimal allocation logic (e.g. 10.5 allocates 0.5 to Stroke Hole 11)
-        if (remainder > 0 && hHcp === remBase + 1) pop += remainder;
-        arr[i] = pop;
-      } else {
-        // Plus Handicap logic
-        if (hHcp > 18 - remBase) pop += 1;
-        if (remainder > 0 && hHcp === 18 - remBase) pop += remainder;
-        arr[i] = -pop; 
-      }
-  }
-  return arr;
-};
-
-// Real-time Game Badges Logic
+// --- REFACTORED SHARED LOGIC ENGINE ---
 const gameStats = computed(() => {
   if (!round.value || !courseData.value) return {};
   const stats = {};
   const league = round.value.leagueId ? dataStore.leagues.get(round.value.leagueId) : null;
-  
-  // Use yearly_games if it's an EMGA major, otherwise normal casual games
   const activeGames = (isYearlyLeague.value && league?.yearly_games) ? league.yearly_games : (round.value.game || []);
+  const playChicago = activeGames.includes('Chicago Points') || activeGames.includes('Modified Chicago');
   
-  const playChicago = activeGames.includes('Chicago Points');
-  const playModChicago = activeGames.includes('Modified Chicago');
-  const calData = { type: round.value.type };
-
   round.value.players.forEach(p => {
     const pRound = { scores: round.value.scores[p.id], index: p.index };
     stats[p.id] = {
-      pops: calculatePopsArray(p.index), // Use our new fractional engine
-      birds: isYearlyLeague.value ? calcBirds(pRound, calData, courseData.value) : new Array(round.value.holes).fill(0),
-      deuces: isYearlyLeague.value ? calcDeuces(pRound, courseData.value) : new Array(round.value.holes).fill(0),
-      chicago: (playChicago || playModChicago) ? calcChicago(pRound, courseData.value, playModChicago) : new Array(round.value.holes).fill(0)
+      pops: calcPops(pRound.scores, courseData.value.hnds, p.index, isYearlyLeague.value),
+      birds: isYearlyLeague.value ? calcBirds(pRound, { type: round.value.type }, courseData.value, isYearlyLeague.value) : new Array(round.value.holes).fill(0),
+      deuces: isYearlyLeague.value ? calcDeuces(pRound, courseData.value, isYearlyLeague.value) : new Array(round.value.holes).fill(0),
+      chicago: playChicago ? calcChicago(pRound, courseData.value, activeGames.includes('Modified Chicago')) : new Array(round.value.holes).fill(0)
     };
   });
   return stats;
 });
 
-const getGameStat = (playerId, hole, gameType) => {
-  if (!gameStats.value[playerId] || !gameStats.value[playerId][gameType]) return 0;
-  return gameStats.value[playerId][gameType][hole - 1]; 
-};
+const getGameStat = (playerId, hole, gameType) => gameStats.value[playerId]?.[gameType]?.[hole - 1] || 0;
 
-// --- NET SCORE RELATIVE LOGIC ---
-const getPlayerNetRelative = (playerId) => {
-  if (!round.value || !courseData.value || !courseData.value.pars) return { rel: 0, holesPlayed: 0 };
-  let rel = 0;
-  let holesPlayed = 0;
-  const popsArr = gameStats.value[playerId]?.pops || [];
-
-  round.value.scores[playerId].forEach((score, index) => {
-    if (score > 0) {
-      holesPlayed++;
-      const pop = popsArr[index] || 0;
-      const par = courseData.value.pars[index] || 4;
-      const netScore = score - pop;
-      rel += (netScore - par);
-    }
-  });
-  return { rel, holesPlayed };
-};
-
-const getNetRelativeStr = (playerId) => {
-  const stats = getPlayerNetRelative(playerId);
-  if (stats.holesPlayed === 0) return 'E';
+// Net Formatting using shared logic
+const getNetRel = (playerId) => {
+  if (!round.value || !courseData.value) return 'E';
+  const pops = gameStats.value[playerId]?.pops || [];
+  const { rel, holesPlayed } = calcNetRelative(round.value.scores[playerId], pops, courseData.value.pars);
   
-  let val = stats.rel;
+  if (holesPlayed === 0) return 'E';
   if (isYearlyLeague.value) {
-    if (Math.abs(val) < 0.0001) return 'E';
-    return val > 0 ? `+${val.toFixed(3)}` : val.toFixed(3);
-  } else {
-    val = Math.round(val);
-    if (val === 0) return 'E';
-    return val > 0 ? `+${val}` : val.toString();
+    if (Math.abs(rel) < 0.0001) return 'E';
+    return rel > 0 ? `+${rel.toFixed(3)}` : rel.toFixed(3);
   }
+  const rounded = Math.round(rel);
+  return rounded === 0 ? 'E' : (rounded > 0 ? `+${rounded}` : rounded.toString());
 };
 
-const getNetRelativeColor = (playerId) => {
-  const stats = getPlayerNetRelative(playerId);
-  if (stats.holesPlayed === 0) return 'text-slate-500 dark:text-slate-400';
-  if (stats.rel < -0.0001) return 'text-red-500'; // Under Par
-  if (stats.rel > 0.0001) return 'text-blue-500 dark:text-blue-400'; // Over Par
-  return 'text-slate-800 dark:text-white'; // Even
+const getNetColor = (playerId) => {
+  if (!round.value || !courseData.value) return 'text-slate-500';
+  const pops = gameStats.value[playerId]?.pops || [];
+  const { rel, holesPlayed } = calcNetRelative(round.value.scores[playerId], pops, courseData.value.pars);
+  
+  if (holesPlayed === 0) return 'text-slate-500';
+  if (rel < -0.0001) return 'text-red-500';
+  if (rel > 0.0001) return 'text-blue-500 dark:text-blue-400';
+  return 'text-slate-800 dark:text-white';
 };
 
-
-// Color Logic Based on Par (Gross)
 const getScoreClass = (val, hole) => {
   if (!val || val === 0) return 'bg-transparent border-slate-200 dark:border-slate-700 text-transparent'; 
   const par = getHolePar(hole);
@@ -311,73 +232,114 @@ const getScoreClass = (val, hole) => {
   return 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-500 shadow-sm';
 };
 
-// Data Binding
+const handlePlayerToggle = async (p) => {
+  if (!round.value) return;
+  const roundRef = doc($db, "live_rounds", route.params.id);
+  const isRemoving = round.value.players.some(x => x.id === p.id);
+  let updatedPlayers = [...round.value.players];
+  let updatedScores = { ...round.value.scores };
+
+  if (isRemoving) {
+    if (updatedPlayers.length === 1) return alert("You cannot remove the last player from an active round.");
+    updatedPlayers = updatedPlayers.filter(x => x.id !== p.id);
+    delete updatedScores[p.id];
+  } else {
+    if (updatedPlayers.length >= 5) return alert("Maximum 5 players allowed per group.");
+    const assignedTee = round.value.tees || Object.keys(round.value.courseSnapshot?.tees || {})[0] || 'Mens';
+    const rawGhin = parseFloat(p.ghin) || 0;
+    const teeData = round.value.courseSnapshot?.tees?.[assignedTee];
+    let playingHcp = Math.round(rawGhin);
+    if (teeData) playingHcp = calcUSGACourseHandicap(rawGhin, teeData.slope || 113, teeData.rating || 72, teeData.par || 72);
+    
+    updatedPlayers.push({ ...p, ghin: rawGhin, index: playingHcp, tee: assignedTee });
+    updatedScores[p.id] = new Array(round.value.holes).fill(0);
+  }
+  try { await updateDoc(roundRef, { players: updatedPlayers, scores: updatedScores }); } 
+  catch (err) { console.error("Failed to update group:", err); }
+};
+
+const finishCasualRound = async () => {
+  if (!confirm("Are you sure you want to finish and archive this round?")) return;
+  try {
+    const batch = writeBatch($db);
+    round.value.players.forEach(p => {
+      const historyRef = doc(collection($db, "players", p.id, "rounds"));
+      batch.set(historyRef, {
+        course: round.value.course, courseID: round.value.courseID || null, courseSnapshot: round.value.courseSnapshot || null,
+        date: round.value.date, tees: round.value.tees, holes: round.value.holes, type: round.value.type || 'casual',
+        scores: round.value.scores[p.id], index: p.index, playedTee: p.tee
+      });
+    });
+    batch.delete(doc($db, "live_rounds", route.params.id));
+    await batch.commit();
+    router.push('/');
+  } catch (err) { alert("There was an error archiving the round."); }
+};
+
 onMounted(async () => {
   if (!dataStore.isBooted) await dataStore.bootstrap();
   const unsub = onSnapshot(doc($db, "live_rounds", route.params.id), (snap) => {
-    if (snap.exists()) {
-      round.value = { id: snap.id, ...snap.data() };
-    } else router.push('/');
+    if (snap.exists()) round.value = { id: snap.id, ...snap.data() };
+    else router.push('/');
   });
   onUnmounted(() => unsub());
 });
 
-// Keypad Actions
 const openKeypad = (hole, startingPlayerId) => {
   const currentHoleScores = {};
-  const par = getHolePar(hole);
-  round.value.players.forEach(p => {
-    const score = round.value.scores[p.id][hole - 1];
-    currentHoleScores[p.id] = score === 0 ? par.toString() : score.toString();
-  });
-  keypad.value = { isOpen: true, hole: hole, activePlayerId: startingPlayerId, tempScores: currentHoleScores };
+  round.value.players.forEach(p => currentHoleScores[p.id] = (round.value.scores[p.id][hole - 1] || getHolePar(hole)).toString());
+  keypad.value = { isOpen: true, hole, activePlayerId: startingPlayerId, tempScores: currentHoleScores };
 };
-
 const setScore = (val) => keypad.value.tempScores[keypad.value.activePlayerId] = val.toString();
-
 const adjustScore = (mod) => {
   const pid = keypad.value.activePlayerId;
-  let current = parseInt(keypad.value.tempScores[pid]) || getHolePar(keypad.value.hole);
-  let next = Math.min(Math.max(current + mod, 1), 15);
-  keypad.value.tempScores[pid] = next.toString();
+  keypad.value.tempScores[pid] = Math.min(Math.max((parseInt(keypad.value.tempScores[pid]) || getHolePar(keypad.value.hole)) + mod, 1), 15).toString();
 };
-
-const nextPlayer = () => {
-  const currentIndex = round.value.players.findIndex(p => p.id === keypad.value.activePlayerId);
-  keypad.value.activePlayerId = round.value.players[(currentIndex + 1) % round.value.players.length].id;
-};
-
+const nextPlayer = () => keypad.value.activePlayerId = round.value.players[(round.value.players.findIndex(p => p.id === keypad.value.activePlayerId) + 1) % round.value.players.length].id;
 const saveHoleScores = async () => {
-  const roundRef = doc($db, "live_rounds", route.params.id);
   const updatedScores = { ...round.value.scores };
-  round.value.players.forEach(p => {
-    updatedScores[p.id][keypad.value.hole - 1] = parseInt(keypad.value.tempScores[p.id]) || 0;
-  });
-  try {
-    await updateDoc(roundRef, { scores: updatedScores });
-  } catch (err) { console.error("Failed to save:", err); }
+  round.value.players.forEach(p => updatedScores[p.id][keypad.value.hole - 1] = parseInt(keypad.value.tempScores[p.id]) || 0);
+  try { await updateDoc(doc($db, "live_rounds", route.params.id), { scores: updatedScores }); } catch (err) {}
   keypad.value.isOpen = false;
 };
 
-// Utilities
-const calculateNineTotal = (playerId, nineStr) => {
-  if (!round.value?.scores[playerId]) return 0;
-  const scores = round.value.scores[playerId];
-  const start = nineStr === 'front' ? 0 : 9;
-  const end = nineStr === 'front' ? 9 : 18;
-  let total = 0;
-  for(let i = start; i < end; i++) total += parseInt(scores[i]) || 0;
-  return total;
-};
-
-const calculateTotal = (playerId) => {
-  if (!round.value?.scores[playerId]) return 0;
-  return round.value.scores[playerId].reduce((a, b) => a + (parseInt(b) || 0), 0);
-};
-
-const getShortDate = (iso) => {
-  if (!iso) return '';
-  const [y, m, d] = iso.split('-');
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
+const getShortDate = (iso) => iso ? new Date(iso.split('-')[0], iso.split('-')[1] - 1, iso.split('-')[2]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
 </script>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* 🛡️ Tightened layout for mobile fit */
+.flex.w-full.p-2.gap-1\.5 {
+  display: flex;
+  gap: 0.25rem !important; /* Forces a tight gap on mobile */
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+
+/* Ensure boxes stay slim but readable */
+.flex-1.flex.justify-center {
+  min-width: 32px; /* Minimum width for the narrowest phones */
+  flex-shrink: 1;
+}
+
+/* Ensure the footer total boxes have enough room for 3-digit scores */
+.text-xs {
+  min-width: 24px;
+  display: inline-block;
+  text-align: right;
+}
+
+/* Subtle separator for the footer bar items */
+.flex.gap-4 > div:not(:last-child) {
+  border-right: 1px solid rgba(203, 213, 225, 0.5); /* slate-300/50 */
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .flex-1.flex.justify-center {
+    min-width: 48px;
+    gap: 0.5rem;
+  }
+}
+</style>

@@ -1,20 +1,16 @@
 import { defineStore } from 'pinia'
 import { collection, query, getDocs, orderBy, where, limit, addDoc, serverTimestamp } from "firebase/firestore"
 
-// Add these if Nuxt isn't auto-importing them from your utils folder!
-// import { fetchFullLeaguesData } from '~/utils/something'
-// import { fetchFullCourseData } from '~/utils/handicap'
-
 export const useData = defineStore('data', () => {
   const { $db } = useNuxtApp()
   
   const leagues = ref(new Map())
   const courses = ref(new Map())
+  const players = ref(new Map()) // 🛡️ NEW: Players state
   const isBooted = ref(false)
   const activeLeagueEvent = ref(null)
-  const currentRound = ref(null); // Moved up with the other state refs for cleanliness
+  const currentRound = ref(null)
 
-  // Helper to get local YYYY-MM-DD
   const getLocalToday = () => {
     const now = new Date()
     const offset = now.getTimezoneOffset() * 60000
@@ -36,29 +32,34 @@ export const useData = defineStore('data', () => {
   const bootstrap = async (userLeagueIds = []) => {
     isBooted.value = false;
     
-    // 1. Fetch raw data
-    const [lMap, cMap] = await Promise.all([
+    // 1. Fetch raw data (Added fetch for players)
+    const [lMap, cMap, uSnap] = await Promise.all([
       fetchFullLeaguesData($db),
-      fetchFullCourseData($db)
+      fetchFullCourseData($db),
+      getDocs(collection($db, "players")) // 🛡️ NEW: Fetch global players
     ]);
 
-    // 2. Prepare all leagues with their rounds in parallel BEFORE setting the refs
+    // 2. Prepare Leagues
     const leaguesArray = Array.from(lMap.values());
-    
     const enrichedLeagues = await Promise.all(leaguesArray.map(async (lg) => {
       const nextRound = await fetchNextRound(lg.id);
       return { ...lg, nextRound }; 
     }));
 
-    // 3. Re-build the map with enriched data
     const finalLeaguesMap = new Map();
     enrichedLeagues.forEach(lg => finalLeaguesMap.set(lg.id, lg));
 
-    // 4. NOW set the store state
+    // 3. Prepare Players Map
+    const finalPlayersMap = new Map();
+    uSnap.forEach(doc => {
+      finalPlayersMap.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+
+    // 4. Set the store state
     leagues.value = finalLeaguesMap;
     courses.value = cMap;
+    players.value = finalPlayersMap; // 🛡️ NEW: Set players ref
     
-    // 5. Determine today's active event using the enriched data
     const today = getLocalToday();
     const todayEvent = enrichedLeagues.find(lg => 
       userLeagueIds.includes(lg.id) && lg.nextRound?.iso === today
@@ -69,12 +70,10 @@ export const useData = defineStore('data', () => {
     isBooted.value = true;
   };
 
-  // Action to call when an admin adds a new event
   const refreshLeagueRound = async (leagueId) => {
     const lg = leagues.value.get(leagueId)
     if (lg) {
       lg.nextRound = await fetchNextRound(leagueId)
-      // Re-check if this new event is for today
       if (lg.nextRound?.iso === getLocalToday()) {
         activeLeagueEvent.value = lg
       }
@@ -82,7 +81,6 @@ export const useData = defineStore('data', () => {
   }
 
   const startNewRound = async (setupData) => {
-    // Changing target collection to "live_rounds"
     const roundRef = await addDoc(collection($db, "live_rounds"), {
       ...setupData,
       status: 'active',
@@ -97,12 +95,10 @@ export const useData = defineStore('data', () => {
     return roundRef.id;
   };
 
-  // --- MISSING FIXES APPLIED BELOW ---
-  
-  // You MUST return everything you want to use outside this file
   return {
     leagues,
     courses,
+    players, // 🛡️ NEW: Return players
     isBooted,
     activeLeagueEvent,
     currentRound,
@@ -110,4 +106,4 @@ export const useData = defineStore('data', () => {
     refreshLeagueRound,
     startNewRound
   }
-}) // <-- Missing closing braces added here
+})
