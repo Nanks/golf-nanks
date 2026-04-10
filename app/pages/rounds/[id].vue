@@ -245,7 +245,7 @@ const handlePlayerToggle = async (p) => {
     delete updatedScores[p.id];
   } else {
     if (updatedPlayers.length >= 5) return alert("Maximum 5 players allowed per group.");
-    const assignedTee = round.value.tees || Object.keys(round.value.courseSnapshot?.tees || {})[0] || 'Mens';
+    const assignedTee = round.value.tees || (round.value.courseSnapshot?.tees ? Object.keys(round.value.courseSnapshot.tees)[0] : 'Blue');
     const rawGhin = parseFloat(p.ghin) || 0;
     const teeData = round.value.courseSnapshot?.tees?.[assignedTee];
     let playingHcp = Math.round(rawGhin);
@@ -260,20 +260,38 @@ const handlePlayerToggle = async (p) => {
 
 const finishCasualRound = async () => {
   if (!confirm("Are you sure you want to finish and archive this round?")) return;
+  
   try {
     const batch = writeBatch($db);
+    // Use the round date or fallback to today's ISO string
+    const finalDate = round.value.date || new Date().toISOString().split('T')[0];
+
     round.value.players.forEach(p => {
       const historyRef = doc(collection($db, "players", p.id, "rounds"));
+      
       batch.set(historyRef, {
-        course: round.value.course, courseID: round.value.courseID || null, courseSnapshot: round.value.courseSnapshot || null,
-        date: round.value.date, tees: round.value.tees, holes: round.value.holes, type: round.value.type || 'casual',
-        scores: round.value.scores[p.id], index: p.index, playedTee: p.tee
+        course: round.value.course,
+        courseID: round.value.courseID || null,
+        // Ensure we save the specific tee data used for handicap calc
+        courseSnapshot: round.value.courseSnapshot || courseData.value || null,
+        date: finalDate,
+        tees: round.value.tees,
+        holes: round.value.holes,
+        type: 'casual',
+        scores: round.value.scores[p.id],
+        index: p.index,
+        playedTee: p.tee || round.value.tees
       });
     });
+
     batch.delete(doc($db, "live_rounds", route.params.id));
     await batch.commit();
+    
     router.push('/');
-  } catch (err) { alert("There was an error archiving the round."); }
+  } catch (err) {
+    console.error("Archive Error:", err);
+    alert("There was an error archiving the round.");
+  }
 };
 
 onMounted(async () => {
@@ -309,37 +327,22 @@ const getShortDate = (iso) => iso ? new Date(iso.split('-')[0], iso.split('-')[1
 <style scoped>
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* 🛡️ Tightened layout for mobile fit */
-.flex.w-full.p-2.gap-1\.5 {
+/* 🛡️ Responsive grid for hole boxes */
+.flex.w-full.px-1\.5 {
   display: flex;
-  gap: 0.25rem !important; /* Forces a tight gap on mobile */
-  padding-left: 0.5rem !important;
-  padding-right: 0.5rem !important;
+  gap: 4px !important; /* Tight gap for mobile */
+  justify-content: space-between;
 }
 
-/* Ensure boxes stay slim but readable */
-.flex-1.flex.justify-center {
-  min-width: 32px; /* Minimum width for the narrowest phones */
-  flex-shrink: 1;
+/* Ensure boxes scale down on tiny screens */
+.flex-1.flex.justify-center.max-w-\[48px\] {
+  min-width: 0; 
+  flex-basis: 11%; /* Roughly 1/9th of the row */
 }
 
-/* Ensure the footer total boxes have enough room for 3-digit scores */
-.text-xs {
-  min-width: 24px;
-  display: inline-block;
-  text-align: right;
-}
-
-/* Subtle separator for the footer bar items */
-.flex.gap-4 > div:not(:last-child) {
-  border-right: 1px solid rgba(203, 213, 225, 0.5); /* slate-300/50 */
-  padding-right: 1rem;
-}
-
-@media (min-width: 640px) {
-  .flex-1.flex.justify-center {
-    min-width: 48px;
-    gap: 0.5rem;
-  }
+/* Make score text slightly smaller on mobile to prevent clipping */
+@media (max-width: 400px) {
+  .text-lg { font-size: 1rem; }
+  .size-3.5 { width: 0.75rem; height: 0.75rem; }
 }
 </style>

@@ -1,309 +1,224 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
-    <header class="py-6 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm flex justify-between items-end">
-      <div>
-        <NuxtLink :to="`/leagues/${route.params.id}/menu`" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-500 transition-colors flex items-center gap-1">
-          <Icon name="mdi:arrow-left" class="size-3" /> Back to Menu
-        </NuxtLink>
-        <h1 class="text-3xl font-black text-emerald-600 uppercase tracking-tighter mt-2 leading-none">League Roster</h1>
-      </div>
+  <div class="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 pt-28 px-6 pb-24">
+    <div class="max-w-2xl mx-auto">
+      
+      <header class="mb-10 flex justify-between items-end">
+        <div>
+          <NuxtLink :to="`/leagues/${route.params.id}/menu`" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
+            ← Back to Menu
+          </NuxtLink>
+          <h1 class="text-4xl font-black text-emerald-600 uppercase tracking-tighter mt-2 leading-none">
+            League Roster
+          </h1>
+        </div>
 
-      <button 
-        v-if="isAdmin" 
-        @click="isAddModalOpen = true"
-        class="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-600/20 active:scale-95 transition flex items-center gap-2"
-      >
-        <Icon name="mdi:plus" class="size-4" /> Add Player
-      </button>
-    </header>
+        <button 
+          v-if="isAdmin"
+          @click="isEditMode = !isEditMode"
+          :class="isEditMode ? 'bg-amber-500 shadow-amber-900/20' : 'bg-emerald-600 shadow-emerald-900/20'"
+          class="px-6 py-3 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-95"
+        >
+          {{ isEditMode ? 'Finish Editing' : 'Manage Roster' }}
+        </button>
+      </header>
 
-    <div class="px-4 mt-6 max-w-2xl mx-auto">
-      <div v-if="loading" class="space-y-3">
-        <div v-for="i in 6" :key="i" class="h-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-pulse rounded-2xl"></div>
-      </div>
+      <Transition name="fade">
+        <button 
+          v-if="isEditMode" 
+          @click="handleAddPlayer"
+          class="w-full mb-6 p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
+        >
+          <Icon name="mdi:plus-circle-outline" class="w-4 h-4" /> 
+          Add New Player to League
+        </button>
+      </Transition>
 
-      <div v-else class="space-y-3">
-        <div v-for="player in sortedRoster" :key="player.id" class="flex flex-col group">
+      <div class="space-y-4">
+        <div v-for="player in roster" :key="player.id" 
+             class="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 relative overflow-hidden transition-all shadow-sm">
           
-          <div class="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center z-10 relative shadow-sm transition-all">
+          <div v-if="player.admin === 'super' || player.admin === league?.type" 
+               class="absolute top-4 left-4 z-10">
+            <Icon name="mdi:shield-check" class="w-5 h-5 text-amber-500" />
+          </div>
+
+          <div class="p-5 flex items-center justify-between">
             <div class="flex items-center gap-4">
-              <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-xs text-slate-400 uppercase border border-slate-200 dark:border-slate-700">
-                {{ player.fname[0] }}{{ player.lname[0] }}
+              <div class="w-12 h-12 rounded-2xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-black text-slate-500 text-sm">
+                {{ player.fname?.[0] }}{{ player.lname?.[0] }}
               </div>
-              
-              <div>
-                <p class="font-bold uppercase text-sm tracking-tight text-slate-800 dark:text-slate-100">
+              <div class="flex flex-col">
+                <span class="font-bold text-slate-900 dark:text-white text-lg leading-tight pr-6">
                   {{ player.fname }} {{ player.lname }}
-                </p>
-                <div class="flex items-center gap-3 text-[10px] font-bold uppercase mt-1">
-                  <span class="text-slate-400">GHIN: {{ player.ghin || 'NH' }}</span>
-                  <button 
-                    v-if="player.leagueHcp !== undefined" 
-                    @click="activeAuditId = activeAuditId === player.id ? null : player.id"
-                    class="text-emerald-600 hover:text-emerald-500 flex items-center gap-1 transition"
-                  >
-                    L-HCP: {{ Number(player.leagueHcp).toFixed(3) }}
-                    <Icon :name="activeAuditId === player.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="size-3" />
-                  </button>
-                </div>
+                </span>
+                
+                <button @click="toggleAudit(player.id)" class="flex items-center gap-1.5 mt-1 text-emerald-600 dark:text-emerald-500 active:opacity-60 transition-opacity">
+                  <span class="text-[10px] font-black uppercase tracking-widest">
+                    L-HCP: {{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}
+                  </span>
+                  <Icon :name="expandedAudit === player.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-3 h-3" />
+                </button>
               </div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <div v-if="player.isAdmin" class="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded text-[8px] font-black text-emerald-600 uppercase border border-emerald-200/50 dark:border-emerald-800/50">
-                Admin
+            <div class="flex items-center gap-3">
+              <div class="relative bg-white dark:bg-slate-950 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 min-w-[85px] text-center">
+                <p class="text-[8px] font-black text-slate-400 uppercase">GHIN</p>
+                <p class="font-black text-slate-900 dark:text-white">{{ player.ghin || 'NH' }}</p>
+                
+                <button 
+                  v-if="isAdmin || player.id === authStore.userProfile?.id" 
+                  @click="openGhinModal(player)" 
+                  class="absolute -top-2 -right-2 p-0.5 bg-white dark:bg-slate-900 rounded-full text-slate-300 hover:text-emerald-500 shadow-sm border border-slate-100 dark:border-slate-800 transition-colors"
+                >
+                  <Icon name="mdi:pencil-circle" class="w-5 h-5" />
+                </button>
               </div>
               
-              <button 
-                v-if="isAdmin && !player.isSuperAdmin" 
-                @click="confirmRemove(player)"
-                class="p-2 text-slate-300 hover:text-red-500 transition-colors active:scale-90"
-              >
-                <Icon name="mdi:trash-can-outline" class="size-5" />
+              <button v-if="isEditMode" @click="confirmRemove(player)" class="p-2 text-slate-400 active:text-red-500 transition-colors">
+                <Icon name="mdi:delete-outline" class="w-6 h-6" />
               </button>
             </div>
           </div>
 
           <Transition name="expand">
-            <div v-if="activeAuditId === player.id" class="mx-3 -mt-2 pt-6 pb-4 px-4 bg-slate-100 dark:bg-slate-800/50 rounded-b-2xl border-x border-b border-slate-200 dark:border-slate-800">
-               <div class="flex justify-between items-center mb-3">
-                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Recent League History</p>
-                 <span class="text-[9px] font-black text-emerald-600 uppercase">Best 4 Counted</span>
-               </div>
-               
-               <div class="grid grid-cols-2 gap-2">
-                 <div v-for="round in player.auditRounds" :key="round.iso" 
-                      :class="round.isBest ? 'border-emerald-500/50 bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'"
-                      class="flex justify-between items-center py-2 px-3 rounded-xl border text-[10px] font-bold shadow-sm">
-                   <span class="text-slate-400">{{ round.iso }}</span>
-                   <span :class="round.isBest ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-200'">{{ round.score }}</span>
-                 </div>
-               </div>
+            <div v-if="expandedAudit === player.id" class="px-5 pb-5 pt-2 bg-slate-100/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
+              <p class="text-[9px] font-black uppercase text-slate-400 mb-3 tracking-widest flex flex-col gap-1">
+                Handicap Audit 
+                <span class="text-[8px] text-emerald-500 lowercase font-medium">(highlighted rounds used in calculation)</span>
+              </p>
+              
+              <div class="space-y-2">
+                <div v-for="(round, idx) in processAuditRounds(player.leagueAudits?.[route.params.id])" :key="idx" 
+                     :class="round.isUsed ? 'border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950'"
+                     class="flex justify-between items-center p-2 px-4 rounded-xl border transition-all">
+                  
+                  <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{{ formatDate(round.date) }}</span>
+                    <span v-if="round.isPadding" class="text-[8px] text-amber-500 font-bold uppercase">GHIN-3 Penalty</span>
+                  </div>
+
+                  <div class="flex items-center gap-4">
+                    <div class="text-right">
+                      <p class="text-[8px] uppercase text-slate-400 font-black">Gross</p>
+                      <p :class="round.isUsed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" class="text-sm font-black">
+                        {{ round.rawGross }}
+                      </p>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-[8px] uppercase text-slate-400 font-black">Adj</p>
+                      <p :class="round.isUsed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" class="text-sm font-black">
+                        {{ round.adjustedGross }}
+                      </p>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-[8px] uppercase text-slate-400 font-black">Diff</p>
+                      <p :class="round.isUsed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" class="text-sm font-black">
+                        {{ round.differential?.toFixed(3) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <p v-if="!player.leagueAudits?.[route.params.id]?.length" class="text-[10px] italic text-slate-400 mt-2">No rounds found for this season.</p>
             </div>
           </Transition>
         </div>
-
-        <div v-if="roster.length === 0" class="text-center py-20 flex flex-col items-center">
-          <Icon name="mdi:account-off-outline" class="size-12 text-slate-200 dark:text-slate-800 mb-4" />
-          <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">No players found in this league.</p>
-        </div>
       </div>
     </div>
-   <Teleport to="body">
-      <Transition 
-        enter-active-class="transition duration-300 ease-out" 
-        enter-from-class="translate-y-full" 
-        enter-to-class="translate-y-0" 
-        leave-active-class="transition duration-200 ease-in" 
-        leave-from-class="translate-y-0" 
-        leave-to-class="translate-y-full"
-      >
-        <div v-if="isAddModalOpen" class="fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-0 sm:p-4">
-          <div @click="isAddModalOpen = false" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          
-          <div class="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col h-[90vh] sm:h-auto sm:max-h-[80vh] keyboard-modal">
-            <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 z-20">
-              <div class="flex justify-between items-center mb-4">
-                <h4 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Add to Roster</h4>
-                <button @click="isAddModalOpen = false" class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full">
-                  <Icon name="mdi:close" class="size-4" />
-                </button>
-              </div>
 
-              <div class="relative">
-                <Icon name="mdi:magnify" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 size-5" />
-                <input 
-                  v-model="searchQuery" 
-                  type="text" 
-                  placeholder="Search global players..." 
-                  class="w-full pl-11 pr-4 py-3.5 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 transition-all"
-                />
-              </div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar overscroll-contain">
-              <div v-if="isSearchingGlobal" class="flex flex-col items-center justify-center py-10 opacity-50">
-                <Icon name="mdi:loading" class="size-8 animate-spin text-emerald-500 mb-2" />
-                <p class="text-[10px] font-black uppercase tracking-widest">Loading Players...</p>
-              </div>
-
-              <template v-else>
-                <div 
-                  v-for="p in filteredGlobalPlayers" :key="p.id"
-                  class="p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-between items-center"
-                >
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 flex items-center justify-center font-bold text-[10px]">
-                      {{ p.fname[0] }}{{ p.lname[0] }}
-                    </div>
-                    <div>
-                      <p class="font-bold text-sm text-slate-700 dark:text-slate-200">{{ p.fname }} {{ p.lname }}</p>
-                      <p class="text-[9px] font-black text-slate-400 uppercase">GHIN: {{ p.ghin || 'NH' }}</p>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    @click="addPlayerToLeague(p)"
-                    class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition shadow-sm"
-                  >
-                    Add
-                  </button>
-                </div>
-              </template>
-              
-              <div v-if="!isSearchingGlobal && filteredGlobalPlayers.length === 0" class="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">
-                No matching players found
-              </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-    </div>
+    <GhinModal v-if="selectedPlayer" :is-open="isGhinModalOpen" :player="selectedPlayer" @close="isGhinModalOpen = false" @updated="fetchRoster" />
+  </div>
 </template>
 
 <script setup>
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayRemove, arrayUnion } from "firebase/firestore";
-import { useData } from '~/stores/data';
-import { calculateLeagueHandicap, fetchFullCourseData } from '~/utils/handicap';
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { useAuthStore } from "~/stores/auth";
+import { useUIStore } from "~/stores/ui";
 
-const { isAdminOf } = useAuth(); 
-const { $db } = useNuxtApp();
 const route = useRoute();
-const dataStore = useData();
+const { $db } = useNuxtApp();
+const authStore = useAuthStore();
+const ui = useUIStore();
 
-// Roster State
 const roster = ref([]);
-const loading = ref(true);
-const isAdmin = ref(false); 
-const activeAuditId = ref(null);
-
-// Modal & Search State
-const isAddModalOpen = ref(false);
-const searchQuery = ref("");
-const globalPlayers = ref([]); 
-const isSearchingGlobal = ref(false);
-const hasLoadedGlobal = ref(false);
-
-// 🛡️ Watch the modal state to trigger the "Lazy Load"
-watch(isAddModalOpen, async (isOpen) => {
-  if (isOpen && isAdmin.value && !hasLoadedGlobal.value) {
-    isSearchingGlobal.value = true;
-    try {
-      const allSnap = await getDocs(collection($db, "players"));
-      globalPlayers.value = allSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      hasLoadedGlobal.value = true;
-    } catch (err) {
-      console.error("Failed to fetch global players:", err);
-    } finally {
-      isSearchingGlobal.value = false;
-    }
-  }
-});
-
-// Computed Roster Sorting
-const sortedRoster = computed(() => {
-  return [...roster.value].sort((a, b) => {
-    if (a.isAdmin && !b.isAdmin) return -1;
-    if (!a.isAdmin && b.isAdmin) return 1;
-    return a.lname.localeCompare(b.lname);
-  });
-});
-
-// Computed Global Search
-const filteredGlobalPlayers = computed(() => {
-  const queryStr = searchQuery.value.toLowerCase();
-  return globalPlayers.value.filter(p => {
-    const isAlreadyIn = p.leagues?.includes(route.params.id);
-    const matchesSearch = `${p.fname} ${p.lname}`.toLowerCase().includes(queryStr);
-    return !isAlreadyIn && matchesSearch;
-  });
-});
+const league = ref(null);
+const isAdmin = ref(false);
+const isEditMode = ref(false);
+const expandedAudit = ref(null);
+const isGhinModalOpen = ref(false);
+const selectedPlayer = ref(null);
 
 const fetchRoster = async () => {
-  loading.value = true;
+  ui.setLoading(true);
   try {
-    const coursesMap = await fetchFullCourseData($db);
-
     const leagueDoc = await getDoc(doc($db, "leagues", route.params.id));
     if (leagueDoc.exists()) {
-      const leagueData = leagueDoc.data();
-      isAdmin.value = isAdminOf(leagueData.leagueID); 
+      league.value = leagueDoc.data();
+      isAdmin.value = authStore.isAdminForType(league.value.type);
     }
 
+    // Now simply query the players. The handicap math is already stored in the doc!
     const q = query(collection($db, "players"), where("leagues", "array-contains", route.params.id));
     const snap = await getDocs(q);
     
-    const playerPromises = snap.docs.map(async (d) => {
-      try {
-        const data = d.data();
-        // 🛡️ Added a fallback for calculateLeagueHandicap so one failure doesn't break the roster
-        const hcpResult = await calculateLeagueHandicap($db, d.id, route.params.id, data.ghin || 0, coursesMap)
-          .catch(err => ({ hcp: data.ghin || 0, audit: [] })); 
-        
-        return {
-          id: d.id,
-          ...data,
-          leagueHcp: hcpResult.hcp,
-          auditRounds: hcpResult.audit,
-          isAdmin: data.admin === route.params.id || data.admin === 'super'
-        };
-      } catch (err) {
-        console.error(`Error processing player ${d.id}:`, err);
-        return null; // Skip this player if they are truly broken
-      }
-    });
-
-    // Filter out any nulls from failed players
-    const results = await Promise.all(playerPromises);
-    roster.value = results.filter(p => p !== null);
+    roster.value = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
 
   } catch (err) {
-    console.error("Failed to fetch roster:", err);
+    console.error(err);
   } finally {
-    loading.value = false;
+    ui.setLoading(false);
   }
 };
 
-const addPlayerToLeague = async (player) => {
-  try {
-    const playerRef = doc($db, "players", player.id);
-    await updateDoc(playerRef, {
-      leagues: arrayUnion(route.params.id)
-    });
-    
-    await fetchRoster();
-    searchQuery.value = "";
-    isAddModalOpen.value = false;
-  } catch (err) {
-    console.error("Failed to add player:", err);
+const formatHcp = (hcp) => {
+  if (hcp === undefined || hcp === null) return '0.000';
+  return Number(hcp).toFixed(3);
+};
+
+const toggleAudit = (id) => expandedAudit.value = expandedAudit.value === id ? null : id;
+
+const openGhinModal = (player) => {
+  selectedPlayer.value = player;
+  isGhinModalOpen.value = true;
+};
+
+const handleAddPlayer = () => console.log("Open Add Player Modal");
+
+const confirmRemove = (player) => {
+  if (confirm(`Are you sure you want to remove ${player.fname} from the league?`)) {
+    console.log("Removing player ID:", player.id);
   }
+};
+
+const formatDate = (d) => {
+  if (!d || d === 'N/A') return 'Established Round';
+  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+const processAuditRounds = (rounds) => {
+  if (!rounds || !rounds.length) return [];
+  
+  // Find the lowest 4 differentials to flag them as "Used"
+  const sortedByDiff = [...rounds].sort((a, b) => a.differential - b.differential);
+  const lowest4Indices = new Set(sortedByDiff.slice(0, 4).map(r => rounds.indexOf(r)));
+
+  return rounds.map((r, idx) => ({
+    ...r,
+    isUsed: lowest4Indices.has(idx)
+  }));
 };
 
 onMounted(fetchRoster);
 </script>
 
 <style scoped>
-/* 📱 Mobile Keyboard Fix */
-@media (max-width: 640px) {
-  /* 🛡️ Targets ONLY the modal now, leaving your player rows alone! */
-  .keyboard-modal {
-    height: calc(100dvh - 20px); 
-  }
-}
-
-.overscroll-contain {
-  overscroll-behavior: contain;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(16, 185, 129, 0.2);
-  border-radius: 10px;
-}
-
-.expand-enter-active, .expand-leave-active { transition: all 0.3s ease-out; max-height: 300px; }
-.expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; transform: translateY(-10px); }
+.expand-enter-active, .expand-leave-active { transition: all 0.3s ease-in-out; max-height: 1200px; }
+.expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; overflow: hidden; }
+.fade-enter-active, .fade-leave-active { transition: all 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
 </style>
