@@ -112,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { useAuthStore } from '~/stores/auth';
 
@@ -123,33 +123,48 @@ const { $db } = useNuxtApp();
 const authStore = useAuthStore();
 
 const searchQuery = ref('');
-const searchResults = ref([]); // Must be a ref of an array
+const searchResults = ref([]);
 const isSearching = ref(false);
 const recentPlayersProfiles = ref([]);
 
-// 1. Fetch profiles for the "Recent Players" IDs on mount
-onMounted(async () => {
-  const ids = authStore.userProfile?.recentPlayers || [];
-  if (ids.length > 0) {
-    try {
-      const q = query(collection($db, "players"), where("__name__", "in", ids));
-      const snap = await getDocs(q);
-      recentPlayersProfiles.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (e) {
-      console.error("Failed to load recent players:", e);
-    }
+/**
+ * 1. RECENT PLAYERS LOGIC
+ * Fetches the full player profiles based on the IDs stored in the user's profile.
+ */
+const fetchRecentProfiles = async (ids) => {
+  if (!ids || ids.length === 0) {
+    recentPlayersProfiles.value = [];
+    return;
   }
-});
+  try {
+    // Firestore "in" query to get all profiles for the recent IDs
+    const q = query(collection($db, "players"), where("__name__", "in", ids));
+    const snap = await getDocs(q);
+    recentPlayersProfiles.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (e) {
+    console.error("Failed to load recent players:", e);
+  }
+};
 
-// 2. Filter Recents
+// Watch for changes in the authStore profile (Reactive Sync)
+// This ensures that starting a round immediately updates this list
+watch(() => authStore.userProfile?.recentPlayers, (newIds) => {
+  if (newIds) {
+    fetchRecentProfiles(newIds);
+  }
+}, { immediate: true });
+
+// Filter Recents: Don't show people already in the current group
 const recentList = computed(() => {
   const selectedIds = new Set(props.selectedPlayers.map(p => p.id));
   return recentPlayersProfiles.value.filter(p => !selectedIds.has(p.id));
 });
 
-// 3. Search Logic with Console Logs
+/**
+ * 2. SEARCH LOGIC
+ * Queries the players collection by first name.
+ */
 watch(searchQuery, async (newQuery) => {
-  console.log("🔍 WATCH TRIGGERED: Search Query Changed:", newQuery);
   const trimmed = newQuery?.trim();
 
   if (!trimmed || trimmed.length < 3) {
@@ -159,8 +174,8 @@ watch(searchQuery, async (newQuery) => {
 
   isSearching.value = true;
   try {
+    // Basic prefix search: Capitalize first letter to match DB convention
     const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-    console.log("🎯 QUERYING DB FOR:", capitalized);
     
     const q = query(
       collection($db, "players"),
@@ -170,34 +185,23 @@ watch(searchQuery, async (newQuery) => {
     );
 
     const snap = await getDocs(q);
-    console.log("📦 DB RETURNED DOCS:", snap.docs.length);
-
-    // Map docs into a fresh array
-    const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    // FORCE REACTIVITY: Reassign the entire array using spread operator
-    searchResults.value = [...docs];
-    console.log("✅ STATE UPDATED: searchResults.value length is now:", searchResults.value.length);
+    searchResults.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   } catch (e) {
-    console.error("❌ Search error:", e);
+    console.error("Search error:", e);
   } finally {
     isSearching.value = false;
   }
 });
 
-// 4. Filter Search Results with Console Log
+/**
+ * 3. FILTERED SEARCH RESULTS
+ * Removes players from search results if they are already in the group.
+ */
 const filteredResults = computed(() => {
-  // Grab current search results
   const results = searchResults.value || [];
   const selectedIds = new Set(props.selectedPlayers.map(p => p.id));
-  
-  // Filter out people already selected
-  const final = results.filter(p => !selectedIds.has(p.id));
-  
-  console.log("⚡ COMPUTED FIRED: filteredResults length is:", final.length);
-  
-  return final;
+  return results.filter(p => !selectedIds.has(p.id));
 });
 </script>
 

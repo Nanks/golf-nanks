@@ -1,200 +1,79 @@
 <template>
-  <div class="min-h-screen bg-black text-white p-8 flex items-center justify-center">
-    <div class="bg-gray-900 border border-gray-700 rounded-lg p-8 max-w-xl w-full shadow-xl">
-      <h1 class="text-2xl font-bold mb-4 text-[#82D927]">Rebuild Yearly Handicaps</h1>
-      <p class="text-gray-400 text-sm mb-6">
-        Calculates L-HCPs based ONLY on completed calendar events. Incomplete scorecards (0s) are purged, and missing rounds are penalized at GHIN - 3.
-      </p>
+  <div class="min-h-screen bg-slate-950 text-white p-10 flex flex-col items-center justify-center">
+    <div class="max-w-md w-full bg-slate-900 p-8 rounded-[2rem] border border-slate-800 shadow-2xl text-center">
+      <h1 class="text-2xl font-black uppercase italic mb-2 tracking-tighter">Year Migration</h1>
+      <p class="text-slate-400 text-xs mb-8 uppercase tracking-widest">Target League: I7LCsEb1va49YU1lkRmu</p>
 
-      <div class="mb-6">
-        <h3 class="font-bold text-white mb-2">Detected Yearly Leagues:</h3>
-        <div v-if="yearlyLeagues.length === 0" class="text-gray-500 text-sm">
-          Loading yearly leagues...
-        </div>
-        <div v-else class="flex flex-wrap gap-2">
-          <span 
-            v-for="league in yearlyLeagues" 
-            :key="league.id" 
-            class="bg-gray-800 border border-gray-700 text-gray-300 text-sm py-1 px-3 rounded-full"
-          >
-            {{ league.name || league.type || league.id }}
-          </span>
-        </div>
+      <div v-if="status === 'idle'">
+        <button 
+          @click="runMigration" 
+          class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-emerald-900/20"
+        >
+          Fix 2026 Data Types
+        </button>
       </div>
 
-      <div class="space-y-4">
-        <button 
-          @click="runRebuild" 
-          :disabled="isProcessing || yearlyLeagues.length === 0"
-          class="w-full bg-[#82D927] hover:bg-[#6eb821] text-black font-bold py-3 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {{ isProcessing ? 'Rebuilding Handicaps...' : 'Process Player Profiles' }}
-        </button>
+      <div v-if="status === 'running'" class="py-6">
+        <Icon name="svg-spinners:ring-resize" class="size-10 text-emerald-500 mb-4 mx-auto" />
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 animate-pulse">
+          Updating {{ processedCount }} Docs...
+        </p>
+      </div>
 
-        <button 
-          @click="runTestForDann" 
-          :disabled="yearlyLeagues.length === 0"
-          class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded transition-colors disabled:opacity-50"
-        >
-          Run Console Test (Dann)
-        </button>
-
-        <div v-if="statusMessage" class="p-4 rounded bg-gray-800 text-center border border-gray-700">
-          <p :class="isError ? 'text-red-400' : 'text-green-400'" class="font-medium">
-            {{ statusMessage }}
-          </p>
+      <div v-if="status === 'complete'">
+        <div class="size-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-4">
+          <Icon name="mdi:check-bold" class="size-6" />
         </div>
+        <p class="font-black uppercase text-emerald-500 mb-1">Migration Successful</p>
+        <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-8">{{ processedCount }} entries moved to String format</p>
+        <button @click="router.push('/leagues/I7LCsEb1va49YU1lkRmu/calendar')" class="text-[10px] font-black text-slate-400 hover:text-white underline uppercase tracking-widest transition-colors">
+          Verify Calendar
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-// 1. IMPORT deleteField from firestore
-import { collection, getDocs, doc, getDoc, query, where, writeBatch, deleteField } from 'firebase/firestore'
-import { calcDifferential, calcLeagueHandicap, calcPops, calcAdjustedGross, calcRawGross } from '~/utils/gameLogic'
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+const { $db } = useNuxtApp();
+const router = useRouter();
 
-const { $db } = useNuxtApp()
+const status = ref('idle');
+const processedCount = ref(0);
 
-const yearlyLeagues = ref([])
-const validDatesByLeague = ref({})
-
-const isProcessing = ref(false)
-const statusMessage = ref('')
-const isError = ref(false)
-
-onMounted(async () => {
-  try {
-    const leaguesRef = collection($db, 'leagues')
-    const q = query(leaguesRef, where('cadence', '==', 'yearly'))
-    const snap = await getDocs(q)
-    
-    yearlyLeagues.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-
-    for (const league of yearlyLeagues.value) {
-      const calSnap = await getDocs(collection($db, 'leagues', league.id, 'calendar'))
-      const validDates = new Set()
-      
-      calSnap.forEach(doc => {
-        const calData = doc.data()
-        if (calData.status === 'mdi-check-bold' && calData.iso) {
-          validDates.add(calData.iso)
-        }
-      })
-      validDatesByLeague.value[league.id] = validDates
-    }
-  } catch (e) {
-    console.error("Failed to load yearly leagues and calendars", e)
-  }
-})
-
-const processRoundData = (round) => {
-  const teeName = round.tees || 'White'
-  const teeData = round.courseSnapshot?.tees?.[teeName] || {}
+const runMigration = async () => {
+  status.value = 'running';
   
-  const cr = teeData.rating || teeData.old_rating || 70
-  const sr = teeData.slope || teeData.old_slope || 113
-  const pars = teeData.pars || new Array(18).fill(4)
-  const hnds = teeData.hnds || new Array(18).fill(0)
-  
-  const historicalIndex = parseFloat(round.index) || 0
-  const pops = calcPops(round.scores || [], hnds, historicalIndex)
-
-  const adjustedGross = calcAdjustedGross(round.scores, pars, pops)
-  const rawGross = calcRawGross(round.scores)
-  const diff = calcDifferential(adjustedGross, cr, sr)
-
-  return {
-    roundId: round.id,
-    date: round.iso,
-    rawGross,           
-    adjustedGross, 
-    courseRating: cr,
-    slopeRating: sr,
-    differential: isNaN(diff) ? 0 : diff,
-    isPadding: false
-  }
-}
-
-// (You can keep your runTestForDann function exactly as it was here)
-
-const runRebuild = async () => {
-  isProcessing.value = true
-  statusMessage.value = 'Rebuilding...'
   try {
-    const playersSnapshot = await getDocs(collection($db, 'players'))
-    let batch = writeBatch($db)
-    let count = 0
-    let playersSkipped = 0
+    // Target the specific league's calendar
+    const calendarPath = "leagues/I7LCsEb1va49YU1lkRmu/calendar";
+    const calendarRef = collection($db, calendarPath);
 
-    for (const playerDoc of playersSnapshot.docs) {
-      const playerData = playerDoc.data()
-      const paddingDiff = (parseFloat(playerData.ghin || playerData.index) || 0) - 3
-      
-      // 2. Initialize the payload to scrub the old legacy fields
-      const updatePayload = {
-        leagueHandicap: deleteField(),
-        recentRoundsAudit: deleteField(),
-        isYearlyMember: true
-      }
-      
-      let updated = false
-
-      // Process each league totally independently
-      for (const league of yearlyLeagues.value) {
-        const validDates = validDatesByLeague.value[league.id]
-        const roundsSnap = await getDocs(query(collection($db, 'players', playerDoc.id, 'rounds'), where('leagueId', '==', league.id)))
-        
-        const validRounds = roundsSnap.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(round => round.iso && validDates.has(round.iso) && round.scores && !round.scores.some(s => Number(s) === 0))
-          .sort((a, b) => new Date(b.iso) - new Date(a.iso))
-          .slice(0, 10)
-
-        // If they don't have rounds for THIS league, skip adding it to the payload
-        if (validRounds.length === 0) continue
-
-        const auditTrail = validRounds.map(processRoundData)
-        while (auditTrail.length < 10) {
-          auditTrail.push({ 
-            roundId: `padded-${auditTrail.length}`, 
-            date: 'N/A', rawGross: 0, adjustedGross: 0, courseRating: 0, slopeRating: 0, 
-            differential: paddingDiff, isPadding: true 
-          })
-        }
-
-        const hcp = calcLeagueHandicap(auditTrail.map(a => a.differential), 4, 10)
-
-        // 3. Dot-Notation Update! 
-        // This targets the specific map key without wiping out other leagues
-        updatePayload[`leagueHandicaps.${league.id}`] = hcp
-        updatePayload[`leagueAudits.${league.id}`] = auditTrail
-        updated = true
-      }
-
-      if (updated) {
-        batch.update(playerDoc.ref, updatePayload)
-        
-        if (++count % 450 === 0) { 
-          await batch.commit()
-          batch = writeBatch($db)
-        }
-      } else {
-        playersSkipped++
-      }
-    }
+    // Query specifically for Number 2026
+    const q = query(calendarRef, where("year", "==", 2026));
+    const querySnapshot = await getDocs(q);
     
-    if (count > 0) {
-      await batch.commit()
+    if (querySnapshot.empty) {
+      console.log("No Number-based 2026 docs found.");
+      status.value = 'complete';
+      return;
     }
-    
-    statusMessage.value = `Success! Processed ${count} active players. Skipped ${playersSkipped} players with no data.`
-  } catch (error) { 
-    isError.value = true
-    statusMessage.value = error.message 
-  } finally { 
-    isProcessing.value = false 
+
+    const updatePromises = querySnapshot.docs.map(async (d) => {
+      await updateDoc(d.ref, {
+        year: "2026" // Convert to string
+      });
+      processedCount.value++;
+    });
+
+    await Promise.all(updatePromises);
+    status.value = 'complete';
+
+  } catch (err) {
+    console.error("Migration Error:", err);
+    alert("Check console for error details.");
+    status.value = 'idle';
   }
-}
+};
 </script>

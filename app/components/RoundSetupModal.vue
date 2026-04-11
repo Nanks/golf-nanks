@@ -7,7 +7,7 @@
           <div class="flex justify-between items-start mb-6">
             <div>
               <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">
-                {{ modelValue.isLeague ? 'League Event' : 'Casual Round' }}
+                {{ modelValue.isLeague ? (modelValue.type === 'yearly' ? 'Yearly League' : 'Weekly League') : 'Casual Round' }}
               </p>
               <h3 class="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">
                 {{ modelValue.isLeague ? modelValue.leagueName : 'Setup Round' }}
@@ -25,7 +25,22 @@
 
           <div v-else class="overflow-y-auto space-y-6 pb-4 no-scrollbar">
             
-            <div v-if="!modelValue.isLeague" class="space-y-4">
+            <div v-if="modelValue.isLeague" class="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest">Course</span>
+                <span class="font-black dark:text-white">{{ modelValue.data.course }}</span>
+              </div>
+              <div class="flex justify-between items-center pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+                <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest">Group Tees</span>
+                <span class="font-black dark:text-white">{{ modelValue.data.tees }}</span>
+              </div>
+              <div v-if="modelValue.data.game === 'Vegas' && modelValue.data.ddHole?.length" class="flex justify-between items-center pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+                <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest text-amber-500">DD Holes</span>
+                <span class="font-black dark:text-amber-400">{{ modelValue.data.ddHole.join(' & ') }}</span>
+              </div>
+            </div>
+
+            <div v-else class="space-y-4">
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Course</label>
                 <button @click="picker.type = 'course'; picker.isOpen = true" class="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 rounded-2xl active:scale-[0.98] transition-all text-left">
@@ -46,7 +61,6 @@
                     <Icon name="mdi:chevron-right" class="text-slate-400 size-4" />
                   </button>
                 </div>
-
                 <div>
                   <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Holes</label>
                   <div class="flex bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-1 h-[56px]">
@@ -55,17 +69,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div v-else class="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest">Course</span>
-                  <span class="font-black dark:text-white">{{ modelValue.data.course }}</span>
-                </div>
-                <div class="flex justify-between items-center pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
-                  <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest">Group Tees</span>
-                  <span class="font-black dark:text-white">{{ modelValue.data.tees }}</span>
-                </div>
             </div>
 
             <div>
@@ -98,7 +101,12 @@
             </div>
           </div>
 
-          <button v-if="!isLoadingCourses" @click="$emit('start')" :disabled="!modelValue.data.course || !modelValue.data.tees" class="w-full mt-4 py-4 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          <button 
+            v-if="!isLoadingCourses" 
+            @click="handleStartScoring" 
+            :disabled="!modelValue.data.course || !modelValue.data.tees || modelValue.players.length === 0" 
+            class="w-full mt-4 py-4 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-600/30 active:scale-[0.98] transition-all disabled:opacity-50"
+          >
             Start Scoring
           </button>
         </div>
@@ -148,55 +156,36 @@
         :selected-players="modelValue.players"
         @toggle="togglePlayer"
       />
-
     </Teleport>
   </ClientOnly>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore'
+import { useAuthStore } from '~/stores/auth'
+import { useUIStore } from '~/stores/ui'
+import { calcCourseHandicap } from '~/utils/gameLogic'
 
-// 1. Removed 'courses' prop
 const props = defineProps(['modelValue']);
 const emit = defineEmits(['update:modelValue', 'start']);
 
 const { $db } = useNuxtApp();
+const auth = useAuthStore();
+const ui = useUIStore();
+
 const picker = ref({ isOpen: false, type: 'course', targetPlayerId: null });
 const isPlayerPickerOpen = ref(false);
-
-// 2. Local State for Courses
 const localCourses = ref([]);
 const isLoadingCourses = ref(false);
-
+const isSubmitting = ref(false);
 
 const fetchCourses = async () => {
   if (localCourses.value.length > 0) return; 
-  
   isLoadingCourses.value = true;
   try {
     const coursesMap = await fetchFullCourseData($db);
     localCourses.value = Array.from(coursesMap.values());
-
-    // Auto-select Elks & Blue once loaded
-    if (!props.modelValue.isLeague && !props.modelValue.data.course && localCourses.value.length > 0) {
-      
-      // Look specifically for 'Elks'
-      const elksCourse = localCourses.value.find(c => (c.name === 'Elks' || c.id === 'Elks'));
-      
-      // Determine the defaults
-      const defaultCourse = elksCourse ? (elksCourse.name || elksCourse.id) : (localCourses.value[0].name || localCourses.value[0].id);
-      const defaultTees = elksCourse ? 'Blue' : '';
-
-      // Apply the default tee to the player who opened the modal
-      const updatedPlayers = props.modelValue.players.map(p => ({ ...p, tee: defaultTees }));
-
-      emit('update:modelValue', { 
-        ...props.modelValue, 
-        players: updatedPlayers,
-        data: { ...props.modelValue.data, course: defaultCourse, tees: defaultTees } 
-      });
-    }
   } catch (e) {
     console.error("Failed to load courses:", e);
   } finally {
@@ -204,33 +193,30 @@ const fetchCourses = async () => {
   }
 };
 
-// 4. Watch for modal open to trigger fetch
 watch(() => props.modelValue.isOpen, (isOpen) => {
-  if (isOpen && !props.modelValue.isLeague) {
-    fetchCourses();
-  }
+  if (isOpen) fetchCourses();
 });
 
-// 5. Update computed to use localCourses
 const availableTees = computed(() => {
   if (!localCourses.value.length || !props.modelValue?.data?.course) return [];
   const match = localCourses.value.find(c => (c.name || c.id) === props.modelValue.data.course);
   if (!match || !match.tees) return [];
-
-  if (typeof match.tees === 'object' && !Array.isArray(match.tees)) {
-    return Object.keys(match.tees).filter(t => match.tees[t]?.active === true);
-  }
-  return Array.isArray(match.tees) ? match.tees : [];
+  return typeof match.tees === 'object' && !Array.isArray(match.tees) 
+    ? Object.keys(match.tees).filter(t => match.tees[t]?.active === true)
+    : Array.isArray(match.tees) ? match.tees : [];
 });
 
 const selectCourse = (name) => {
   emit('update:modelValue', { ...props.modelValue, data: { ...props.modelValue.data, course: name, tees: '' } });
   picker.value.type = 'tees';
-  picker.value.targetPlayerId = null;
 };
 
 const openGlobalTeePicker = () => picker.value = { isOpen: true, type: 'tees', targetPlayerId: null };
-const openPlayerTeePicker = (playerId) => { if (!props.modelValue.data.course || props.modelValue.isYearly) return; picker.value = { isOpen: true, type: 'tees', targetPlayerId: playerId }; };
+const openPlayerTeePicker = (playerId) => { 
+  if (!props.modelValue.data.course || props.modelValue.isYearly) return; 
+  picker.value = { isOpen: true, type: 'tees', targetPlayerId: playerId }; 
+};
+
 const selectTee = (name) => {
   if (picker.value.targetPlayerId) {
     const updatedPlayers = props.modelValue.players.map(p => p.id === picker.value.targetPlayerId ? { ...p, tee: name } : p);
@@ -245,17 +231,11 @@ const selectTee = (name) => {
 const togglePlayer = (player) => {
   const currentPlayers = [...props.modelValue.players];
   const idx = currentPlayers.findIndex(p => p.id === player.id);
-  
   if (idx > -1) {
     currentPlayers.splice(idx, 1);
   } else if (currentPlayers.length < 5) {
-    // 🔥 NEW: Automatically assign the current group tee to the new player
-    currentPlayers.push({ 
-      ...player, 
-      tee: props.modelValue.data.tees || '' 
-    });
+    currentPlayers.push({ ...player, tee: props.modelValue.data.tees || '' });
   }
-  
   emit('update:modelValue', { ...props.modelValue, players: currentPlayers });
 };
 
@@ -264,10 +244,79 @@ const closeModal = () => {
   picker.value.isOpen = false;
   isPlayerPickerOpen.value = false;
 };
-</script>
 
-<style scoped>
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.slide-up-enter-active, .slide-up-leave-active { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease; }
-.slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); opacity: 0; }
-</style>
+const handleStartScoring = async () => {
+  if (isSubmitting.value || ui.isGlobalLoading || !props.modelValue.data.course) return;
+  isSubmitting.value = true;
+  ui.setLoading(true, "Preparing Scorecard...");
+
+  try {
+    const courseObj = localCourses.value.find(c => (c.name || c.id) === props.modelValue.data.course);
+    const teeData = courseObj?.tees?.[props.modelValue.data.tees];
+    const initialScores = {};
+    const holeCount = props.modelValue.data.holes || 18;
+
+    const mappedPlayers = props.modelValue.players.map(p => {
+      let finalHcp = 0;
+      if (props.modelValue.isLeague && p.leagueHandicaps?.[props.modelValue.leagueId]) {
+        finalHcp = p.leagueHandicaps[props.modelValue.leagueId];
+      } else {
+        const rawIndex = parseFloat(p.ghin) || 0;
+        finalHcp = teeData ? calcCourseHandicap(rawIndex, teeData.slope, teeData.rating, teeData.par || 72) : Math.round(rawIndex);
+      }
+
+      initialScores[p.id] = new Array(holeCount).fill(0);
+
+      return {
+        id: p.id,
+        fname: p.fname,
+        lname: p.lname,
+        name: `${p.fname} ${p.lname}`, // Align with historical Name lookup
+        ghin: p.ghin || 0,
+        index: finalHcp,               // Align with historical Index lookup
+        tee: p.tee || props.modelValue.data.tees
+      };
+    });
+
+    const newRound = {
+      status: 'live',
+      iso: props.modelValue.data.iso || new Date().toISOString().split('T')[0],
+      year: String((props.modelValue.data.iso || new Date().toISOString()).split('-')[0]), // Align with historical year: string
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+      createdBy: auth.user?.uid || 'anonymous',
+      course: props.modelValue.data.course,
+      courseSnapshot: {
+        name: courseObj?.name || props.modelValue.data.course,
+        tees: courseObj?.tees || {}
+      },
+      tees: props.modelValue.data.tees,
+      holes: holeCount,
+      type: props.modelValue.isLeague ? props.modelValue.type : 'casual',
+      leagueId: props.modelValue.leagueId || null,
+      players: mappedPlayers,
+      scores: initialScores,
+      participantUids: props.modelValue.players.flatMap(p => p.uids || []).filter(u => !!u)
+    };
+
+    const docRef = await addDoc(collection($db, "live_rounds"), newRound);
+
+    // Update Recents
+    if (auth.user?.uid) {
+      const partnerIds = props.modelValue.players.map(p => p.id).filter(id => id !== auth.user.uid);
+      if (partnerIds.length > 0) {
+        const updatedRecent = [...new Set([...partnerIds, ...(auth.userProfile?.recentPlayers || [])])].slice(0, 5);
+        await updateDoc(doc($db, "players", auth.user.uid), { recentPlayers: updatedRecent });
+        if (auth.userProfile) auth.userProfile.recentPlayers = updatedRecent;
+      }
+    }
+
+    closeModal();
+    navigateTo(`/rounds/${docRef.id}`);
+  } catch (err) {
+    console.error(err);
+    isSubmitting.value = false;
+    ui.setLoading(false);
+  }
+};
+</script>

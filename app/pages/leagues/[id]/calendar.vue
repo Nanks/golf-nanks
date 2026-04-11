@@ -48,7 +48,7 @@
         <template v-else>
           <NuxtLink 
             v-for="event in events" :key="event.id" 
-            :to="`/leaderboard/${event.id}`"
+            :to="`/leaderboard/${leagueData?.type || 'casual'}/${event.iso}`"
             class="block bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm hover:border-emerald-500 transition-all group"
           >
             <div class="flex justify-between items-center w-full">
@@ -148,7 +148,7 @@ const loadEventsForYear = (year) => {
   // 🔥 DB-Level Sorting (REQUIRES COMPOSITE INDEX in Firestore)
   const q = query(
     eventsRef, 
-    where("year", "==", Number(year)),
+    where("year", "==", String(year)),
     orderBy("iso", "asc") 
   );
 

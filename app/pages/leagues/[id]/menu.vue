@@ -35,7 +35,7 @@
           <div class="icon-circle">
             <Icon name="mdi:bird" class="size-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 transition" />
           </div>
-          <p class="menu-title">Birds Tracker</p>
+          <p class="menu-title">Birds</p>
         </div>
         <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
@@ -49,7 +49,7 @@
           <div class="icon-circle">
             <Icon name="mdi:numeric-2-circle" class="size-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 transition" />
           </div>
-          <p class="menu-title">Deuces Tracker</p>
+          <p class="menu-title">Deuces</p>
         </div>
         <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
@@ -59,12 +59,12 @@
           <div class="icon-circle">
             <Icon name="mdi:account-group" class="size-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 transition" />
           </div>
-          <p class="menu-title">Roster & Handicaps</p>
+          <p class="menu-title">Roster</p>
         </div>
         <Icon name="mdi:chevron-right" class="arrow-icon" />
       </NuxtLink>
 
-      <NuxtLink 
+      <!-- <NuxtLink 
         v-if="isAdmin"
         :to="`/leagues/${route.params.id}/settings`" 
         class="menu-item group mt-6 border-dashed border-slate-300 dark:border-slate-700"
@@ -76,7 +76,7 @@
           <p class="menu-title text-slate-500">League Settings</p>
         </div>
         <Icon name="mdi:chevron-right" class="arrow-icon" />
-      </NuxtLink>
+      </NuxtLink> -->
 
     </div>
   </div>

@@ -1,13 +1,21 @@
 <template>
   <div class="group relative bg-slate-50 dark:bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 hover:border-emerald-500/50 transition-all cursor-pointer overflow-hidden">
-    <div class="flex justify-between items-center">
+    
+    <div v-if="hasLive" class="absolute top-0 right-0 w-24 h-24 bg-red-500/10 blur-3xl -mr-12 -mt-12 pointer-events-none"></div>
+
+    <div class="flex justify-between items-center relative z-10">
       <div class="space-y-1">
         <div class="flex items-center gap-2">
           <Icon v-if="isMember" name="mdi:check-decagram" class="text-emerald-500 size-4" />
           <h3 class="text-2xl font-black uppercase tracking-tighter italic text-slate-800 dark:text-white">
             {{ league.name }}
           </h3>
+          
+          <div v-if="hasLive" class="flex items-center gap-1 bg-red-500 text-[8px] font-black text-white px-1.5 py-0.5 rounded uppercase animate-pulse ml-1">
+            <div class="size-1 bg-white rounded-full"></div> Live
+          </div>
         </div>
+        
         <p class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
           {{ league.type }} League • {{ league.course }}
         </p>
@@ -41,10 +49,12 @@
 </template>
 
 <script setup>
-const props = defineProps(['league', 'isMember']);
+import { computed } from 'vue';
+
+// Added 'hasLive' to the props definition
+const props = defineProps(['league', 'isMember', 'hasLive']);
 defineEmits(['play']);
 
-// Check if the league's next round is actually today
 const isEventToday = computed(() => {
   if (!props.league.nextRound) return false;
   const today = new Date().toISOString().split('T')[0];

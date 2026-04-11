@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 pt-20">
     
     <header v-if="round" class="py-2 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm flex justify-between items-start">
       <div>
@@ -142,24 +142,22 @@
 
 <script setup>
 import { doc, onSnapshot, updateDoc, writeBatch, collection } from "firebase/firestore";
-import { useData } from '~/stores/data';
+// import { useData } from '~/stores/data'; // REMOVED
 import { calcPops, calcBirds, calcDeuces, calcChicago, calcNetRelative, getTotals } from '~/utils/gameLogic';
 import { calcUSGACourseHandicap } from '~/utils/handicap';
 
 const { $db } = useNuxtApp();
 const route = useRoute();
 const router = useRouter();
-const dataStore = useData();
 
 const round = ref(null);
 const activeNine = ref('front');
 const keypad = ref({ isOpen: false, hole: 1, activePlayerId: null, tempScores: {} });
 const showPlayerPicker = ref(false);
 
+// 1. Logic for Yearly League status (now uses internal document data)
 const isYearlyLeague = computed(() => {
-  if (!round.value || !round.value.leagueId) return false;
-  const league = dataStore.leagues.get(round.value.leagueId);
-  return league && (league.yearly_games !== undefined || league.cadence === 'yearly');
+  return round.value?.isYearly || round.value?.type === 'yearly';
 });
 
 const displayedHoles = computed(() => {
@@ -168,20 +166,20 @@ const displayedHoles = computed(() => {
   return activeNine.value === 'front' ? [1,2,3,4,5,6,7,8,9] : [10,11,12,13,14,15,16,17,18];
 });
 
+// 2. Simplified Course Data lookup (strictly uses the snapshot you built)
 const courseData = computed(() => {
-  if (!round.value) return null;
-  const c = dataStore.courses.get(round.value.course) || Array.from(dataStore.courses.values()).find(crs => crs.name === round.value.course);
-  return c?.tees?.[round.value.tees] || null;
+  if (!round.value?.courseSnapshot) return null;
+  return round.value.courseSnapshot.tees?.[round.value.tees] || null;
 });
 
 const getHolePar = (h) => courseData.value?.pars?.[h - 1] || 4;
 
-// --- REFACTORED SHARED LOGIC ENGINE ---
 const gameStats = computed(() => {
   if (!round.value || !courseData.value) return {};
   const stats = {};
-  const league = round.value.leagueId ? dataStore.leagues.get(round.value.leagueId) : null;
-  const activeGames = (isYearlyLeague.value && league?.yearly_games) ? league.yearly_games : (round.value.game || []);
+  
+  // Use games defined on the round document itself
+  const activeGames = round.value.game || [];
   const playChicago = activeGames.includes('Chicago Points') || activeGames.includes('Modified Chicago');
   
   round.value.players.forEach(p => {
@@ -240,22 +238,27 @@ const handlePlayerToggle = async (p) => {
   let updatedScores = { ...round.value.scores };
 
   if (isRemoving) {
-    if (updatedPlayers.length === 1) return alert("You cannot remove the last player from an active round.");
+    if (updatedPlayers.length === 1) return alert("You cannot remove the last player.");
     updatedPlayers = updatedPlayers.filter(x => x.id !== p.id);
     delete updatedScores[p.id];
   } else {
-    if (updatedPlayers.length >= 5) return alert("Maximum 5 players allowed per group.");
-    const assignedTee = round.value.tees || (round.value.courseSnapshot?.tees ? Object.keys(round.value.courseSnapshot.tees)[0] : 'Blue');
+    if (updatedPlayers.length >= 5) return alert("Maximum 5 players.");
+    
+    // Pull tee data from snapshot instead of store
+    const assignedTee = round.value.tees || Object.keys(round.value.courseSnapshot.tees)[0];
+    const teeData = round.value.courseSnapshot.tees[assignedTee];
+    
     const rawGhin = parseFloat(p.ghin) || 0;
-    const teeData = round.value.courseSnapshot?.tees?.[assignedTee];
     let playingHcp = Math.round(rawGhin);
-    if (teeData) playingHcp = calcUSGACourseHandicap(rawGhin, teeData.slope || 113, teeData.rating || 72, teeData.par || 72);
+    
+    if (teeData) {
+      playingHcp = calcUSGACourseHandicap(rawGhin, teeData.slope, teeData.rating, teeData.par);
+    }
     
     updatedPlayers.push({ ...p, ghin: rawGhin, index: playingHcp, tee: assignedTee });
     updatedScores[p.id] = new Array(round.value.holes).fill(0);
   }
-  try { await updateDoc(roundRef, { players: updatedPlayers, scores: updatedScores }); } 
-  catch (err) { console.error("Failed to update group:", err); }
+  await updateDoc(roundRef, { players: updatedPlayers, scores: updatedScores });
 };
 
 const finishCasualRound = async () => {
@@ -294,11 +297,14 @@ const finishCasualRound = async () => {
   }
 };
 
-onMounted(async () => {
-  if (!dataStore.isBooted) await dataStore.bootstrap();
+onMounted(() => {
+  // No store bootstrap needed!
   const unsub = onSnapshot(doc($db, "live_rounds", route.params.id), (snap) => {
-    if (snap.exists()) round.value = { id: snap.id, ...snap.data() };
-    else router.push('/');
+    if (snap.exists()) {
+      round.value = { id: snap.id, ...snap.data() };
+    } else {
+      router.push('/');
+    }
   });
   onUnmounted(() => unsub());
 });

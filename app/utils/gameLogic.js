@@ -1,91 +1,81 @@
-/**
- * Shared helper to calculate handicap "pops" (strokes) per hole
- * UPGRADED: Supports fractional pop decimals for Yearly Leagues
- */
-export const calcPops = (scores, courseHandicaps, playerIndex, isFractional = false) => {
-  const holes = scores?.length || 18;
-  const arr = new Array(holes).fill(0);
-  if (!courseHandicaps || courseHandicaps.length === 0) return arr;
+export const calcPops = (round, teeData) => {
+  return teeData.hnds.map((hnd) => {
+    let pop = (Math.floor(Math.round(round.index) / 18) + ((Math.round(round.index) % 18 >= hnd) ? 1 : 0))
+    return (pop > 0) ? pop : 0
+  })
+}
 
-  const idx = isFractional ? (parseFloat(playerIndex) || 0) : Math.round(parseFloat(playerIndex) || 0);
-  const isPlus = idx < 0;
-  const absIdx = Math.abs(idx);
-  const baseIdx = Math.floor(absIdx);
-  const remainder = absIdx - baseIdx;
+export const calcGames = (round, cal, teeData, pops) => {
 
-  const loops = Math.floor(baseIdx / 18);
-  const remBase = baseIdx % 18;
-
-  for (let i = 0; i < holes; i++) {
-      const hHcp = courseHandicaps[i];
-      if (!hHcp) continue;
-      
-      let pop = loops;
-      if (!isPlus) {
-        if (hHcp <= remBase) pop += 1;
-        if (remainder > 0 && hHcp === remBase + 1) pop += remainder;
-        arr[i] = pop;
-      } else {
-        if (hHcp > 18 - remBase) pop += 1;
-        if (remainder > 0 && hHcp === 18 - remBase) pop += remainder;
-        arr[i] = -pop; 
-      }
-  }
-  return arr;
-};
-
-/**
- * Calculates Net Relative Score (+/- Par)
- */
-export const calcNetRelative = (scores, pops, pars) => {
-  let rel = 0;
-  let holesPlayed = 0;
-  scores.forEach((score, i) => {
-    if (score > 0) {
-      holesPlayed++;
-      rel += ((score - pops[i]) - pars[i]);
-    }
-  });
-  return { rel, holesPlayed };
-};
-
-export const calcBirds = (round, cal, teeData, isFractional = false) => {
-  const pops = calcPops(round.scores, teeData.hnds, round.index || 0, isFractional);
   const ddHoles = (cal?.type === 'vegas' && cal?.ddHole) ? cal.ddHole : [];
-  const birdMult = (cal?.type === 'mbWed' && cal?.birdMult) ? cal.birdMult : 1;
 
-  return round.scores.map((score, i) => {
+  const birds =  round.scores.map((score, i) => {
     if (score <= 0) return 0;
     const isDoubleDown = ddHoles.includes(i + 1) ? 2 : 1;
     const par = teeData.pars[i];
     const pop = pops[i];
     const bird = (score > par) ? ((par - (score - pop)) * 0.5) * isDoubleDown : ((par - score) + (pop * 0.5)) * isDoubleDown;
-    return Math.max(0, bird * birdMult);
+    return Math.max(0, bird);
   });
-};
 
-export const calcDeuces = (round, teeData, isFractional = false) => {
-  const pops = calcPops(round.scores, teeData.hnds, round.index || 0, isFractional);
-  return round.scores.map((score, i) => {
+  const totalBirds = birds.reduce((sum, val) => sum + val, 0);
+
+  const deuces =  round.scores.map((score, i) => {
     if (!score || score <= 0) return 0;
     const hasPop = pops[i] > 0 ? 1 : 0;
     return (score - hasPop <= 2) ? 1 : 0;
   });
-};
 
-export const calcChicago = (round, teeData, isModified = false) => {
-  return round.scores.map((score, i) => {
+  const totalDeuces = deuces.reduce((sum, val) => sum + val, 0);
+
+  const chicago = round.scores.map((score, i) => {
     if (score <= 0) return 0;
     const parDiff = teeData.pars[i] - score;
     if (parDiff > -2) return 2 * Math.pow(2, parDiff);
-    return isModified ? -1 : 0;
+    return 0;
   });
+
+  const totalChicago = chicago.reduce((sum, val) => sum + val, 0);
+
+  const modChicago = round.scores.map((score, i) => {
+    if (score <= 0) return 0;
+    const parDiff = teeData.pars[i] - score;
+    if (parDiff > -2) return 2 * Math.pow(2, parDiff);
+    return -1;
+  });
+
+  const totalModChicago = chicago.reduce((sum, val) => sum + val, 0);
+
+  const net = round.scores.map((score, i) => {
+    if (round.type === 'vegas' || round.type === 'mbWed') {
+        return (score > 0) ? score - teeData.pars[i] - (round.index / 18) : 0
+    } else {
+        return (score > 0) ? score - teeData.pars[i] - pops[i] : 0
+    }
+  });
+
+  const totalNet = net.reduce((sum, val) => sum + val, 0);
+
+  const holesPlayed = round.scores.filter(n => n > 0).length;
+
+  return { pops, birds, totalBirds, deuces, totalDeuces, chicago, totalChicago, modChicago, totalModChicago, net, totalNet, holesPlayed }
 };
 
 export const getTotals = (values) => {
   const sum = (arr) => arr.reduce((a, b) => a + (Number(b) || 0), 0);
   return [ sum(values.slice(0, 9)), sum(values.slice(9, 18)), sum(values) ];
 };
+
+export const calcRounds = (rounds, cal) => {
+  return rounds.map(round => {
+    const teeData = round.courseSnapshot?.tees?.[round.tees];
+    const pops = calcPops(round, teeData);
+    return {
+      ...round,
+      games: calcGames(round, cal, teeData, pops),
+    };
+  });
+}
 
 /**
  * Calculates a player's Course Handicap based on USGA formula
@@ -190,4 +180,47 @@ export const calcAdjustedGross = (scores, pars, pops) => {
 export const calcRawGross = (scores) => {
   if (!scores || scores.length === 0 || scores.includes(0)) return 0;
   return scores.reduce((a, b) => a + (Number(b) || 0), 0);
+};
+
+
+export const flattenAndCalculate = (rounds, league, event, isYearly = false) => {
+  const players = [];
+
+  // 1. Flatten into a uniform list
+  rounds.forEach(round => {
+    if (round.players) {
+      // Live/Foursome format
+      round.players.forEach(p => {
+        players.push({
+          ...p,
+          id: p.id,
+          scores: round.scores?.[p.id] || new Array(round.holes || 18).fill(0),
+          courseSnapshot: round.courseSnapshot,
+          name: p.name || `${p.fname} ${p.lname}`,
+          holes: round.holes || 18
+        });
+      });
+    } else {
+      // Historic/Individual format
+      players.push({ ...round, name: round.name || `${round.fname} ${round.lname}` });
+    }
+  });
+
+  // 2. Run the math
+  return players.map(p => {
+    const teeData = p.courseSnapshot?.tees?.[p.tee];
+    if (!teeData) return { ...p, netRel: 0, holesPlayed: 0, birds: 0, deuces: 0, chicago: 0 };
+
+    const pops = calcPops(p.scores, teeData.hnds, p.index, isYearly);
+    const { rel, holesPlayed } = calcNetRelative(p.scores, pops, teeData.pars);
+
+    return {
+      ...p,
+      holesPlayed,
+      netRel: rel,
+      birds: calcBirds(p, event, teeData, isYearly).reduce((a, b) => a + b, 0),
+      deuces: calcDeuces(p, teeData, isYearly).reduce((a, b) => a + b, 0),
+      chicago: calcChicago(p, teeData).reduce((a, b) => a + b, 0),
+    };
+  });
 };

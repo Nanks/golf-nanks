@@ -250,17 +250,11 @@ const resetOtp = () => {
 };
 
 const handleVerifyOtp = async () => {
-  // 1. Race Condition Guard: If we are already verifying, don't start again
   if (ui.isGlobalLoading) return;
 
-  // 2. Define fullCode at the top
   const fullCode = otpArray.value.join('');
-  
-  // DEBUG LOG: Check your browser console (F12) to see this!
-  console.log("DEBUG: Sending OTP to Firebase:", fullCode);
-
   if (fullCode.length < 6) {
-    toast.add("Please enter all 6 digits.", "info");
+    toast.add({ title: "Incomplete Code", description: "Please enter all 6 digits.", color: 'orange' });
     return;
   }
 
@@ -272,25 +266,27 @@ const handleVerifyOtp = async () => {
 
     if (authStore.pendingPlayerId) {
       const playerRef = doc($db, "players", authStore.pendingPlayerId);
+      
+      // arrayUnion handles the "if not there already" logic automatically
       await updateDoc(playerRef, {
-        uids: arrayUnion(user.uid)
+        uids: arrayUnion(user.uid),
+        lastLogin: new Date().toISOString() // Optional: good for tracking
       });
       
+      // Fetch the updated document to ensure the local store has the latest uids array
       const playerSnap = await getDoc(playerRef);
-      authStore.setUser(user, { id: authStore.pendingPlayerId, ...playerSnap.data() });
+      if (playerSnap.exists()) {
+        authStore.setUser(user, { id: authStore.pendingPlayerId, ...playerSnap.data() });
+      }
     }
     
     navigateTo('/');
   } catch (err) {
-    console.error("Firebase Auth Error:", err.code, err.message);
-    
-    // Clear the boxes on error so the user can try again
+    console.error("Auth Error:", err);
     otpArray.value = ['', '', '', '', '', ''];
-    otpInputs.value[0].focus();
-    
-    toast.add("Invalid or expired code. Please try again.", "error");
+    otpInputs.value[0]?.focus();
+    toast.add({ title: "Verification Failed", description: "Invalid code.", color: 'red' });
   } finally {
-    // 3. Always clear the loading state
     ui.setLoading(false);
   }
 };
