@@ -1,79 +1,82 @@
 <template>
   <div class="antialiased font-sans selection:bg-emerald-500/30 bg-slate-950 min-h-screen text-slate-200">
-    
     <AppNavbar />
-    <AppToast />
-    <AppLoading :active="ui.isGlobalLoading" :message="ui.loadingMessage" />
+    
+    <ClientOnly>
+      <AppToast />
+      <AppConfirm />
+      <AppLoading :active="ui.isGlobalLoading" :message="ui.loadingMessage" />
+    </ClientOnly>
 
     <NuxtLayout>
       <div class="relative transition-all duration-500">
         <NuxtPage />
       </div>
     </NuxtLayout>
-
   </div>
 </template>
 
 <script setup>
-const authStore = useAuthStore();
-const { $auth, $db } = useNuxtApp();
-import { collection, query, where, getDocs } from "firebase/firestore";
+// Removed unused useAuthStore
+import { useData } from '~/stores/data'
 import { useUIStore } from '~/stores/ui'
 
+const dataStore = useData()
 const ui = useUIStore()
-const nuxtApp = useNuxtApp()
+const { hook } = useNuxtApp()
 
-// 1. Automatic Route Loading
-// Shows the spinner whenever the user navigates between pages
-nuxtApp.hook("page:start", () => {
-  ui.setLoading(true, 'Loading Page...')
+/**
+ * 1. SSR HYDRATION
+ */
+const { data } = await useAsyncData('initial-data-hydration', async () => {
+  await dataStore.hydrateStore()
+  return true
 })
 
-nuxtApp.hook("page:finish", () => {
-  // Small delay for smoother transitions
-  setTimeout(() => {
-    ui.setLoading(false)
-  }, 300)
-})
-
-// 2. Global Error Handling
-// If a hard error occurs, make sure the spinner doesn't get stuck forever
-onErrorCaptured((err) => {
-  console.error("Global Error Boundary:", err)
-  ui.setLoading(false)
-  return true 
-})
-
-onMounted(() => {
-  $auth.onAuthStateChanged(async (user) => {
-    if (user && !authStore.userProfile) {
-      console.log("🔄 Re-hydrating user profile...");
-      
-      try {
-        // Search for the player document where uids array contains user.uid
-        const playersRef = collection($db, "players");
-        const q = query(playersRef, where("uids", "array-contains", user.uid));
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-          const playerDoc = querySnapshot.docs[0];
-          const playerData = playerDoc.data();
-          
-          // Set the store so index.vue and the Navbar see the data
-          authStore.setUser(user, { id: playerDoc.id, ...playerData });
-          console.log("✅ Profile restored:", playerData.fname);
-        } else {
-          console.warn("⚠️ No player document found for this UID.");
-        }
-      } catch (error) {
-        console.error("❌ Error re-hydrating profile:", error);
-      }
+/**
+ * 2. VISIBILITY MANAGEMENT (Phone in Pocket)
+ */
+if (import.meta.client) {
+  useEventListener(document, 'visibilitychange', () => {
+    if (document.hidden) {
+      console.log('⛳️ App backgrounded: Cleaning up listeners...')
+      dataStore.stopLiveListener()
+    } else {
+      console.log('⛳️ App foregrounded: Resuming live data...')
+      dataStore.resumeListener()
     }
-  });
-});
+  })
+}
+
+/**
+ * 3. PAGE LOADING HOOKS
+ * These automatically trigger your global AppLoading component during route changes!
+ */
+hook('page:start', () => ui.setLoading(true, 'Loading...'))
+hook('page:finish', () => {
+  setTimeout(() => ui.setLoading(false), 300)
+})
 </script>
 
 <style>
+/* Disable text selection and tap highlights globally */
+body {
+  -webkit-tap-highlight-color: transparent; /* Removes the grey flash on Android/iOS taps */
+  -webkit-touch-callout: none; /* Disables the iOS popup when you long-press */
+  user-select: none; /* Prevents text from being highlighted when tapping quickly */
+}
+
+/* Re-enable selection and cursors ONLY for actual input fields */
+input, textarea {
+  user-select: auto;
+  caret-color: auto; /* Ensures the cursor comes back when typing in a form */
+}
+
+/* If you ever have a specific card that still shows a cursor, you can force it */
+button, a, .cursor-pointer {
+  caret-color: transparent; 
+}
+
 /* Smooth Page Transitions */
 .page-enter-active,
 .page-leave-active {
@@ -90,18 +93,18 @@ onMounted(() => {
   transform: translateY(-10px);
 }
 
-/* Custom Scrollbar for the dark modern look */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #020617; /* slate-950 */
+  background: #020617; 
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b; /* slate-800 */
+  background: #1e293b; 
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #10b981; /* emerald-500 */
+  background: #10b981; 
 }
 </style>

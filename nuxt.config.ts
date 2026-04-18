@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   },
 
   // Modules
-  modules: ['@vite-pwa/nuxt', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxt/icon'],
+  modules: ['@vueuse/nuxt','@vite-pwa/nuxt', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxt/icon'],
 
   app: {
     // Enables a transition named 'page' that waits for the old page to leave before the new one enters
@@ -57,10 +57,10 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'firebase',
     firebase: {
-      gen: 2 
+      gen: 2
     }
   },
 
   // Ensure Firebase only runs on the client side
-  ssr: false 
+  ssr: true 
 })

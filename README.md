@@ -1,75 +1,13 @@
-# Nuxt Minimal Starter
+Project State Summary:
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Framework: Nuxt 4 (SSR enabled) + Firebase + Pinia.
 
-## Setup
+Auth: Handled via 01.firebase.ts (Universal) and 02.auth.client.ts. The store uses waitForAuth to prevent middleware race conditions.
 
-Make sure to install dependencies:
+Data: Using a hydrateStore pattern in app.vue to fetch public leagues/courses on the server.
 
-```bash
-# npm
-npm install
+Global UI: AppToast, AppLoading, and AppConfirm are wrapped in <ClientOnly> in app.vue.
 
-# pnpm
-pnpm install
+Calendar Logic: Refactored to a compact "Calendar Block" layout using semantic statuses (complete, rain, practice, handicap) instead of hardcoded MDI strings.
 
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Security: Middleware is bypassed on the server (import.meta.server) to allow the client to handle Firebase session restoration.

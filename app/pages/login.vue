@@ -71,7 +71,8 @@
                 type="text"
                 inputmode="numeric"
                 maxlength="1"
-                class="w-12 h-16 bg-slate-950 border-2 border-slate-800 text-emerald-500 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all font-black text-center text-2xl"
+                autocomplete="one-time-code"
+                class="w-full max-w-[2.8rem] sm:max-w-[3rem] h-14 sm:h-16 bg-slate-950 border-2 border-slate-800 text-emerald-500 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all font-black text-center text-xl sm:text-2xl"
                 @input="handleInput(index, $event)"
                 @keydown.delete="handleDelete(index)"
                 :disabled="isLoading"
@@ -181,6 +182,7 @@ const handleSendOtp = async () => {
     }
 
     // Persist doc ID to authStore and send OTP
+    const playerDoc = querySnapshot.docs[0]
     authStore.setPendingPlayerId(querySnapshot.docs[0].id);
     await sendOtp(formattedE164);
     otpSent.value = true;

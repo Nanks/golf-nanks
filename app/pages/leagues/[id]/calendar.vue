@@ -1,180 +1,218 @@
 <template>
-  <div :key="route.params.id" class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 pt-20 lg:pt-20">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 px-2 py-6 pt-22 max-w-2xl mx-auto pb-32 select-none">
     
-    <header class="py-4 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-16 lg:top-20 z-30 shadow-sm flex justify-between items-center">
-      <div>
-        <NuxtLink :to="`/leagues/${route.params.id}/menu`" class="text-[10px] font-black text-slate-400 hover:text-emerald-500 uppercase tracking-widest flex items-center gap-1 mb-1 transition-colors">
-          <Icon name="mdi:arrow-left" class="size-3" /> Back to Menu
-        </NuxtLink>
-        <h1 class="text-3xl font-black text-emerald-600 uppercase tracking-tighter leading-none">
-          {{ leagueName }}
-        </h1>
-      </div>
-      
-      <div class="flex items-center gap-2">
+    <template v-if="leagueData">
+      <LeagueHeader 
+        :title="leagueData.shortName || leagueData.name" 
+        :is-admin="isAdmin"
+        :back-to="`/leagues/${route.params.id}/menu`"
+        back-text="League Menu"
+      >
+        <template #action>
+          <ClientOnly>
+            <button 
+              v-if="isAdmin"
+              @click="isAdminMode = !isAdminMode" 
+              :class="isAdminMode ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
+              class="flex items-center gap-2 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+            >
+              <Icon :name="isAdminMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-3.5" />
+              <span class="hidden xs:inline">{{ isAdminMode ? 'Finish Editing' : 'Manage' }}</span>
+            </button>
+          </ClientOnly>
+        </template>
+      </LeagueHeader>
+
+      <div class="flex items-center justify-center gap-6 mb-2">
         <button 
-          @click="isAdminMode = !isAdminMode" 
-          :class="isAdminMode ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+          @click="prevYear" 
+          :disabled="selectedYear <= 2016"
+          :class="selectedYear <= 2016 ? 'opacity-20 cursor-not-allowed' : 'text-slate-400 active:text-emerald-500 active:scale-90'"
+          class="p-2 transition-all rounded-full bg-slate-200/50 dark:bg-slate-900/50"
         >
-          <Icon :name="isAdminMode ? 'mdi:unlocked' : 'mdi:lock'" class="size-4" />
-          <span class="hidden sm:inline">Manage</span>
+          <Icon name="mdi:chevron-left" class="size-6" />
         </button>
         
-        <button v-if="isAdminMode" @click="openAddModal" class="p-2.5 bg-emerald-600 text-white rounded-xl shadow-lg active:scale-95 transition-all">
-          <Icon name="mdi:plus" class="size-5" />
-        </button>
-      </div>
-    </header>
-
-    <div class="px-4 mt-6 max-w-2xl mx-auto">
-      <div class="flex gap-2 mb-8 overflow-x-auto no-scrollbar pb-2">
-        <button 
-          v-for="year in availableYears" :key="year"
-          @click="selectedYear = year"
-          :class="selectedYear === year ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'"
-          class="px-5 py-2 rounded-xl text-xs font-black transition-all"
-        >
-          {{ year }}
-        </button>
-      </div>
-
-      <div class="space-y-4">
-        <div v-if="isLoading" class="flex flex-col items-center justify-center py-20 opacity-50">
-          <Icon name="svg-spinners:ring-resize" class="size-8 text-emerald-500 mb-4" />
-          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading Events...</p>
+        <div class="text-center min-w-[80px]">
+          <span class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block leading-none mb-1">Season</span>
+          <span class="text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-none">{{ selectedYear }}</span>
         </div>
 
-        <template v-else>
-          <NuxtLink 
-            v-for="event in events" :key="event.id" 
-            :to="`/leaderboard/${leagueData?.type || 'casual'}/${event.iso}`"
-            class="block bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm hover:border-emerald-500 transition-all group"
-          >
-            <div class="flex justify-between items-center w-full">
-              <div>
-                <p class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mb-1">
-                  {{ formatEventDate(event) }}
-                </p>
-                <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <span>{{ event.course || 'TBD' }}</span>
-                  <span class="text-slate-200 dark:text-slate-700">•</span>
-                  <span>{{ event.tees || 'TBD' }}</span>
-                  <template v-if="event.ninePlayed">
-                    <span class="text-slate-200 dark:text-slate-700">•</span>
-                    <span class="text-emerald-500">{{ event.ninePlayed }}</span>
+        <button 
+          @click="nextYear" 
+          :disabled="selectedYear >= currentYear"
+          :class="selectedYear >= currentYear ? 'opacity-20 cursor-not-allowed' : 'text-slate-400 active:text-emerald-500 active:scale-90'"
+          class="p-2 transition-all rounded-full bg-slate-200/50 dark:bg-slate-900/50"
+        >
+          <Icon name="mdi:chevron-right" class="size-6" />
+        </button>
+      </div>
+
+      <ClientOnly>
+        <Transition name="fade">
+          <div v-if="isAdminMode" class="mb-4">
+            <button 
+              @click="openAddModal"
+              class="w-full p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 active:border-emerald-500 active:text-emerald-500 transition-colors flex items-center justify-center gap-2"
+            >
+              <Icon name="mdi:plus-circle-outline" class="size-4" /> 
+              Add New Event
+            </button>
+          </div>
+        </Transition>
+      </ClientOnly>
+
+      <div class="space-y-2">
+        <div v-for="event in events" :key="event.id" 
+            class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden transition-all shadow-sm">
+          
+          <div class="p-2.5 flex items-center justify-between gap-3">
+            
+            <NuxtLink :to="getEventLink(event)" class="flex-1 min-w-0 flex items-center gap-3">
+              
+              <div class="w-10 shrink-0 text-center flex flex-col items-center justify-center">
+                <span class="text-[8px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-0.5">
+                  {{ getEventMonth(event.iso) }}
+                </span>
+                <span class="text-lg font-black text-slate-900 dark:text-white tabular-nums leading-none">
+                  {{ getEventDay(event.iso) }}
+                </span>
+              </div>
+
+              <div class="w-px h-8 bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+
+              <div class="flex-1 min-w-0 py-0.5">
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="font-black text-slate-900 dark:text-white uppercase text-sm italic leading-none tracking-tighter truncate">
+                    {{ event.course || 'TBD' }}
+                  </h3>
+                  <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter shrink-0">{{ event.tees || 'TBD' }}</span>
+                </div>
+                
+                <div class="flex gap-1.5 flex-wrap">
+                  <template v-for="g in event.game" :key="g">
+                    <div 
+                      v-if="g.toLowerCase() !== 'stroke play'"
+                      class="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-500 flex items-center"
+                    >
+                      <span class="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5">
+                        {{ getInitials(g) }}
+                      </span>
+                    </div>
                   </template>
                 </div>
-                <div class="mt-3 inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-md">
-                  <Icon name="mdi:parking" class="size-3 text-emerald-500" />
-                  <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
-                    {{ event.game || 'Stroke Play' }}
-                  </span>
-                </div>
+              </div>
+            </NuxtLink>
+
+            <div class="flex items-center gap-2 shrink-0 pr-1">
+              <div v-if="getStatusUI(event.status)" :class="getStatusUI(event.status).color">
+                <Icon :name="getStatusUI(event.status).icon" class="size-5" />
               </div>
               
-              <div class="flex items-center gap-2">
-                <template v-if="isAdminMode">
-                  <button @click.prevent="openEditModal(event)" class="p-2 text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-500 rounded-xl transition-all">
-                    <Icon name="mdi:pencil-outline" class="size-5" />
+              <ClientOnly>
+                <div v-if="isAdminMode" class="flex gap-1">
+                  <button @click="openEditModal(event)" class="p-1.5 text-slate-300 active:text-amber-500 transition-colors">
+                    <Icon name="mdi:pencil-circle" class="size-6" />
                   </button>
-                  <button @click.prevent="deleteEvent(event.id)" class="p-2 text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 rounded-xl transition-all">
-                    <Icon name="mdi:trash-can-outline" class="size-5" />
+                  <button @click="promptDelete(event)" class="p-1 text-slate-300 active:text-red-500 transition-colors">
+                    <Icon name="mdi:close-circle-outline" class="size-5" />
                   </button>
-                </template>
-                <Icon name="mdi:chevron-right" class="size-5 text-slate-300 group-hover:text-emerald-500 transition-colors" />
-              </div>
+                </div>
+                <Icon 
+                  v-else 
+                  :name="event.status ? 'mdi:chevron-right' : 'mdi:poker-chip'" 
+                  :class="!event.status ? 'text-emerald-500 animate-pulse' : 'text-slate-300'"
+                  class="size-5" 
+                />
+              </ClientOnly>
             </div>
-          </NuxtLink>
-
-          <div v-if="events.length === 0" class="text-center py-20">
-            <Icon name="mdi:calendar-blank" class="size-12 text-slate-200 dark:text-slate-800 mb-4 mx-auto" />
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No events found for {{ selectedYear }}</p>
           </div>
-        </template>
-      </div>
-    </div>
+        </div>
 
-    <CalendarEventModal 
-      :is-open="isModalOpen" 
-      :event="activeEvent"
-      :is-weekly="isWeekly"
-      @close="isModalOpen = false"
-      @save="handleSaveEvent"
-    />
+        <div v-if="events.length === 0" class="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+          <Icon name="mdi:calendar-blank" class="size-10 text-slate-200 dark:text-slate-800 mb-2 mx-auto" />
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No events for {{ selectedYear }}</p>
+        </div>
+      </div>
+    </template>
+
+    <ClientOnly>
+      <CalendarEventModal 
+        :is-open="isModalOpen" 
+        :event="activeEvent"
+        :league="leagueData"
+        @close="isModalOpen = false"
+        @save="handleSaveEvent"
+      />
+
+      <ConfirmModal
+        :is-open="isDeleteModalOpen"
+        title="Delete Event?"
+        confirm-text="Delete"
+        icon="mdi:calendar-remove"
+        @close="cancelDelete"
+        @confirm="executeDelete"
+      >
+        Are you sure you want to delete the event at <b>{{ eventToDelete?.course }}</b> on <b>{{ formatEventDate(eventToDelete) }}</b>? This action cannot be undone.
+      </ConfirmModal>
+    </ClientOnly>
   </div>
 </template>
 
 <script setup>
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc } from "firebase/firestore";
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore"
+import { useUIStore } from "~/stores/ui"
+import { useAuthStore } from "~/stores/auth"
+import { useData } from "~/stores/data"
 
 const { $db } = useNuxtApp();
 const route = useRoute();
+const ui = useUIStore();
+const authStore = useAuthStore();
+const dataStore = useData();
 
-// 1. Dynamic Year Logic
+// --- STATE ---
 const currentYear = new Date().getFullYear();
 const selectedYear = ref(currentYear);
-const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
-
-// 2. Local State
-const leagueData = ref(null);
-const leagueName = computed(() => leagueData.value?.name || 'Loading...');
-const isWeekly = computed(() => leagueData.value?.cadence === 'weekly' || leagueData.value?.type === 'weekly');
 const events = ref([]);
-const isLoading = ref(true);
-let currentUnsub = null;
-
-// 3. Admin & Modal State
 const isAdminMode = ref(false);
 const isModalOpen = ref(false);
 const activeEvent = ref(null);
 
-const fetchLeagueDetails = async () => {
-  try {
-    const snap = await getDoc(doc($db, "leagues", route.params.id));
-    if (snap.exists()) leagueData.value = snap.data();
-  } catch (e) {
-    console.error("Error fetching league:", e);
-  }
-};
+const isDeleteModalOpen = ref(false);
+const eventToDelete = ref(null);
 
+let currentUnsub = null;
+
+// --- COMPUTED DATA ---
+const leagueData = computed(() => {
+  return dataStore.leagues.find(l => l.id === route.params.id)
+})
+
+const isAdmin = computed(() => {
+  return leagueData.value && authStore.isAdminForLeague(leagueData.value.type)
+})
+
+// --- DATA FETCHING ---
 const loadEventsForYear = (year) => {
   if (currentUnsub) currentUnsub();
-  isLoading.value = true;
-
-  const eventsRef = collection($db, "leagues", route.params.id, "calendar");
   
-  // 🔥 DB-Level Sorting (REQUIRES COMPOSITE INDEX in Firestore)
+  const eventsRef = collection($db, "leagues", route.params.id, "calendar");
   const q = query(
     eventsRef, 
-    where("year", "==", String(year)),
-    orderBy("iso", "asc") 
+    where("iso", ">=", `${year}-01-01`),
+    where("iso", "<=", `${year}-12-31`),
+    orderBy("iso", "asc")
   );
 
   currentUnsub = onSnapshot(q, (snap) => {
-    // No more JS sorting required
     events.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    isLoading.value = false;
-  }, (err) => {
-    // If screen is blank, click the link in your console here!
-    console.error("Firestore Index Error:", err);
-    isLoading.value = false;
   });
 };
 
-watch(selectedYear, (newYear) => loadEventsForYear(newYear));
-
-onMounted(() => {
-  fetchLeagueDetails();
-  loadEventsForYear(selectedYear.value);
-});
-
-onUnmounted(() => {
-  if (currentUnsub) currentUnsub();
-});
-
-// 4. Modal Handlers
+// --- EVENT HANDLERS ---
 const openAddModal = () => {
   activeEvent.value = null;
   isModalOpen.value = true;
@@ -186,12 +224,10 @@ const openEditModal = (event) => {
 };
 
 const handleSaveEvent = async (eventData) => {
+  ui.setLoading(true, "Saving Event...");
   try {
     const calendarRef = collection($db, "leagues", route.params.id, "calendar");
-    const eventYear = Number(eventData.iso.split('-')[0]);
-    const finalData = { ...eventData, year: eventYear };
-
-    if (!isWeekly.value) finalData.ninePlayed = '18 Holes';
+    const finalData = { ...eventData, lastUpdated: new Date().toISOString() };
 
     if (activeEvent.value?.id) {
       await updateDoc(doc($db, "leagues", route.params.id, "calendar", activeEvent.value.id), finalData);
@@ -201,27 +237,127 @@ const handleSaveEvent = async (eventData) => {
     isModalOpen.value = false;
   } catch (e) {
     console.error("Save Error:", e);
+  } finally {
+    ui.setLoading(false);
   }
 };
 
-const deleteEvent = async (eventId) => {
-  if (!confirm("Are you sure you want to delete this event?")) return;
+const promptDelete = (event) => {
+  eventToDelete.value = event;
+  isDeleteModalOpen.value = true;
+};
+
+const cancelDelete = () => {
+  isDeleteModalOpen.value = false;
+  eventToDelete.value = null;
+};
+
+const executeDelete = async () => {
+  if (!eventToDelete.value) return;
+  ui.setLoading(true, "Deleting...");
   try {
-    await deleteDoc(doc($db, "leagues", route.params.id, "calendar", eventId));
+    await deleteDoc(doc($db, "leagues", route.params.id, "calendar", eventToDelete.value.id));
+    isDeleteModalOpen.value = false;
+    eventToDelete.value = null;
   } catch (e) {
     console.error("Delete Error:", e);
+  } finally {
+    ui.setLoading(false);
   }
+};
+
+// --- HELPERS ---
+const getInitials = (str) => {
+  if (!str) return '';
+  return str.split(' ').map(w => w[0]).join('').toUpperCase();
+};
+
+const nextYear = () => {
+  selectedYear.value = Math.min(selectedYear.value + 1, currentYear);
+};
+
+const prevYear = () => {
+  selectedYear.value = Math.max(selectedYear.value - 1, 2016);
+};
+
+const getEventMonth = (iso) => {
+  if (!iso) return 'TBD';
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+};
+
+const getEventDay = (iso) => {
+  if (!iso) return '-';
+  return new Date(iso + 'T12:00:00').getDate();
 };
 
 const formatEventDate = (event) => {
-  const dateValue = event.iso;
-  if (!dateValue) return 'Date TBD';
-  const [y, m, d] = dateValue.split('-');
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { 
+  if (!event?.iso) return 'TBD';
+  return new Date(event.iso + 'T12:00:00').toLocaleDateString('en-US', { 
     month: 'short', day: 'numeric', year: 'numeric' 
   });
 };
+
+const getEventLink = (event) => {
+  const type = props.league.type || 'casual'; // Or however you get league type
+  const iso = event.iso;
+  const isFinished = ['complete', 'mdi:check-bold', 'mdi-check-bold', 'rain', 'handicap', 'practice'].includes(event.status?.toLowerCase());
+
+  // Appending the ?from=calendar query parameter!
+  return isFinished 
+    ? `/leaderboard/${type}/${iso}/history` 
+    : `/leaderboard/${type}/${iso}/live?from=calendar`;
+};
+
+const getStatusUI = (status) => {
+  if (!status) return null; // null = planned (no icon)
+
+  // Normalize the string so we don't have to worry about case sensitivity
+  const normalizedStatus = status.toLowerCase();
+
+  switch (normalizedStatus) {
+    // 1. COMPLETE
+    case 'complete':
+    case 'mdi:check-bold':
+    case 'mdi-check-bold':
+      return { icon: 'mdi:check-circle', color: 'text-emerald-500' };
+
+    // 2. PRACTICE
+    case 'practice':
+    case 'mdi:alpha-p-circle-outline':
+    case 'mdi-alpha-p-circle-outline':
+      return { icon: 'mdi:flag-triangle', color: 'text-blue-500' };
+
+    // 3. RAIN / CANCELLED
+    case 'rain':
+    case 'mdi:weather-pouring':
+    case 'mdi-weather-pouring':
+    case 'mdi:cancel':
+    case 'mdi-cancel':
+      return { icon: 'mdi:weather-pouring', color: 'text-slate-400' };
+
+    // 4. HANDICAP
+    case 'handicap':
+      return { icon: 'mdi:calculator', color: 'text-amber-500' };
+
+    // Fallback for anything else
+    default:
+      return null;
+  }
+};
+
+// --- LIFECYCLE ---
+onMounted(() => {
+  loadEventsForYear(selectedYear.value);
+});
+
+onUnmounted(() => {
+  if (currentUnsub) currentUnsub();
+});
+
+watch(selectedYear, (newYear) => loadEventsForYear(newYear));
 </script>
+
 <style scoped>
-.no-scrollbar::-webkit-scrollbar { display: none; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

@@ -1,151 +1,365 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 pt-20">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 pt-24 select-none">
     
-    <div v-if="loading" class="flex flex-col items-center justify-center pt-32 space-y-4">
-      <Icon name="mdi:golf" class="size-12 text-emerald-600 animate-pulse opacity-50" />
+    <div v-if="uiStore.isGlobalLoading" class="flex flex-col items-center justify-center pt-32 space-y-4">
+      <Icon name="mdi:golf" class="size-12 text-emerald-600 animate-bounce opacity-50" />
       <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-        Syncing {{ mode }} Leaderboard...
+        {{ uiStore.loadingMessage }}
       </p>
     </div>
 
     <template v-else-if="processedPlayers.length > 0">
-      <header class="bg-emerald-600 px-6 py-8 text-white shadow-xl relative overflow-hidden">
-        <div class="relative z-10">
-          <div class="flex justify-between items-start mb-4">
-            <button @click="router.back()" class="bg-white/20 p-2 rounded-xl backdrop-blur-md active:scale-95 transition-all">
-              <Icon name="mdi:arrow-left" class="size-5" />
-            </button>
+      <LeagueHeader 
+        :title="leagueData?.shortName || leagueData?.name || (type === 'casual' ? 'Casual' : type)"
+        :isAdmin="isAdmin"
+        :backTo="backRoute"
+        :backText="backText"
+      >
+        <template #action>
+          <ClientOnly>
             <div v-if="mode === 'live'" class="flex items-center gap-1.5 bg-red-500 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
-              <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> Live Action
+              <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> Live
             </div>
-          </div>
-          
-          <h1 class="text-4xl font-black uppercase tracking-tighter italic leading-none">
-            {{ leagueData?.shortName || leagueData?.name || (type === 'casual' ? 'Casual' : type) }}
-          </h1>
-          <p class="text-[10px] font-bold opacity-90 uppercase tracking-[0.2em] mt-2">
-            {{ processedPlayers[0]?.courseSnapshot?.name }} • {{ getShortDate(iso) }}
-          </p>
-        </div>
-        <Icon name="mdi:trophy" class="absolute -right-6 -bottom-6 size-48 opacity-10 pointer-events-none" />
-      </header>
+          </ClientOnly>
+        </template>
+      </LeagueHeader>
 
-      <div class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar">
-        <div class="flex p-3 gap-2">
+      <div class="px-4">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+          {{ processedPlayers[0]?.course || 'Loading Course...' }} • {{ getShortDate(iso) }}
+        </p>
+      </div>
+
+      <div class="sticky top-0 z-40 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 p-2">
+        <div class="flex bg-slate-200/50 dark:bg-slate-900/50 p-1 rounded-xl overflow-x-auto no-scrollbar gap-1">
           <button 
             v-for="tab in availableTabs" :key="tab"
             @click="activeTab = tab"
-            :class="activeTab === tab ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg scale-105' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
-            class="px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all"
+            :class="activeTab === tab 
+              ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+              : 'text-slate-500 active:text-slate-700 dark:active:text-slate-300'"
+            class="flex-1 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tight whitespace-nowrap transition-all text-center min-w-[80px]"
           >
             {{ tab }}
           </button>
         </div>
       </div>
 
-      <div class="p-4 max-w-2xl mx-auto mt-4">
-        <div class="flex justify-between px-6 mb-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
-          <div class="flex gap-8"><span>Pos</span><span>Player</span></div>
-          <div class="flex gap-6"><span>Thru</span><span>Score</span></div>
+      <div class="p-2 max-w-2xl mx-auto">
+        <div 
+          v-if="isHoleByHoleTab && mode === 'live' && eventDetails?.status !== 'complete'" 
+          class="mb-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 flex items-center justify-center gap-2"
+        >
+          <Icon name="mdi:shuffle-variant" class="size-4 text-amber-500" />
+          <span class="text-[9px] font-black text-amber-600 uppercase tracking-widest">
+            Live Scramble: Pairs lock at finish
+          </span>
         </div>
 
-        <TransitionGroup name="shuffle-list" tag="div" class="space-y-3 relative">
-          <div 
-            v-for="(row, index) in sortedLeaderboard" 
-            :key="row.id"
-            @click="openPlayerModal(row)"
-            class="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-sm transition-all cursor-pointer active:scale-[0.98] group"
-          >
-            <div class="flex items-center gap-5">
-              <div class="flex flex-col items-center w-6">
-                <span class="font-black text-sm text-slate-400 group-hover:text-emerald-500 transition-colors">{{ getRank(index) }}</span>
-                <Icon 
-                  v-if="row.trend !== 0"
-                  :name="row.trend > 0 ? 'mdi:triangle' : 'mdi:triangle-down'"
-                  :class="row.trend > 0 ? 'text-emerald-500' : 'text-red-500'"
-                  class="size-2 mt-0.5"
-                />
-              </div>
+        <div class="relative">
+          <TransitionGroup :name="transitionName" tag="div" class="space-y-3">
+            <div v-for="(row, index) in activeDisplayList" :key="row.id">
               
-              <div>
-                <p class="font-black text-sm text-slate-800 dark:text-white uppercase tracking-tight leading-none">{{ row.name }}</p>
-                <p v-if="activeTab === 'Net Score'" class="text-[9px] font-black text-slate-400 uppercase mt-1">
-                  CH: {{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}
-                </p>
-              </div>
-            </div>
+              <div v-if="row.isWinnerRow" class="card-inner flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm">
+                
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <div class="flex flex-col items-center justify-center w-6 shrink-0">
+                    <span 
+                      v-if="['complete', 'mdi-check-bold'].includes(eventDetails?.status?.toLowerCase())" 
+                      class="font-black text-xl text-slate-400 group-active:text-emerald-500 leading-none"
+                    >
+                      {{ index === 0 ? '1' : (row.score === activeDisplayList[index-1].score ? '-' : index + 1) }}
+                    </span>
+                    <Icon v-else name="mdi:shuffle-variant" class="size-5 text-amber-500/40" />
+                  </div>
 
-            <div class="flex items-center gap-6">
-              <span class="text-xs font-bold text-slate-400 tabular-nums">
-                {{ row.games.holesPlayed === (row.holes || 18) ? 'F' : (row.games.holesPlayed === 0 ? '-' : row.games.holesPlayed) }}
-              </span>
-              <div class="w-12 text-right">
-                <span :class="row.scoreColor" class="font-black text-xl italic tracking-tighter">{{ row.scoreDisplay }}</span>
+                  <div class="w-px h-10 bg-slate-100 dark:bg-slate-800 shrink-0"></div>
+
+                  <div class="min-w-0 flex flex-col justify-center gap-1.5 py-1 pr-2">
+                    <p class="font-black text-sm text-slate-800 dark:text-white uppercase tracking-tighter italic leading-none truncate">
+                      {{ row.player.split(' / ')[0] }}
+                    </p>
+                    <p class="font-black text-sm text-slate-800 dark:text-white uppercase tracking-tighter italic leading-none truncate">
+                      {{ row.player.split(' / ')[1] || 'TBD' }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex flex-col items-end justify-center shrink-0 pl-4 border-l border-slate-100 dark:border-slate-800/80 min-w-[10">
+                  <p class="text-[8px] font-black text-slate-400 uppercase leading-none mb-1.5">Team Net</p>
+                  <span class="font-black text-xl italic tracking-tighter leading-none text-emerald-500">
+                    {{ row.score }}
+                  </span>
+                  <!-- <p v-if="row.money > 0" class="text-[10px] font-black text-emerald-500 mt-1 italic text-center leading-none">
+                    +${{ row.money.toFixed(2) }}
+                  </p> -->
+                </div>
+
               </div>
+
+              <div v-else @click="openPlayerModal(row)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-all active:scale-[0.98] group overflow-hidden">
+                <div class="p-2">
+
+                  <div class="w-full border-b border-slate-100 dark:border-slate-800/50">
+                    <h3 class="font-black pl-4 mb-1 text-md text-slate-800 dark:text-white uppercase tracking-tighter italic leading-none truncate">
+                      {{ row.name }}
+                    </h3>
+                  </div>
+
+                  <div class="flex items-center justify-between">
+                    
+                    <div class="flex flex-col items-start w-8 shrink-0">
+                      <span v-if="getRank(index)" class="font-black text-base text-slate-400 group-active:text-emerald-500 transition-colors leading-none">
+                        {{ getRank(index) }}
+                      </span>
+                    </div>
+
+                    <div class="flex flex-col items-start justify-center flex-1 ml-2">
+                      <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-tight">
+                        CH: {{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}
+                      </span>
+                      <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-tight mt-0.5">
+                        Gross: <span class="text-slate-600 dark:text-slate-300">{{ row.grossDisplay }}</span>
+                      </span>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center shrink-0 border-l border-r border-slate-100 dark:border-slate-800/80">
+                      <p class="text-sm font-bold text-slate-500 tabular-nums leading-none">
+                        {{ row.games.holesPlayed === (row.holes || 18) ? 'F' : (row.games.holesPlayed === 0 ? '-' : row.games.holesPlayed) }}
+                      </p>
+                    </div>
+
+                    <div class="flex flex-col items-end justify-center min-w-18 px-2">
+                      <span :class="row.scoreColor" class="font-black text-lg italic tracking-tighter leading-none pb-0.5">
+                        {{ row.scoreDisplay }}
+                      </span>
+                      <span v-if="row.winStats?.totalMoney > 0" class="text-[10px] font-black text-emerald-500 mt-1 italic leading-none">
+                        +${{ row.winStats.totalMoney.toFixed(2) }}
+                      </span>
+                    </div>
+
+                  </div>
+
+                  <div v-if="row.winStats?.individualBadges.length > 0" class="pt-1 border-t border-slate-100 dark:border-slate-800/50">
+                    <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                      <span 
+                        v-for="(badge, bIdx) in row.winStats.individualBadges" 
+                        :key="bIdx" 
+                        :class="badge.color" 
+                        class="text-[9px] font-black px-1 rounded-sm uppercase border border-current/10 whitespace-nowrap shrink-0"
+                      >
+                        {{ badge.label }}
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
             </div>
-          </div>
-        </TransitionGroup>
+          </TransitionGroup>
+        </div>
+        <ClientOnly>
+          <LiveRoundFooter 
+            v-if="mode === 'live' && roundId"
+            activeTab="leaderboard"
+            :roundId="roundId"
+            :leagueType="type"
+            :iso="iso"
+          />
+        </ClientOnly>
       </div>
     </template>
 
     <div v-else class="flex flex-col items-center justify-center pt-32 text-slate-400">
       <Icon name="mdi:golf-cart" class="size-20 opacity-10 mb-6" />
       <p class="text-xs font-bold uppercase tracking-widest opacity-50">
-        {{ mode === 'live' ? 'No Live Rounds Active' : 'No History Found for this Date' }}
+        {{ mode === 'live' ? 'No Live Rounds Active' : 'No History Found' }}
       </p>
     </div>
 
-    <Teleport to="body">
+    <ClientOnly>
       <ScorecardPlayerModal 
         v-if="selectedPlayer"
         :isOpen="isModalOpen" 
         :player="selectedPlayer" 
         @close="isModalOpen = false"
       />
-    </Teleport>
+    </ClientOnly>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { doc, getDoc, collectionGroup, query, where, getDocs, collection } from "firebase/firestore";
+import { collection, query, where, getDocs, collectionGroup } from "firebase/firestore";
 import { useData } from '~/stores/data';
-import { flattenAndCalculate, calcRounds } from '~/utils/gameLogic';
+import { useUIStore } from '~/stores/ui';
+import { useAuthStore } from '~/stores/auth';
+import { calcRounds, runLeaguePass } from '~/utils/gameLogic';
 
 const route = useRoute();
-const router = useRouter();
 const dataStore = useData();
+const uiStore = useUIStore();
+const authStore = useAuthStore();
 const { $db } = useNuxtApp();
 
-// URL Params
 const { type, iso, mode = 'live' } = route.params;
 
-// Reactive State
-const loading = ref(true);
+// Local State
 const roundsSource = ref([]);
-const leagueData = ref(null);
 const eventDetails = ref(null);
-const isYearlyLeague = ref(false);
 const activeTab = ref('Net Score');
 const availableTabs = ref(['Net Score']);
+const winnersLog = ref({ grossSkins: [], netSkins: [], deuces: [], blindBestBall: [] });
+let shuffleTimer = null;
 
-// UI Helpers
 const isModalOpen = ref(false);
 const selectedPlayer = ref(null);
-const previousRanks = ref(new Map());
 
-// --- 1. THE REFINED COMPUTED LEADERBOARD ---
+// --- COMPUTED DATA (Instant from store) ---
+const leagueData = computed(() => dataStore.leagues.find(l => l.type === type));
+const isYearlyLeague = computed(() => leagueData.value?.cadence === 'yearly');
+const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(leagueData.value.type));
+
+const isHoleByHoleTab = computed(() => ['Blind Best Ball'].includes(activeTab.value));
+
 const processedPlayers = computed(() => {
   return roundsSource.value.map(p => ({
     ...p,
-    birdPoints: p.games.totalBirds ?? 0,
-    deucePoints: p.games.totalDeuces ?? 0,
-    chicagoPoints: (p.index || 0) - 36 + (p.games.totalChicago || 0),
     netRel: p.games.totalNet ?? 0,
     thru: p.games.holesPlayed ?? 0
   }));
 });
+
+// ... (activeDisplayList and sortedLeaderboard computed logic remains same as your original) ...
+
+const fetchConfig = async () => {
+  if (!leagueData.value) return;
+  
+  try {
+    // Only fetch the calendar event info, since leagueData is already in Pinia
+    const calRef = collection($db, "leagues", leagueData.value.id, "calendar");
+    const qEvent = query(calRef, where("iso", "==", iso));
+    const eventSnap = await getDocs(qEvent);
+    
+    if (!eventSnap.empty) {
+      eventDetails.value = eventSnap.docs[0].data();
+      const tabs = ['Net Score'];
+      const gameArray = eventDetails.value.game || [];
+
+      // Add special tabs based on league type
+      if (['vegas', 'mbWed'].includes(type)) tabs.push('Birds');
+      if (type === 'vegas') tabs.push('Deuces');
+
+      // Add tabs from the calendar entry
+      gameArray.forEach(g => {
+        const isIntegrated = ['Gross Skins', 'Net Skins', 'Deuce Pot', 'Stroke Play'].includes(g);
+        if (!isIntegrated && !tabs.includes(g)) tabs.push(g);
+      });
+      availableTabs.value = tabs;
+    }
+  } catch (err) {
+    console.error("Config Error:", err);
+  }
+};
+
+// --- LIVE ROUND NORMALIZER ---
+// Converts group-based live_rounds into flat, individual player rounds for the game logic
+const normalizeLiveRounds = (liveGroups) => {
+  const normalized = [];
+  
+  if (!liveGroups) return normalized;
+
+  liveGroups.forEach(group => {
+    if (!group.players || !group.scores) return;
+
+    group.players.forEach(player => {
+      normalized.push({
+        id: player.id, // Player ID
+        name: `${player.fname} ${player.lname}`,
+        fname: player.fname,
+        lname: player.lname,
+        index: player.index,
+        ghin: player.ghin,
+        tees: player.tees,
+        course: group.course,
+        iso: group.iso,
+        courseSnapshot: group.courseSnapshot,
+        // The scores map uses the player's ID as the key
+        scores: group.scores[player.id] || Array(18).fill(0) 
+      });
+    });
+  });
+
+  return normalized;
+};
+
+onMounted(async () => {
+  uiStore.setLoading(true, `Syncing Leaderboard...`);
+  
+  await fetchConfig();
+
+  const processWithWins = (calc) => {
+    const winners = runLeaguePass(calc, eventDetails.value);
+    winnersLog.value = winners;
+
+    const winMap = {};
+    const categories = [
+      { key: 'grossSkins', label: 'Gross', color: 'bg-amber-500/10 text-amber-600' },
+      { key: 'netSkins', label: 'Net', color: 'bg-emerald-500/10 text-emerald-600' },
+      { key: 'deuces', label: 'Deuce', color: 'bg-blue-500/10 text-blue-600' }
+    ];
+
+    categories.forEach(({ key, label, color }) => {
+      (winners[key] || []).forEach(win => {
+        if (!winMap[win.id]) winMap[win.id] = { individualBadges: [], totalMoney: 0 };
+        winMap[win.id].individualBadges.push({ label: `${label} ${win.score} (${win.hole})`, color });
+        winMap[win.id].totalMoney += (win.money || 0);
+      });
+    });
+
+    return calc.map(p => ({
+      ...p,
+      winStats: winMap[p.id] || { individualBadges: [], totalMoney: 0 }
+    }));
+  };
+
+  // 2. Fetch Round Data
+  if (mode === 'live') {
+    dataStore.startLiveListener(type);
+    watch(() => dataStore.liveRounds, (newRounds) => {
+      const flattenedRounds = normalizeLiveRounds(newRounds);
+      const calc = calcRounds(flattenedRounds, eventDetails.value);
+      roundsSource.value = processWithWins(calc);  
+    }, { immediate: true, deep: true });
+
+    const isRoundFinished = ['complete', 'mdi-check-bold'].includes(eventDetails.value?.status?.toLowerCase());
+    
+    if (!isRoundFinished) {
+      shuffleTimer = setInterval(() => {
+        // Only run the math if they are actively watching the BBB tab
+        if (activeTab.value === 'Blind Best Ball') {
+          const flattened = normalizeLiveRounds(dataStore.liveRounds);
+          roundsSource.value = processWithWins(calcRounds(flattened, eventDetails.value));
+        }
+      }, 5000);
+    }
+  } else {
+    const q = query(collectionGroup($db, "rounds"), where("type", "==", type), where("iso", "==", iso));
+    const snap = await getDocs(q);
+    const calc = calcRounds(snap.docs.map(d => ({ id: d.id, ...d.data() })), eventDetails.value);
+    roundsSource.value = processWithWins(calc);
+  }
+
+  uiStore.setLoading(false);
+});
+
+onUnmounted(() => {
+  if (mode === 'live') dataStore.stopLiveListener();
+  if (shuffleTimer) clearInterval(shuffleTimer);
+});
+
+// --- LEADERBOARD LOGIC ---
 
 const sortedLeaderboard = computed(() => {
   const players = [...processedPlayers.value].map(p => {
@@ -153,133 +367,161 @@ const sortedLeaderboard = computed(() => {
     let display = '';
     let color = 'text-slate-800 dark:text-white';
 
-    // 1. Determine Values based on Tab
+    let grossDisplay = '-';
+    // Use the totalGrossUnder you already calculated
+    const grossUnder = p.games?.totalGrossUnder; 
+    
+    if (grossUnder !== undefined && grossUnder !== null) {
+      if (grossUnder === 0) {
+        grossDisplay = 'E';
+      } else if (grossUnder > 0) {
+        grossDisplay = `+${grossUnder}`;
+      } else {
+        grossDisplay = `${grossUnder}`; // Negative numbers already have a minus sign
+      }
+    }
+
     if (activeTab.value === 'Net Score') {
       scoreVal = p.netRel;
-      
-      // FIX: Apply 3 decimals for yearly, 0 for standard
-      if (isYearlyLeague.value) {
-        const formatted = p.netRel.toFixed(3);
-        display = p.netRel === 0 ? 'E' : (p.netRel > 0 ? `+${formatted}` : formatted);
-      } else {
-        const rounded = Math.round(p.netRel);
-        display = rounded === 0 ? 'E' : (rounded > 0 ? `+${rounded}` : rounded);
-      }
-      
+      const fmt = isYearlyLeague.value ? p.netRel.toFixed(3) : Math.round(p.netRel);
+      display = p.netRel === 0 ? 'E' : (p.netRel > 0 ? `+${fmt}` : fmt);
       if (p.netRel < 0) color = 'text-red-500';
     } 
-    else if (activeTab.value === 'chicago') {
-      scoreVal = p.chicagoPoints * -1;
-      display = p.chicagoPoints > 0 ? `+${p.chicagoPoints}` : p.chicagoPoints;
-      if (p.chicagoPoints > 0) color = 'text-emerald-500';
+    else if (activeTab.value === 'Birds') {
+      scoreVal = p.games?.totalBirds || 0;
+      display = scoreVal.toString();
     }
-    else if (activeTab.value === 'birds') {
-      scoreVal = p.birdPoints * -1; 
-      display = p.birdPoints; // FIX: Ensure display is set
-      if (p.birdPoints > 0) color = 'text-emerald-500';
-    } 
-    else if (activeTab.value === 'deuces') {
-      scoreVal = p.deucePoints * -1;
-      display = p.deucePoints; // FIX: Ensure display is set
-      if (p.deucePoints > 0) color = 'text-emerald-500';
+    else if (activeTab.value === 'Deuces') {
+      scoreVal = p.games?.totalDeuces || 0;
+      display = scoreVal.toString();
+    }
+    else if (['Chicago Points', 'Modified Chicago'].includes(activeTab.value)) {
+      const key = activeTab.value === 'Chicago Points' ? 'totalChicago' : 'totalModChicago';
+      const val = p.games?.[key] || 0;
+      scoreVal = isYearlyLeague.value ? val.toFixed(3) : Math.round(val);
+      display = scoreVal.toString();
     }
 
-    return { 
-      ...p, 
-      scoreVal, 
-      scoreDisplay: display, 
-      scoreColor: color, 
-      trend: 0 
-    };
+    return { ...p, scoreVal, scoreDisplay: display, scoreColor: color, grossDisplay };
   });
 
-  // 2. Sort Logic: primary scoreVal, then tie-breaker (Holes Played)
-  players.sort((a, b) => a.scoreVal - b.scoreVal || b.thru - a.thru);
-
-  // 3. Trend Calculation
-  return players.map((p, idx) => {
-    const prevPos = previousRanks.value.get(p.id);
-    if (prevPos !== undefined) {
-      if (idx < prevPos) p.trend = 1;      // Moved up
-      else if (idx > prevPos) p.trend = -1; // Moved down
+  // Sort logic
+  players.sort((a, b) => {
+    if (activeTab.value === 'Net Score') {
+      return a.scoreVal - b.scoreVal || b.thru - a.thru;
+    } else {
+      return b.scoreVal - a.scoreVal;
     }
-    previousRanks.value.set(p.id, idx);
-    return p;
   });
+
+  return players; // Just return the sorted array directly
 });
 
-// --- 2. CONFIG & DATA FETCHING ---
-const fetchConfig = async () => {
-  try {
-    const leaguesRef = collection($db, "leagues");
-    const qLeague = query(leaguesRef, where("type", "==", type));
-    const leagueSnap = await getDocs(qLeague);
-
-    if (!leagueSnap.empty) {
-      const lDoc = leagueSnap.docs[0];
-      leagueData.value = lDoc.data();
-      isYearlyLeague.value = leagueData.value.cadence === 'yearly';
-      availableTabs.value = ['Net Score', ...(leagueData.value.yearly_games || [])];
-
-      // Calendar Fetch for DD Holes (Vegas)
-      const calRef = collection($db, "leagues", lDoc.id, "calendar");
-      const qEvent = query(calRef, where("iso", "==", iso));
-      const eventSnap = await getDocs(qEvent);
-      if (!eventSnap.empty) eventDetails.value = eventSnap.docs[0].data();
-      console.log(eventDetails.value)
-    }
-  } catch (err) {
-    console.error("Config Fetch Error:", err);
+const activeDisplayList = computed(() => {
+  // 1. Guard against missing winnersLog
+  if (isHoleByHoleTab.value) {
+    // Add the optional chaining (?.) and a fallback empty array ([])
+    const list = activeTab.value === 'Blind Best Ball' 
+      ? (winnersLog.value?.blindBestBall || []) 
+      : [];
+      
+    return list.map(win => ({
+      ...win,
+      id: `team-${win.id}`, 
+      isWinnerRow: true
+    }));
   }
-};
-
-onMounted(async () => {
-  // A. Always get the rules first
-  await fetchConfig();
-
-  // B. Route-based Data Strategy
-  if (mode === 'live') {
-    dataStore.startLiveListener(type);
-    watch(() => dataStore.liveRounds, (newRounds) => {
-      roundsSource.value = calcRounds(newRounds, eventDetails.value);
-    }, { immediate: true, deep: true });
-  } else {
-    // History Mode: One-time fetch
-    const q = query(
-      collectionGroup($db, "rounds"), 
-      where("type", "==", type), 
-      where("iso", "==", iso)
-    );
-    const snap = await getDocs(q);
-    roundsSource.value = calcRounds(snap.docs.map(d => ({ id: d.id, ...d.data() })), eventDetails.value);
-  }
-  loading.value = false;
-});
-
-onUnmounted(() => {
-  if (mode === 'live') dataStore.stopLiveListener();
-});
-
-// Utilities
-const getRank = (index) => {
-  if (index === 0) return '1';
-  const isTie = sortedLeaderboard.value[index].scoreVal === sortedLeaderboard.value[index - 1].scoreVal;
-  return isTie ? '-' : (index + 1).toString();
-};
-
-const openPlayerModal = (p) => {
-  console.log(p);
   
-  selectedPlayer.value = p;
-  isModalOpen.value = true;
+  // 2. Guard against missing sortedLeaderboard
+  return (sortedLeaderboard.value || []).map(player => ({
+    ...player,
+    isWinnerRow: false
+  }));
+});
+
+const getRank = (index) => {
+  if (isHoleByHoleTab.value) return '';
+  const list = sortedLeaderboard.value;
+  if (!list[index]) return '';
+  if (index === 0) return '1';
+  const currentScore = list[index]?.scoreVal;
+  const prevScore = list[index - 1]?.scoreVal;
+  return currentScore === prevScore ? '-' : (index + 1).toString();
 };
 
+const roundId = computed(() => {
+  if (mode !== 'live' || !dataStore.liveRounds || dataStore.liveRounds.length === 0) return null;
+  // Grab the first live group's ID
+  return dataStore.liveRounds[0].id;
+});
+
+const backRoute = computed(() => {
+  if (mode !== 'live') return `/leagues/${leagueData.value?.id}/calendar`;
+  
+  // If they came from the calendar, send them back there
+  if (route.query.from === 'calendar') return `/leagues/${leagueData.value?.id}/calendar`;
+  
+  // Otherwise, send them to the scorecard (if roundId exists)
+  return roundId.value ? `/rounds/${roundId.value}` : `/leagues/${leagueData.value?.id}/calendar`;
+});
+
+const backText = computed(() => {
+  if (mode !== 'live') return 'Calendar';
+  return route.query.from === 'calendar' ? 'Calendar' : 'Scorecard';
+});
+
+const transitionName = computed(() => {
+  return activeTab.value === 'Blind Best Ball' ? 'card-flip' : 'shuffle-list';
+});
+
+const openPlayerModal = (row) => { selectedPlayer.value = row; isModalOpen.value = true; };
 const getShortDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 </script>
 
 <style scoped>
-.shuffle-list-move { transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.shuffle-list-enter-active, .shuffle-list-leave-active { transition: all 0.5s ease; }
-.shuffle-list-enter-from, .shuffle-list-leave-to { opacity: 0; transform: scale(0.9); }
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* --- OPTION A: SHUFFLE LIST (Net Score Tab) --- */
+.shuffle-list-move {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.shuffle-list-enter-active, .shuffle-list-leave-active {
+  transition: all 0.5s ease;
+}
+.shuffle-list-enter-from, .shuffle-list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* --- OPTION B: CARD FLIP (Blind Best Ball Tab) --- */
+.card-flip-enter-active {
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-flip-leave-active {
+  transition: all 0.4s ease-in;
+  position: absolute;
+  width: 100%;
+}
+.card-flip-enter-from {
+  opacity: 0;
+  transform: rotateX(-90deg) translateY(20px);
+}
+.card-flip-leave-to {
+  opacity: 0;
+  transform: rotateX(90deg) translateY(-20px);
+}
+.card-flip-move {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.shuffle-list-leave-active, .card-flip-leave-active {
+  position: absolute;
+  width: 100%;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 </style>

@@ -1,13 +1,16 @@
 import { ref } from 'vue'
 
-const toastMessage = ref('')
+const toastData = ref({
+  title: '',
+  description: '',
+  color: 'emerald' // Mapping 'color' to your style
+})
 const isVisible = ref(false)
-const toastType = ref('error') // 'error' | 'success' | 'info'
 
 export const useToast = () => {
-  const add = (msg, type = 'error') => {
-    toastMessage.value = msg
-    toastType.value = type
+  // Destructure the object coming from login.vue
+  const add = ({ title, description, color = 'emerald' }) => {
+    toastData.value = { title, description, color }
     isVisible.value = true
     
     setTimeout(() => {
@@ -18,7 +21,6 @@ export const useToast = () => {
   return {
     add,
     isVisible,
-    toastMessage,
-    toastType
+    toastData,
   }
 }

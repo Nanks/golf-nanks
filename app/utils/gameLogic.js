@@ -34,8 +34,7 @@ export const calcGames = (round, cal, teeData, pops) => {
     if (parDiff > -2) return 2 * Math.pow(2, parDiff);
     return 0;
   });
-
-  const totalChicago = chicago.reduce((sum, val) => sum + val, 0);
+  const totalChicago = (round.index - 36) + chicago.reduce((sum, val) => sum + val, 0)
 
   const modChicago = round.scores.map((score, i) => {
     if (score <= 0) return 0;
@@ -44,7 +43,7 @@ export const calcGames = (round, cal, teeData, pops) => {
     return -1;
   });
 
-  const totalModChicago = chicago.reduce((sum, val) => sum + val, 0);
+  const totalModChicago = (round.index - 36) + modChicago.reduce((sum, val) => sum + val, 0);
 
   const net = round.scores.map((score, i) => {
     if (round.type === 'vegas' || round.type === 'mbWed') {
@@ -58,7 +57,15 @@ export const calcGames = (round, cal, teeData, pops) => {
 
   const holesPlayed = round.scores.filter(n => n > 0).length;
 
-  return { pops, birds, totalBirds, deuces, totalDeuces, chicago, totalChicago, modChicago, totalModChicago, net, totalNet, holesPlayed }
+  const grossUnder = round.scores.map((score, i) => {
+    return (score > 0) ? score - teeData.pars[i] : 0
+  });
+
+  const totalGrossUnder = grossUnder.reduce((sum, val) => sum + val, 0);
+
+  const totalGross = round.scores.reduce((a, b) => a + (Number(b) || 0), 0);
+
+  return { pops, birds, totalBirds, deuces, totalDeuces, chicago, totalChicago, modChicago, totalModChicago, net, totalNet, holesPlayed, grossUnder, totalGrossUnder, totalGross }
 };
 
 export const getTotals = (values) => {
@@ -183,44 +190,121 @@ export const calcRawGross = (scores) => {
 };
 
 
-export const flattenAndCalculate = (rounds, league, event, isYearly = false) => {
-  const players = [];
+export const runLeaguePass = (players, eventDetails) => {
+  const totalHoles = eventDetails?.holes || 18;
+  const gameKeys = eventDetails?.game || [];
+  const numPlayers = players?.length || 0;
+  
+  const isComplete = ['complete', 'mdi-check-bold'].includes(eventDetails?.status?.toLowerCase());
 
-  // 1. Flatten into a uniform list
-  rounds.forEach(round => {
-    if (round.players) {
-      // Live/Foursome format
-      round.players.forEach(p => {
-        players.push({
-          ...p,
-          id: p.id,
-          scores: round.scores?.[p.id] || new Array(round.holes || 18).fill(0),
-          courseSnapshot: round.courseSnapshot,
-          name: p.name || `${p.fname} ${p.lname}`,
-          holes: round.holes || 18
-        });
+  const winnersLog = {
+    grossSkins: [],
+    netSkins: [],
+    deuces: [],
+    blindBestBall: [] // Always initialized!
+  };
+
+  const per = eventDetails?.per || 0;
+  const money = eventDetails?.money || 0;
+  const potPerGame = ((per * money) / (gameKeys.length || 1)) * numPlayers;
+
+  // 1. Hole-by-Hole Games (Skins & Deuces)
+  for (let i = 0; i < totalHoles; i++) {
+    const holeNum = i + 1;
+    const holeScores = players.map(p => ({
+      id: p.id,
+      name: p.name,
+      gross: p.scores?.[i] || 0,
+      net: (p.scores?.[i] || 0) - (p.games?.pops?.[i] || 0)
+    })).filter(s => s.gross > 0);
+
+    if (holeScores.length < numPlayers || numPlayers === 0) continue;
+
+    const minGross = Math.min(...holeScores.map(s => s.gross));
+    const gWinners = holeScores.filter(s => s.gross === minGross);
+    if (gWinners.length === 1) winnersLog.grossSkins.push({ hole: holeNum, player: gWinners[0].name, score: gWinners[0].gross, id: gWinners[0].id });
+
+    const minNet = Math.min(...holeScores.map(s => s.net));
+    const nWinners = holeScores.filter(s => s.net === minNet);
+    if (nWinners.length === 1) winnersLog.netSkins.push({ hole: holeNum, player: nWinners[0].name, score: nWinners[0].net, id: nWinners[0].id });
+
+    holeScores.forEach(s => {
+      if (s.gross === 2) winnersLog.deuces.push({ hole: holeNum, player: s.name, score: 2, id: s.id });
+    });
+  }
+
+  // 2. Blind Best Ball (Team Logic) - ALWAYS run this if we have players
+  if (numPlayers > 1) {
+    let pairings = [];
+    const officialPairings = eventDetails?.bbb_pairings || [];
+
+    if (officialPairings.length > 0) {
+      // OVERRIDE: Admin saved pairs
+      officialPairings.forEach(pair => {
+        const p1 = players.find(p => p.id === pair.p1?.id);
+        const p2 = players.find(p => p.id === pair.p2?.id);
+        if (p1 && p2) {
+          let teamTotalNet = 0;
+          for (let h = 0; h < totalHoles; h++) {
+            const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
+            const p2Net = p2.scores?.[h] > 0 ? p2.scores[h] - (p2.games?.pops?.[h] || 0) : 99;
+            const bestNet = Math.min(p1Net, p2Net);
+            if (bestNet < 90) teamTotalNet += bestNet; 
+          }
+          pairings.push({ player: `${p1.name} / ${p2.name}`, score: teamTotalNet, id: `${p1.id}-${p2.id}`, hole: 'Team' });
+        }
       });
     } else {
-      // Historic/Individual format
-      players.push({ ...round, name: round.name || `${round.fname} ${round.lname}` });
+      // AUTO-PAIRING SCRAMBLE
+      const getSeededValue = (str) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+        return hash;
+      };
+
+      const shuffled = [...players].sort((a, b) => {
+        if (!isComplete) return Math.random() - 0.5; // LIVE CHAOS
+        return getSeededValue(a.id + (eventDetails?.iso || '')) - getSeededValue(b.id + (eventDetails?.iso || ''));
+      });
+
+      for (let i = 0; i < shuffled.length; i += 2) {
+        if (shuffled[i + 1]) {
+          const p1 = shuffled[i];
+          const p2 = shuffled[i + 1];
+          
+          let teamTotalNet = 0;
+          for (let h = 0; h < totalHoles; h++) {
+            const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
+            const p2Net = p2.scores?.[h] > 0 ? p2.scores[h] - (p2.games?.pops?.[h] || 0) : 99;
+            const bestNet = Math.min(p1Net, p2Net);
+            if (bestNet < 90) teamTotalNet += bestNet; 
+          }
+
+          pairings.push({
+            player: `${p1.name} / ${p2.name}`,
+            score: teamTotalNet,
+            id: `${p1.id}-${p2.id}`, // Unique ID for Vue transition
+            hole: 'Team'
+          });
+        }
+      }
     }
-  });
 
-  // 2. Run the math
-  return players.map(p => {
-    const teeData = p.courseSnapshot?.tees?.[p.tee];
-    if (!teeData) return { ...p, netRel: 0, holesPlayed: 0, birds: 0, deuces: 0, chicago: 0 };
+    winnersLog.blindBestBall = pairings.sort((a, b) => a.score - b.score);
+  }
 
-    const pops = calcPops(p.scores, teeData.hnds, p.index, isYearly);
-    const { rel, holesPlayed } = calcNetRelative(p.scores, pops, teeData.pars);
+  // 3. Final Payout Safety
+  const applyPayouts = (list) => {
+    if (!list || list.length === 0) return [];
+    const payoutPerWinner = potPerGame / list.length;
+    return list.map(w => ({ ...w, money: payoutPerWinner }));
+  };
 
-    return {
-      ...p,
-      holesPlayed,
-      netRel: rel,
-      birds: calcBirds(p, event, teeData, isYearly).reduce((a, b) => a + b, 0),
-      deuces: calcDeuces(p, teeData, isYearly).reduce((a, b) => a + b, 0),
-      chicago: calcChicago(p, teeData).reduce((a, b) => a + b, 0),
-    };
-  });
+  // CRITICAL: Ensure blindBestBall is actually returned!
+  return {
+    grossSkins: applyPayouts(winnersLog.grossSkins),
+    netSkins: applyPayouts(winnersLog.netSkins),
+    deuces: applyPayouts(winnersLog.deuces),
+    blindBestBall: applyPayouts(winnersLog.blindBestBall) 
+  };
 };

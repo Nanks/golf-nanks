@@ -1,140 +1,79 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 pt-24 max-w-2xl mx-auto">
-    <header class="mb-10 px-2">
-      <NuxtLink to="/" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-emerald-600 transition flex items-center gap-1">
-        <Icon name="mdi:arrow-left" /> All Leagues
-      </NuxtLink>
-      
-      <h1 class="text-4xl font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-tighter mt-4 leading-none italic">
-        {{ league?.shortName || league?.name || 'Loading...' }}
-      </h1>
-      
-      <div v-if="isAdmin" class="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full border border-emerald-100 dark:border-emerald-800">
-        <Icon name="mdi:shield-check" class="text-emerald-600 size-3" />
-        <span class="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">League Admin</span>
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 px-2 py-6 pt-24 max-w-2xl mx-auto select-none">
+    
+    <template v-if="league">
+      <LeagueHeader 
+        :title="league.shortName || league.name" 
+        :is-admin="isAdmin" 
+      />
+
+      <div class="space-y-3">
+        <NuxtLink 
+          v-for="item in menuItems" 
+          :key="item.path"
+          :to="`/leagues/${route.params.id}/${item.path}`" 
+          class="group flex items-center justify-between p-3 px-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all active:scale-[0.98] active:border-emerald-500 dark:active:border-emerald-500 shadow-sm"
+        >
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-xl transition-colors group-active:bg-emerald-50 dark:group-active:bg-emerald-900/30">
+              <Icon :name="item.icon" class="size-5 text-slate-600 dark:text-slate-400 group-active:text-emerald-500 transition-colors" />
+            </div>
+            <p class="font-black text-slate-800 dark:text-slate-200 uppercase text-[11px] tracking-widest">
+              {{ item.label }}
+            </p>
+          </div>
+          <Icon name="mdi:chevron-right" class="text-slate-300 dark:text-slate-700 group-active:text-emerald-500 transition-colors size-5" />
+        </NuxtLink>
       </div>
-    </header>
+    </template>
 
-    <div class="space-y-2">
-      <NuxtLink :to="`/leagues/${route.params.id}/calendar`" class="menu-item group">
-        <div class="flex items-center gap-4">
-          <div class="icon-circle">
-            <Icon name="mdi:calendar-month" class="size-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 transition" />
-          </div>
-          <p class="menu-title">Calendar</p>
-        </div>
-        <Icon name="mdi:chevron-right" class="arrow-icon" />
+    <div v-else class="pt-32 flex flex-col items-center justify-center text-slate-500">
+      <Icon name="mdi:alert-circle-outline" class="size-10 mb-2 opacity-50" />
+      <p class="text-[10px] font-black uppercase tracking-[0.2em]">League Not Found</p>
+      <NuxtLink to="/" class="mt-4 px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform text-slate-700 dark:text-slate-300">
+        Return Home
       </NuxtLink>
-
-      <NuxtLink 
-        v-if="hasGame('birds')"
-        :to="`/leagues/${route.params.id}/birds`" 
-        class="menu-item group"
-      >
-        <div class="flex items-center gap-4">
-          <div class="icon-circle">
-            <Icon name="mdi:bird" class="size-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 transition" />
-          </div>
-          <p class="menu-title">Birds</p>
-        </div>
-        <Icon name="mdi:chevron-right" class="arrow-icon" />
-      </NuxtLink>
-
-      <NuxtLink 
-        v-if="hasGame('deuces')"
-        :to="`/leagues/${route.params.id}/deuces`" 
-        class="menu-item group"
-      >
-        <div class="flex items-center gap-4">
-          <div class="icon-circle">
-            <Icon name="mdi:numeric-2-circle" class="size-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 transition" />
-          </div>
-          <p class="menu-title">Deuces</p>
-        </div>
-        <Icon name="mdi:chevron-right" class="arrow-icon" />
-      </NuxtLink>
-
-      <NuxtLink :to="`/leagues/${route.params.id}/roster`" class="menu-item group">
-        <div class="flex items-center gap-4">
-          <div class="icon-circle">
-            <Icon name="mdi:account-group" class="size-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 transition" />
-          </div>
-          <p class="menu-title">Roster</p>
-        </div>
-        <Icon name="mdi:chevron-right" class="arrow-icon" />
-      </NuxtLink>
-
-      <!-- <NuxtLink 
-        v-if="isAdmin"
-        :to="`/leagues/${route.params.id}/settings`" 
-        class="menu-item group mt-6 border-dashed border-slate-300 dark:border-slate-700"
-      >
-        <div class="flex items-center gap-4">
-          <div class="icon-circle bg-slate-200 dark:bg-slate-800">
-            <Icon name="mdi:cog" class="size-5 text-slate-500" />
-          </div>
-          <p class="menu-title text-slate-500">League Settings</p>
-        </div>
-        <Icon name="mdi:chevron-right" class="arrow-icon" />
-      </NuxtLink> -->
-
     </div>
+
   </div>
 </template>
 
 <script setup>
-import { doc, getDoc } from "firebase/firestore";
-import { useAuthStore } from "~/stores/auth";
-import { useUIStore } from "~/stores/ui";
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '~/stores/auth'
+import { useData } from '~/stores/data'
 
-const route = useRoute();
-const { $db } = useNuxtApp();
-const authStore = useAuthStore();
-const ui = useUIStore();
+const route = useRoute()
+const authStore = useAuthStore()
+const dataStore = useData()
 
-const league = ref(null);
+// 1. Grab data instantly from the store instead of Firebase
+const league = computed(() => {
+  return dataStore.leagues.find(l => l.id === route.params.id)
+})
 
-// Permission Check: Super Admin or Admin of this specific type
+// 2. Updated to use our new getter
 const isAdmin = computed(() => {
   if (!league.value) return false;
-  return authStore.isAdminForType(league.value.type);
+  return authStore.isAdminForLeague(league.value.type);
 });
 
-// Case-insensitive game check
+// 3. Adjusted to check the array instead of just 'yearly' cadence
 const hasGame = (gameName) => {
-  if (league.value?.cadence === 'yearly') return true;
-  return league.value?.yearly_games?.some(g => g.toLowerCase() === gameName.toLowerCase());
+  if (!league.value?.yearly_games) return false;
+  return league.value.yearly_games.some(g => g.toLowerCase() === gameName.toLowerCase());
 };
 
-onMounted(async () => {
-  ui.setLoading(true);
-  try {
-    const docRef = doc($db, "leagues", route.params.id);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      league.value = snap.data();
-    }
-  } catch (error) {
-    console.error("Error fetching league:", error);
-  } finally {
-    ui.setLoading(false);
-  }
+const menuItems = computed(() => {
+  const items = [
+    { label: 'Calendar', path: 'calendar', icon: 'mdi:calendar-month' }
+  ];
+  
+  if (hasGame('birds')) items.push({ label: 'Birds', path: 'birds', icon: 'mdi:bird' });
+  if (hasGame('deuces')) items.push({ label: 'Deuces', path: 'deuces', icon: 'mdi:numeric-2-circle' });
+  
+  items.push({ label: 'Roster', path: 'roster', icon: 'mdi:account-group' });
+  return items;
 });
 </script>
-
-<style scoped>
-@reference "tailwindcss";
-
-.menu-item {
-  @apply flex items-center justify-between p-3 px-5 bg-white dark:bg-slate-900 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all active:scale-[0.98] shadow-sm;
-}
-.icon-circle {
-  @apply w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl transition group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950;
-}
-.menu-title {
-  @apply font-black text-slate-800 dark:text-slate-100 uppercase text-[11px] tracking-widest;
-}
-.arrow-icon {
-  @apply text-slate-300 dark:text-slate-700 group-hover:text-emerald-500 transition-colors size-5;
-}
-</style>

@@ -1,62 +1,76 @@
 <template>
-  <Teleport to="body">
-    <Transition name="toast">
+  <Transition name="toast">
+    <div v-if="isVisible" 
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm"
+    >
       <div 
-        v-if="isVisible" 
-        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xs px-4"
+        class="rounded-2xl shadow-2xl border bg-white/95 dark:bg-slate-950/95 backdrop-blur-md overflow-hidden"
+        :class="theme.border"
       >
-        <div 
-          :class="[
-            'flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-md shadow-2xl',
-            typeClasses[toastType]
-          ]"
-        >
-          <div :class="['p-2 rounded-xl bg-white/10', iconClasses[toastType]]">
-            <svg v-if="toastType === 'error'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-            <svg v-if="toastType === 'success'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
-            <svg v-if="toastType === 'info'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div class="p-4 flex items-start gap-3" :class="theme.bgTint">
+          
+          <Icon 
+            :name="theme.icon" 
+            :class="theme.text"
+            class="size-5 shrink-0 mt-0.5"
+          />
+          
+          <div>
+            <h3 class="text-xs font-black uppercase tracking-widest leading-none mb-1"
+                :class="theme.text">
+              {{ toastData.title }}
+            </h3>
+            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
+              {{ toastData.description }}
+            </p>
           </div>
 
-          <p class="text-[11px] font-black uppercase tracking-widest text-white leading-tight">
-            {{ toastMessage }}
-          </p>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </Transition>
 </template>
 
 <script setup>
-import { useToast } from '~/composables/useToast'
+import { computed } from 'vue'
 
-const { isVisible, toastMessage, toastType } = useToast()
+const { isVisible, toastData } = useToast()
 
-const typeClasses = {
-  error: 'bg-red-950/90 border-red-500/50 text-red-200',
-  success: 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200',
-  info: 'bg-slate-900/90 border-slate-700/50 text-slate-200'
-}
-
-const iconClasses = {
-  error: 'text-red-400',
-  success: 'text-emerald-400',
-  info: 'text-blue-400'
-}
+// Clean mapping for all your toast variants
+const theme = computed(() => {
+  switch (toastData.value?.color) {
+    case 'red':
+      return {
+        border: 'border-red-500/30',
+        bgTint: 'bg-red-500/10',
+        text: 'text-red-500',
+        icon: 'mdi:alert-circle'
+      }
+    case 'amber': // Added for our new League Card warning!
+      return {
+        border: 'border-amber-500/30',
+        bgTint: 'bg-amber-500/10',
+        text: 'text-amber-500',
+        icon: 'mdi:alert'
+      }
+    case 'emerald':
+    default:
+      return {
+        border: 'border-emerald-500/30',
+        bgTint: 'bg-emerald-500/10',
+        text: 'text-emerald-500',
+        icon: 'mdi:check-circle'
+      }
+  }
+})
 </script>
 
 <style scoped>
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+.toast-enter-active, .toast-leave-active { 
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
 }
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translate(-50%, 20px) scale(0.95);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translate(-50%, 10px) scale(0.95);
+.toast-enter-from, .toast-leave-to { 
+  opacity: 0; 
+  transform: translate(-50%, 20px); 
 }
 </style>

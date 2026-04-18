@@ -1,224 +1,306 @@
 <template>
-  <div class="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 pt-28 px-6 pb-24">
-    <div class="max-w-2xl mx-auto">
-      
-      <header class="mb-10 flex justify-between items-end">
-        <div>
-          <NuxtLink :to="`/leagues/${route.params.id}/menu`" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-600 transition">
-            ← Back to Menu
-          </NuxtLink>
-          <h1 class="text-4xl font-black text-emerald-600 uppercase tracking-tighter mt-2 leading-none">
-            League Roster
-          </h1>
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 px-2 py-6 pt-24 max-w-2xl mx-auto pb-32">
+    
+    <LeagueHeader 
+      title="Roster" 
+      :is-admin="isAdmin"
+      :back-to="`/leagues/${route.params.id}/menu`"
+      back-text="League Menu"
+    >
+      <template #action v-if="isAdmin">
+        <button 
+          @click="isEditMode = !isEditMode"
+          :class="isEditMode ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
+          class="flex items-center gap-2 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+        >
+          <Icon :name="isEditMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-3.5" />
+          <span class="hidden xs:inline">{{ isEditMode ? 'Finish Editing' : 'Manage' }}</span>
+        </button>
+      </template>
+    </LeagueHeader>
+
+    <Transition name="fade">
+      <div v-if="isEditMode" class="grid grid-cols-2 gap-2 mb-4">
+        <button 
+          @click="isAddModalOpen = true"
+          class="p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
+        >
+          <Icon name="mdi:plus-circle-outline" class="size-4" /> 
+          Add Player
+        </button>
+        <button 
+          @click="syncAllHandicaps"
+          class="p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-amber-500 hover:text-amber-500 transition-all flex items-center justify-center gap-2"
+        >
+          <Icon name="mdi:sync" class="size-4" /> 
+          Sync All
+        </button>
+      </div>
+    </Transition>
+
+    <div class="space-y-2">
+      <div v-for="player in roster" :key="player.id" 
+          class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden transition-all shadow-sm">
+        
+        <div v-if="isPlayerAdmin(player)"
+             class="absolute top-0 left-0 bg-amber-500 text-white p-1 rounded-br-lg z-10 shadow-sm">
+          <Icon name="mdi:shield-check" class="size-3" />
         </div>
 
-        <button 
-          v-if="isAdmin"
-          @click="isEditMode = !isEditMode"
-          :class="isEditMode ? 'bg-amber-500 shadow-amber-900/20' : 'bg-emerald-600 shadow-emerald-900/20'"
-          class="px-6 py-3 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-95"
-        >
-          {{ isEditMode ? 'Finish Editing' : 'Manage Roster' }}
-        </button>
-      </header>
-
-      <Transition name="fade">
-        <button 
-          v-if="isEditMode" 
-          @click="handleAddPlayer"
-          class="w-full mb-6 p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
-        >
-          <Icon name="mdi:plus-circle-outline" class="w-4 h-4" /> 
-          Add New Player to League
-        </button>
-      </Transition>
-
-      <div class="space-y-4">
-        <div v-for="player in roster" :key="player.id" 
-             class="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 relative overflow-hidden transition-all shadow-sm">
-          
-          <div v-if="player.admin === 'super' || player.admin === league?.type" 
-               class="absolute top-4 left-4 z-10">
-            <Icon name="mdi:shield-check" class="w-5 h-5 text-amber-500" />
-          </div>
-
-          <div class="p-5 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-2xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-black text-slate-500 text-sm">
-                {{ player.fname?.[0] }}{{ player.lname?.[0] }}
-              </div>
-              <div class="flex flex-col">
-                <span class="font-bold text-slate-900 dark:text-white text-lg leading-tight pr-6">
-                  {{ player.fname }} {{ player.lname }}
+        <div class="p-2 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <div class="flex flex-col min-w-0">
+              <span class="font-black text-slate-900 dark:text-white text-base leading-none italic uppercase tracking-tighter truncate">
+                {{ player.fname }} {{ player.lname }}
+              </span>
+              <button v-if="league?.cadence === 'yearly'" @click="openAuditModal(player)" 
+                      class="flex items-center gap-1 mt-1.5 text-emerald-600 dark:text-emerald-500 active:opacity-60 transition-opacity">
+                <span class="text-[8px] font-black uppercase tracking-widest">
+                  L-HCP: {{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}
                 </span>
-                
-                <button @click="toggleAudit(player.id)" class="flex items-center gap-1.5 mt-1 text-emerald-600 dark:text-emerald-500 active:opacity-60 transition-opacity">
-                  <span class="text-[10px] font-black uppercase tracking-widest">
-                    L-HCP: {{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}
-                  </span>
-                  <Icon :name="expandedAudit === player.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <div class="relative bg-white dark:bg-slate-950 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 min-w-[85px] text-center">
-                <p class="text-[8px] font-black text-slate-400 uppercase">GHIN</p>
-                <p class="font-black text-slate-900 dark:text-white">{{ player.ghin || 'NH' }}</p>
-                
-                <button 
-                  v-if="isAdmin || player.id === authStore.userProfile?.id" 
-                  @click="openGhinModal(player)" 
-                  class="absolute -top-2 -right-2 p-0.5 bg-white dark:bg-slate-900 rounded-full text-slate-300 hover:text-emerald-500 shadow-sm border border-slate-100 dark:border-slate-800 transition-colors"
-                >
-                  <Icon name="mdi:pencil-circle" class="w-5 h-5" />
-                </button>
-              </div>
-              
-              <button v-if="isEditMode" @click="confirmRemove(player)" class="p-2 text-slate-400 active:text-red-500 transition-colors">
-                <Icon name="mdi:delete-outline" class="w-6 h-6" />
+                <Icon name="mdi:information-outline" class="size-3" />
               </button>
             </div>
           </div>
 
-          <Transition name="expand">
-            <div v-if="expandedAudit === player.id" class="px-5 pb-5 pt-2 bg-slate-100/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
-              <p class="text-[9px] font-black uppercase text-slate-400 mb-3 tracking-widest flex flex-col gap-1">
-                Handicap Audit 
-                <span class="text-[8px] text-emerald-500 lowercase font-medium">(highlighted rounds used in calculation)</span>
-              </p>
-              
-              <div class="space-y-2">
-                <div v-for="(round, idx) in processAuditRounds(player.leagueAudits?.[route.params.id])" :key="idx" 
-                     :class="round.isUsed ? 'border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950'"
-                     class="flex justify-between items-center p-2 px-4 rounded-xl border transition-all">
-                  
-                  <div class="flex flex-col">
-                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{{ formatDate(round.date) }}</span>
-                    <span v-if="round.isPadding" class="text-[8px] text-amber-500 font-bold uppercase">GHIN-3 Penalty</span>
-                  </div>
-
-                  <div class="flex items-center gap-4">
-                    <div class="text-right">
-                      <p class="text-[8px] uppercase text-slate-400 font-black">Gross</p>
-                      <p :class="round.isUsed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" class="text-sm font-black">
-                        {{ round.rawGross }}
-                      </p>
-                    </div>
-                    <div class="text-right">
-                      <p class="text-[8px] uppercase text-slate-400 font-black">Adj</p>
-                      <p :class="round.isUsed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" class="text-sm font-black">
-                        {{ round.adjustedGross }}
-                      </p>
-                    </div>
-                    <div class="text-right">
-                      <p class="text-[8px] uppercase text-slate-400 font-black">Diff</p>
-                      <p :class="round.isUsed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" class="text-sm font-black">
-                        {{ round.differential?.toFixed(3) }}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <p v-if="!player.leagueAudits?.[route.params.id]?.length" class="text-[10px] italic text-slate-400 mt-2">No rounds found for this season.</p>
+          <div class="flex items-center gap-2 shrink-0">
+            <div class="relative bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800 min-w-[65px] text-center">
+              <p class="text-[7px] font-black text-slate-400 uppercase leading-none mb-1">GHIN</p>
+              <p class="font-black text-slate-900 dark:text-white text-xs leading-none">{{ player.ghin?.toFixed(1) || 'NH' }}</p>
+              <button v-if="canEditPlayer(player)" @click="openGhinModal(player)" 
+                      class="absolute -top-2 -right-2 p-1 text-slate-300 hover:text-emerald-500 transition-colors">
+                <Icon name="mdi:pencil-circle" class="size-4" />
+              </button>
             </div>
-          </Transition>
+            <button v-if="isEditMode" @click="handleRemoveClick(player)" class="p-1 text-slate-300 hover:text-red-500 transition-colors">
+              <Icon name="mdi:close-circle-outline" class="size-5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <GhinModal v-if="selectedPlayer" :is-open="isGhinModalOpen" :player="selectedPlayer" @close="isGhinModalOpen = false" @updated="fetchRoster" />
+    <HandicapAuditModal 
+      :is-open="isAuditModalOpen" 
+      :player="selectedPlayerForAudit" 
+      :league-id="route.params.id" 
+      @close="isAuditModalOpen = false" 
+    />
+
+    <GhinModal 
+      v-if="selectedPlayer" 
+      :is-open="isGhinModalOpen" 
+      :player="selectedPlayer" 
+      @close="isGhinModalOpen = false" 
+      @updated="fetchRoster" 
+    />
+
+    <PlayerPicker 
+      v-model:is-open="isAddModalOpen" 
+      :selected-players="roster" 
+      :can-create="isAdmin" 
+      @toggle="handleTogglePlayer" 
+      @create-new="handleCreateAndAdd" 
+    />
   </div>
 </template>
 
 <script setup>
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp } from "firebase/firestore";
 import { useAuthStore } from "~/stores/auth";
 import { useUIStore } from "~/stores/ui";
+import { useToast } from "~/composables/useToast";
+import { useConfirm } from "~/composables/useConfirm";
+import { calculateLeagueHandicap } from "~/utils/handicap";
 
+// Route & Stores
 const route = useRoute();
 const { $db } = useNuxtApp();
 const authStore = useAuthStore();
 const ui = useUIStore();
+const toast = useToast();
+const confirm = useConfirm();
 
+// UI State
 const roster = ref([]);
 const league = ref(null);
-const isAdmin = ref(false);
 const isEditMode = ref(false);
-const expandedAudit = ref(null);
-const isGhinModalOpen = ref(false);
-const selectedPlayer = ref(null);
 
+// Modal/Selection State
+const isGhinModalOpen = ref(false);
+const isAuditModalOpen = ref(false);
+const isAddModalOpen = ref(false);
+
+const selectedPlayer = ref(null);
+const selectedPlayerForAudit = ref(null);
+
+// Computed Admin Check
+const isAdmin = computed(() => {
+  if (!league.value) return false;
+  return authStore.isAdminForType(league.value.type);
+});
+
+// --- Data Fetching ---
 const fetchRoster = async () => {
-  ui.setLoading(true);
+  ui.setLoading(true, "Syncing Roster...");
   try {
     const leagueDoc = await getDoc(doc($db, "leagues", route.params.id));
-    if (leagueDoc.exists()) {
-      league.value = leagueDoc.data();
-      isAdmin.value = authStore.isAdminForType(league.value.type);
-    }
-
-    // Now simply query the players. The handicap math is already stored in the doc!
+    if (leagueDoc.exists()) league.value = leagueDoc.data();
+    
     const q = query(collection($db, "players"), where("leagues", "array-contains", route.params.id));
     const snap = await getDocs(q);
     
-    roster.value = snap.docs.map(d => ({
-      id: d.id,
-      ...d.data()
-    }));
-
-  } catch (err) {
-    console.error(err);
+    roster.value = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
+  } catch (e) {
+    console.error("Fetch Roster Failed:", e);
   } finally {
     ui.setLoading(false);
   }
 };
 
-const formatHcp = (hcp) => {
-  if (hcp === undefined || hcp === null) return '0.000';
-  return Number(hcp).toFixed(3);
-};
+// --- Player Management ---
+const handleTogglePlayer = async (player) => {
+  const isRemoving = roster.value.some(p => p.id === player.id);
+  ui.setLoading(true, isRemoving ? "Removing..." : "Syncing Roster...");
+  
+  try {
+    const playerRef = doc($db, "players", player.id);
+    const updates = {
+      leagues: isRemoving ? arrayRemove(route.params.id) : arrayUnion(route.params.id)
+    };
 
-const toggleAudit = (id) => expandedAudit.value = expandedAudit.value === id ? null : id;
+    if (!isRemoving && league.value?.cadence === 'yearly') {
+      const { hcp, audit } = await getYearlyInitData(player.id, player.ghin || 0);
+      updates[`leagueHandicaps.${route.params.id}`] = hcp;
+      updates[`leagueAudits.${route.params.id}`] = audit;
+    }
 
-const openGhinModal = (player) => {
-  selectedPlayer.value = player;
-  isGhinModalOpen.value = true;
-};
-
-const handleAddPlayer = () => console.log("Open Add Player Modal");
-
-const confirmRemove = (player) => {
-  if (confirm(`Are you sure you want to remove ${player.fname} from the league?`)) {
-    console.log("Removing player ID:", player.id);
+    await updateDoc(playerRef, updates);
+    await fetchRoster();
+    toast.add(isRemoving ? "Player removed" : "Player added", 'info');
+  } finally {
+    ui.setLoading(false);
   }
 };
 
-const formatDate = (d) => {
-  if (!d || d === 'N/A') return 'Established Round';
-  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+const handleCreateAndAdd = async (formData) => {
+  // 1. Phone Validation
+  const digits = formData.phone.replace(/\D/g, '');
+  if (digits.length !== 10) {
+    toast.add("Phone must be exactly 10 digits.", 'error');
+    return;
+  }
+
+  // 2. Normalization
+  const normalize = (val) => val.trim().charAt(0).toUpperCase() + val.trim().slice(1).toLowerCase();
+  const cleanData = {
+    ...formData,
+    fname: normalize(formData.fname),
+    lname: normalize(formData.lname),
+    phone: `+1${digits}`
+  };
+
+  ui.setLoading(true, "Checking duplicates...");
+  try {
+    const q = query(collection($db, "players"), where("fname", "==", cleanData.fname), where("lname", "==", cleanData.lname));
+    const snap = await getDocs(q);
+    ui.setLoading(false);
+    
+    if (!snap.empty) {
+      const proceed = await confirm.ask(
+        'Duplicate Found', 
+        `A player named <b>${cleanData.fname} ${cleanData.lname}</b> already exists. Create a new profile anyway?`,
+        { variant: 'warning', confirmText: 'Create Anyway' }
+      );
+      if (!proceed) return;
+    }
+
+    await finalizePlayerCreation(cleanData);
+  } catch (err) {
+    ui.setLoading(false);
+  }
 };
 
-const processAuditRounds = (rounds) => {
-  if (!rounds || !rounds.length) return [];
-  
-  // Find the lowest 4 differentials to flag them as "Used"
-  const sortedByDiff = [...rounds].sort((a, b) => a.differential - b.differential);
-  const lowest4Indices = new Set(sortedByDiff.slice(0, 4).map(r => rounds.indexOf(r)));
+const finalizePlayerCreation = async (data) => {
+  ui.setLoading(true, "Saving Player...");
+  try {
+    const newPlayer = {
+      ...data,
+      ghin: Number(data.ghin) || 0,
+      leagues: [route.params.id],
+      createdAt: serverTimestamp(),
+      admin: false,
+      leagueHandicaps: {},
+      leagueAudits: {}
+    };
 
-  return rounds.map((r, idx) => ({
-    ...r,
-    isUsed: lowest4Indices.has(idx)
-  }));
+    if (league.value?.cadence === 'yearly') {
+      const { hcp, audit } = await getYearlyInitData("temp-id", newPlayer.ghin);
+      newPlayer.leagueHandicaps[route.params.id] = hcp;
+      newPlayer.leagueAudits[route.params.id] = audit;
+    }
+
+    await addDoc(collection($db, "players"), newPlayer);
+    await fetchRoster();
+    
+    isAddModalOpen.value = false;
+    toast.add("Player created successfully", 'success');
+  } finally {
+    ui.setLoading(false);
+  }
 };
+
+const handleRemoveClick = async (player) => {
+  const confirmed = await confirm.ask(
+    'Remove Player', 
+    `Are you sure you want to remove <b>${player.fname} ${player.lname}</b> from the league?`,
+    { confirmText: 'Remove', variant: 'danger' }
+  );
+
+  if (confirmed) {
+    ui.setLoading(true, "Removing...");
+    try {
+      await updateDoc(doc($db, "players", player.id), { leagues: arrayRemove(route.params.id) });
+      await fetchRoster();
+      toast.add("Player removed", 'info');
+    } finally { ui.setLoading(false); }
+  }
+};
+
+const syncAllHandicaps = async () => {
+  if (!confirm(`Re-calculate all ${roster.value.length} handicaps?`)) return;
+  ui.setLoading(true, "Global Re-Sync...");
+  try {
+    for (const player of roster.value) {
+      const { hcp, audit } = await getYearlyInitData(player.id, player.ghin || 0);
+      await updateDoc(doc($db, "players", player.id), {
+        [`leagueHandicaps.${route.params.id}`]: hcp,
+        [`leagueAudits.${route.params.id}`]: audit
+      });
+    }
+    await fetchRoster();
+    toast.add("All handicaps synced", 'success');
+  } finally { ui.setLoading(false); }
+};
+
+// --- Utilities ---
+const getYearlyInitData = async (playerId, ghin) => {
+  const result = await calculateLeagueHandicap($db, playerId, route.params.id, Number(ghin), new Map());
+  return { hcp: result.hcp, audit: result.audit };
+};
+
+const isPlayerAdmin = (p) => p.admin === 'super' || p.admin === league.value?.type;
+const canEditPlayer = (p) => isAdmin.value || p.id === authStore.userProfile?.id;
+const openAuditModal = (p) => { selectedPlayerForAudit.value = p; isAuditModalOpen.value = true; };
+const openGhinModal = (p) => { selectedPlayer.value = p; isGhinModalOpen.value = true; };
+const formatHcp = (hcp) => hcp ? Number(hcp).toFixed(3) : '0.000';
 
 onMounted(fetchRoster);
 </script>
 
 <style scoped>
-.expand-enter-active, .expand-leave-active { transition: all 0.3s ease-in-out; max-height: 1200px; }
-.expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; overflow: hidden; }
-.fade-enter-active, .fade-leave-active { transition: all 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
