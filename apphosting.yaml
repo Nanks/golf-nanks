@@ -1,0 +1,24 @@
+runtime: nodejs24
+
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0
+  maxInstances: 10
+
+env:
+  # Public variables accessible to both Nitro (server) and the Browser
+  - variable: NUXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyBBxnVCn08Kl5d2Esr39yWyug0NglG4Wkg"
+  - variable: NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "golf-nanks.firebaseapp.com"
+  - variable: NUXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "golf-nanks"
+  - variable: NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "golf-nanks.firebasestorage.app"
+  - variable: NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "581153026597"
+  - variable: NUXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:581153026597:web:082e92751c11f3d2ba85cc"
+  - variable: NUXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: "G-1CJQKKG7YJ"

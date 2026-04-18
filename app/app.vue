@@ -20,10 +20,17 @@
 // Removed unused useAuthStore
 import { useData } from '~/stores/data'
 import { useUIStore } from '~/stores/ui'
+const { initAuth } = useAuth()
 
 const dataStore = useData()
 const ui = useUIStore()
 const { hook } = useNuxtApp()
+
+onMounted(() => {
+  if (import.meta.client) {
+    initAuth();
+  }
+});
 
 /**
  * 1. SSR HYDRATION

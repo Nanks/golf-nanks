@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -39,20 +40,20 @@ export const useAuthStore = defineStore('auth', {
 
       if (user) {
         if (profile) {
-          // Use the profile passed from login.vue directly
           this.userProfile = profile;
+          this.isInitialized = true; // We have a profile, we are initialized
           this.loading = false;
         } else {
-          // Standard flow: fetch from Firestore listener
-          this.fetchUserProfile(user.uid);
+          // Pass true to tell fetchUserProfile to flip the initialized switch
+          this.fetchUserProfile(user.uid, true); 
         }
       } else {
         this.userProfile = null;
+        this.isInitialized = true; // Logged out is also an initialized state
         this.loading = false;
       }
 
-      this.isInitialized = true;
-      this.pendingPlayerId = null; // Clear the pending ID after successful login
+      this.pendingPlayerId = null;
     },
 
     // NEW: Middleware helper to prevent "race conditions" on refresh
@@ -79,7 +80,7 @@ export const useAuthStore = defineStore('auth', {
       });
     },
 
-    async fetchUserProfile(uid) {
+    async fetchUserProfile(uid, setInitialized = false) {
       const { $db } = useNuxtApp()
       if (!$db) return
 
@@ -95,20 +96,40 @@ export const useAuthStore = defineStore('auth', {
             ...snapshot.docs[0].data()
           }
         }
+        
+        // ONLY NOW do we flip the switch
+        if (setInitialized) {
+          this.isInitialized = true;
+        }
         this.loading = false
       }, (err) => {
         console.error("Snapshot error:", err)
+        if (setInitialized) this.isInitialized = true; // Don't hang the app on error
         this.loading = false
       })
     },
 
     async logout() {
-      const auth = getAuth();
-      if (this.unsubscribeProfile) {
-        this.unsubscribeProfile();
-        this.unsubscribeProfile = null;
+      const auth = getAuth(); // This now works because of the import
+      
+      try {
+        // 1. Kill the Firestore listener so it doesn't try to update a null user
+        if (this.unsubscribeProfile) {
+          this.unsubscribeProfile();
+          this.unsubscribeProfile = null;
+        }
+
+        // 2. Sign out of Firebase
+        await auth.signOut();
+
+        // 3. Clear the local store state
+        this.user = null;
+        this.userProfile = null;
+        this.isInitialized = true; 
+
+      } catch (error) {
+        console.error("Logout failed:", error);
       }
-      await auth.signOut();
     }
   }
 });

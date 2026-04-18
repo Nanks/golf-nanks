@@ -1,30 +1,36 @@
-import { initializeApp, getApps, getApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 export default defineNuxtPlugin((nuxtApp) => {
-  const firebaseConfig = {
-    apiKey: "AIzaSyBBxnVCn08Kl5d2Esr39yWyug0NglG4Wkg",
-    authDomain: "golf-nanks.firebaseapp.com",
-    projectId: "golf-nanks",
-    storageBucket: "golf-nanks.firebasestorage.app",
-    messagingSenderId: "581153026597",
-    appId: "1:581153026597:web:082e92751c11f3d2ba85cc",
-    measurementId: "G-1CJQKKG7YJ"
-  };
-console.log('🔥 Initializing Firebase... Server side?', import.meta.server)
-let app
-  // CRITICAL SERVER FIX: Check if Firebase is already initialized
-  if (!getApps().length) {
-    app = initializeApp(firebaseConfig)
-  } else {
-    app = getApp()
-  }
+  const config = useRuntimeConfig();
 
-  const db = getFirestore(app)
+  const firebaseConfig = {
+    apiKey: config.public.firebaseApiKey,
+    authDomain: config.public.firebaseAuthDomain,
+    projectId: config.public.firebaseProjectId,
+    storageBucket: config.public.firebaseStorageBucket,
+    messagingSenderId: config.public.firebaseMessagingSenderId,
+    appId: config.public.firebaseAppId,
+  };
+
+  // Initialize App (Safe for both SSR and Client)
+  const app = getApps().length === 0 
+    ? initializeApp(firebaseConfig) 
+    : getApp();
+
+  const db = getFirestore(app);
+  
+  // Initialize Auth ONLY on the client
+  let auth = null;
+  if (import.meta.client) {
+    auth = getAuth(app);
+  }
 
   return {
     provide: {
-      db
+      db,
+      auth // This will be null on the server, but the object on the client
     }
-  }
-})
+  };
+});

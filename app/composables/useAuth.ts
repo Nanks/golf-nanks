@@ -8,90 +8,68 @@ import {
 } from 'firebase/auth';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 
-// 1. Keep these only if they are NOT used as state (ConfirmationResult/Verifier are fine here)
+// Keep these outside to persist the verification session during the 2-step process
 let confirmationResult: ConfirmationResult | null = null;
 let recaptchaVerifier: RecaptchaVerifier | null = null;
 
 export const useAuth = () => {
   const { $auth, $db } = useNuxtApp();
 
-  // 2. These are your SHARED GLOBAL STATES across the whole app
   const currentUser = useState<User | null>('auth_user', () => null);
-  const playerData = useState<Player | null>('player_data', () => null);
+  const playerData = useState<any | null>('player_data', () => null);
   const isInitialLoading = useState<boolean>('auth_loading', () => true);
 
-  // 3. Computed Helpers
-  const isSuperAdmin = computed(() => playerData.value?.admin === 'super');
   const isLoggedIn = computed(() => !!currentUser.value);
-  const isAnyAdmin = computed(() => !!playerData.value?.admin);
-  
-  const isAdminOf = (leagueID: string) => {
-    if (isSuperAdmin.value) return true;
-    return playerData.value?.admin === leagueID;
-  };
+  const isSuperAdmin = computed(() => playerData.value?.admin === 'super');
 
-  // 4. Initialize Auth Listener
   const initAuth = () => {
-    onAuthStateChanged($auth, async (fbUser) => {
-      // This now updates the 'useState' correctly
+    // Only set up the listener once
+    onAuthStateChanged($auth as any, async (fbUser) => {
       currentUser.value = fbUser;
       
       if (fbUser) {
-        try {
-          const playersRef = collection($db, "players");
-          const q = query(playersRef, where("uids", "array-contains", fbUser.uid));
-          const querySnapshot = await getDocs(q);
-
-          if (!querySnapshot.empty) {
-            const docSnap = querySnapshot.docs[0];
-            if (docSnap) {
-              playerData.value = { 
-                id: docSnap.id, 
-                ...docSnap.data() 
-              } as Player;
-            
-              console.log("Player profile loaded:", playerData.value.fname);
-            }
-          } else {
-            console.warn("No player document found for UID:", fbUser.uid);
-            playerData.value = null;
-          }
-        } catch (err) {
-          console.error("Error fetching player profile:", err);
-          playerData.value = null;
+        const q = query(collection($db as any, "players"), where("uids", "array-contains", fbUser.uid));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          playerData.value = { id: snap.docs[0].id, ...snap.docs[0].data() };
         }
       } else {
         playerData.value = null;
       }
-      
       isInitialLoading.value = false;
     });
   };
 
   const initRecaptcha = (elementId: string) => {
-    if (recaptchaVerifier) return;
-    recaptchaVerifier = new RecaptchaVerifier($auth, elementId, { size: 'invisible' });
+    if (!import.meta.client) return;
+    
+    // Cleanup existing to prevent "re-initialization" errors on the same element
+    if (recaptchaVerifier) {
+      try { recaptchaVerifier.clear(); } catch (e) {}
+    }
+
+    recaptchaVerifier = new RecaptchaVerifier($auth as any, elementId, { 
+      size: 'invisible' 
+    });
   };
 
   const sendOtp = async (phoneNumber: string) => {
     if (!recaptchaVerifier) throw new Error("Recaptcha not initialized");
-    confirmationResult = await signInWithPhoneNumber($auth, phoneNumber, recaptchaVerifier);
+    // Standardize result storage
+    confirmationResult = await signInWithPhoneNumber($auth as any, phoneNumber, recaptchaVerifier);
   };
 
   const verifyOtp = async (otp: string) => {
     if (!confirmationResult) throw new Error("No pending verification");
-    return await confirmationResult.confirm(otp);
+    const result = await confirmationResult.confirm(otp);
+    return result.user;
   };
 
   const logout = async () => {
-    try {
-      await signOut($auth);
-      currentUser.value = null;
-      playerData.value = null;
-      navigateTo('/login');
-    } catch (error) {
-      console.error("Sign out failed:", error);
-    }
+    await signOut($auth as any);
+    currentUser.value = null;
+    playerData.value = null;
+    navigateTo('/login');
   };
 
   return {
@@ -104,8 +82,6 @@ export const useAuth = () => {
     sendOtp,
     verifyOtp,
     logout,
-    isSuperAdmin,
-    isAdminOf,
-    isAnyAdmin
+    isSuperAdmin
   };
 };
