@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
   // Enables Nuxt 4 features and directory structure
+  compatibilityDate: '2026-04-18', 
   future: {
     compatibilityVersion: 4,
   },
@@ -14,6 +15,11 @@ export default defineNuxtConfig({
   app: {
     // Enables a transition named 'page' that waits for the old page to leave before the new one enters
     pageTransition: { name: 'page', mode: 'out-in' }
+  },
+
+  sourcemap: {
+    server: false,
+    client: false
   },
   
   // Combine both into a SINGLE vite block
@@ -55,10 +61,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    preset: 'firebase',
-    firebase: {
-      gen: 2
-    }
+    preset: 'firebase-app-hosting' // Or let auto-detection handle it
   },
 
   // Ensure Firebase only runs on the client side

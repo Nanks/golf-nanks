@@ -18,6 +18,8 @@
     "@vueuse/core": "^14.2.1",
     "@vueuse/nuxt": "^14.2.1",
     "firebase": "^12.11.0",
+    "firebase-admin": "^13.8.0",
+    "firebase-functions": "^7.2.5",
     "nuxt": "^4.4.2",
     "tailwindcss": "^4.2.2",
     "vue": "^3.5.30",
