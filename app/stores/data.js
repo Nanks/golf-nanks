@@ -60,15 +60,34 @@ export const useData = defineStore('data', () => {
     }
   }
 
-  const startLiveListener = (type = null) => {
+  // Helper to get local YYYY-MM-DD
+  const getTodayISO = () => {
+    const d = new Date();
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  };
+
+  // GETTER: Check if a specific league is live right now
+  const isLeagueLiveToday = computed(() => (leagueId) => {
+    const today = getTodayISO();
+    return liveRounds.value.some(r => r.leagueId === leagueId && r.iso === today);
+  });
+
+  const startLiveListener = (filters = {}) => {
     // 1. Clean up existing to prevent memory leaks
     stopLiveListener()
     
-    // 2. Store the type so we can resume it after backgrounding
-    activeListenerType.value = type
+    // 2. Store the filters so we can resume them after backgrounding
+    activeListenerType.value = filters
 
     let q = collection($db, "live_rounds")
-    if (type) q = query(q, where("type", "==", type))
+    
+    // 3. Dynamically apply filters
+    if (filters.leagueId) {
+      q = query(q, where("leagueId", "==", filters.leagueId))
+    }
+    if (filters.type) {
+      q = query(q, where("type", "==", filters.type))
+    }
 
     liveRoundsUnsub.value = onSnapshot(q, (snapshot) => {
       liveRounds.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -82,10 +101,10 @@ export const useData = defineStore('data', () => {
     }
   }
 
-  // New helper for app.vue to use
   const resumeListener = () => {
-    if (activeListenerType.value !== null || liveRounds.value.length > 0) {
-      startLiveListener(activeListenerType.value)
+    // Re-run the listener with the saved filter object
+    if (activeListenerType.value || liveRounds.value.length > 0) {
+      startLiveListener(activeListenerType.value || {})
     }
   }
 

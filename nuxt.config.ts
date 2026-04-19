@@ -34,9 +34,14 @@ export default defineNuxtConfig({
     pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'Golf Nanks',
-      meta: [{ name: 'theme-color', content: '#000000' }],
+      meta: [
+        { name: 'theme-color', content: '#020617' }, // Matches slate-950
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
+      ],
       link: [
-        { rel: 'icon', type: 'image/png', href: '/icon.png' }
+        { rel: 'icon', type: 'image/png', href: '/icon.png' },
+        { rel: 'apple-touch-icon', href: '/icon.png' } // Required for iOS icons
       ]
     }
   },

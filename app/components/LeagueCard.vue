@@ -1,14 +1,13 @@
 <template>
   <div 
     @click="navigateTo(`/leagues/${league.id}/menu`)" 
-    class="bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-5 py-2 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden select-none"
+    class="card-base px-5 py-2 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden select-none"
   >
     <div 
       v-if="isAdmin" 
-      class="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1.5 py-0.5 rounded-md z-10"
+      class="absolute top-2 left-1 flex items-center gap-1 text-amber-500 z-10"
     >
       <Icon name="mdi:shield-crown-outline" class="size-3" />
-      <span class="text-[8px] font-black uppercase tracking-widest leading-none mt-0.5">Admin</span>
     </div>
 
     <div class="mb-1">

@@ -68,8 +68,12 @@
           
           <div class="p-2.5 flex items-center justify-between gap-3">
             
-            <NuxtLink :to="getEventLink(event)" class="flex-1 min-w-0 flex items-center gap-3">
-              
+            <component 
+                :is="event.iso <= todayISO ? 'NuxtLink' : 'div'"
+                :to="event.iso <= todayISO ? getEventLink(event) : undefined" 
+                class="flex-1 min-w-0 flex items-center gap-3 transition-all duration-300"
+                :class="event.iso <= todayISO ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed'"
+              >
               <div class="w-10 shrink-0 text-center flex flex-col items-center justify-center">
                 <span class="text-[8px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-0.5">
                   {{ getEventMonth(event.iso) }}
@@ -90,19 +94,22 @@
                 </div>
                 
                 <div class="flex gap-1.5 flex-wrap">
-                  <template v-for="g in event.game" :key="g">
+                  <template v-for="validGames in [(event.game || []).filter(g => g.toLowerCase() !== 'stroke play')]" :key="event.id + '-games'">
+    
                     <div 
-                      v-if="g.toLowerCase() !== 'stroke play'"
+                      v-for="g in validGames" 
+                      :key="g"
                       class="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-500 flex items-center"
                     >
                       <span class="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5">
-                        {{ getInitials(g) }}
+                        {{ validGames.length === 1 ? g : getInitials(g) }}
                       </span>
                     </div>
+                    
                   </template>
                 </div>
               </div>
-            </NuxtLink>
+            </component>
 
             <div class="flex items-center gap-2 shrink-0 pr-1">
               <div v-if="getStatusUI(event.status)" :class="getStatusUI(event.status).color">
@@ -118,12 +125,13 @@
                     <Icon name="mdi:close-circle-outline" class="size-5" />
                   </button>
                 </div>
-                <Icon 
-                  v-else 
-                  :name="event.status ? 'mdi:chevron-right' : 'mdi:poker-chip'" 
-                  :class="!event.status ? 'text-emerald-500 animate-pulse' : 'text-slate-300'"
-                  class="size-5" 
-                />
+                <template v-else-if="event.iso <= todayISO">
+                  <Icon 
+                    :name="(event.iso === todayISO && dataStore.isLeagueLiveToday(route.params.id)) ? 'mdi:poker-chip' : 'mdi:chevron-right'" 
+                    :class="(event.iso === todayISO && dataStore.isLeagueLiveToday(route.params.id)) ? 'text-emerald-500 animate-pulse' : 'text-slate-300'"
+                    class="size-5" 
+                  />
+                </template>
               </ClientOnly>
             </div>
           </div>
@@ -280,6 +288,12 @@ const prevYear = () => {
   selectedYear.value = Math.max(selectedYear.value - 1, 2016);
 };
 
+const todayISO = [
+  new Date().getFullYear(),
+  String(new Date().getMonth() + 1).padStart(2, '0'),
+  String(new Date().getDate()).padStart(2, '0')
+].join('-');
+
 const getEventMonth = (iso) => {
   if (!iso) return 'TBD';
   return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
@@ -298,11 +312,12 @@ const formatEventDate = (event) => {
 };
 
 const getEventLink = (event) => {
-  const type = props.league.type || 'casual'; // Or however you get league type
+  // Use leagueData instead of the undefined props
+  const type = leagueData.value?.type || 'casual'; 
   const iso = event.iso;
-  const isFinished = ['complete', 'mdi:check-bold', 'mdi-check-bold', 'rain', 'handicap', 'practice'].includes(event.status?.toLowerCase());
+  
+  const isFinished = ['complete', 'rain', 'handicap', 'practice'].includes(event.status?.toLowerCase());
 
-  // Appending the ?from=calendar query parameter!
   return isFinished 
     ? `/leaderboard/${type}/${iso}/history` 
     : `/leaderboard/${type}/${iso}/live?from=calendar`;
@@ -318,21 +333,17 @@ const getStatusUI = (status) => {
     // 1. COMPLETE
     case 'complete':
     case 'mdi:check-bold':
-    case 'mdi-check-bold':
       return { icon: 'mdi:check-circle', color: 'text-emerald-500' };
 
     // 2. PRACTICE
     case 'practice':
     case 'mdi:alpha-p-circle-outline':
-    case 'mdi-alpha-p-circle-outline':
       return { icon: 'mdi:flag-triangle', color: 'text-blue-500' };
 
     // 3. RAIN / CANCELLED
     case 'rain':
     case 'mdi:weather-pouring':
-    case 'mdi-weather-pouring':
     case 'mdi:cancel':
-    case 'mdi-cancel':
       return { icon: 'mdi:weather-pouring', color: 'text-slate-400' };
 
     // 4. HANDICAP
@@ -348,6 +359,7 @@ const getStatusUI = (status) => {
 // --- LIFECYCLE ---
 onMounted(() => {
   loadEventsForYear(selectedYear.value);
+  dataStore.startLiveListener(route.params.id);
 });
 
 onUnmounted(() => {

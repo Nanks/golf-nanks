@@ -11,7 +11,7 @@
     <div v-else>
       
       <section v-if="authStore.isLoggedIn && authStore.userProfile" class="mb-2">
-        <div class="bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex items-center justify-between gap-4">
+        <div class="card-base p-5 flex items-center justify-between gap-4">
           <div>
             <h1 class="text-xl font-black italic uppercase leading-none tracking-tighter">
               {{ authStore.userProfile.fname }} {{ authStore.userProfile.lname }}
@@ -23,7 +23,7 @@
               <Icon name="mdi:pencil" class="size-2" />
             </div>
             
-            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2 text-center min-w-[85px]">
+            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-center min-w-[85px]">
               <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">GHIN</p>
               <p class="text-xl font-black italic tabular-nums leading-none">
                 {{ authStore.userProfile.ghin || '—' }}

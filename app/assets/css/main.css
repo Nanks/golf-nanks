@@ -36,18 +36,29 @@
 @layer base {
   body {
     background-color: var(--color-white);
-    /* Updated to use your new stone alias */
     color: var(--color-slate-900); 
     transition: background-color 0.3s, color 0.3s;
   }
 
   .dark body {
-    /* Updated to use your new stone alias */
     background-color: var(--color-slate-950);
     color: var(--color-slate-100);
   }
 }
 
+/* 4. Global Components */
+@layer components {
+  /* The standard static card */
+  .card-base {
+    @apply bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm;
+  }
+
+  .card-interactive {
+    @apply bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-all hover:border-emerald-500/50 dark:hover:border-emerald-500/50 active:scale-[0.98] cursor-pointer;
+  }
+}
+
+/* 5. Global Utilities & Animations */
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
