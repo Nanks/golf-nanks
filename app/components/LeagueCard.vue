@@ -31,7 +31,7 @@
           : isToday(league.nextRound.iso)
             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 cursor-pointer active:scale-95'
             // State 3: Scheduled for the Future (Grey, not clickable)
-            : 'bg-slate-500/10 border-slate-500/20 text-slate-400 cursor-default'
+            : 'bg-slate-500/10 border-slate-500/20 text-slate-500 cursor-default'
       ]"
     >
       <Icon 

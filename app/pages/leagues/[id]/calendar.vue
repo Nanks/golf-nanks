@@ -13,7 +13,7 @@
             <button 
               v-if="isAdmin"
               @click="isAdminMode = !isAdminMode" 
-              :class="isAdminMode ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
+              :class="isAdminMode ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-800'"
               class="flex items-center gap-2 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
             >
               <Icon :name="isAdminMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-3.5" />
@@ -28,7 +28,7 @@
           @click="prevYear" 
           :disabled="selectedYear <= 2016"
           :class="selectedYear <= 2016 ? 'opacity-20 cursor-not-allowed' : 'text-slate-400 active:text-emerald-500 active:scale-90'"
-          class="p-2 transition-all rounded-full bg-slate-200/50 dark:bg-slate-900/50"
+          class="p-2 transition-all rounded-full bg-slate-200/50 dark:bg-slate-800"
         >
           <Icon name="mdi:chevron-left" class="size-6" />
         </button>
@@ -42,7 +42,7 @@
           @click="nextYear" 
           :disabled="selectedYear >= currentYear"
           :class="selectedYear >= currentYear ? 'opacity-20 cursor-not-allowed' : 'text-slate-400 active:text-emerald-500 active:scale-90'"
-          class="p-2 transition-all rounded-full bg-slate-200/50 dark:bg-slate-900/50"
+          class="p-2 transition-all rounded-full bg-slate-200/50 dark:bg-slate-800"
         >
           <Icon name="mdi:chevron-right" class="size-6" />
         </button>
@@ -63,17 +63,17 @@
       </ClientOnly>
 
       <div class="space-y-2">
-        <div v-for="event in events" :key="event.id" 
-            class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden transition-all shadow-sm">
+        <div v-for="event in events" :key="event.id">
           
-          <div class="p-2.5 flex items-center justify-between gap-3">
+          <component 
+            :is="event.iso <= todayISO ? 'NuxtLink' : 'div'"
+            :to="event.iso <= todayISO ? getEventLink(event) : undefined" 
+            class="card-base flex items-center justify-between p-2.5 transition-all duration-300"
+            :class="{ 'hover:border-emerald-500/50 dark:hover:border-emerald-500/50 active:scale-[0.98] cursor-pointer': event.iso <= todayISO }"
+          >
             
-            <component 
-                :is="event.iso <= todayISO ? 'NuxtLink' : 'div'"
-                :to="event.iso <= todayISO ? getEventLink(event) : undefined" 
-                class="flex-1 min-w-0 flex items-center gap-3 transition-all duration-300"
-                :class="event.iso <= todayISO ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed'"
-              >
+            <div class="flex-1 min-w-0 flex items-center gap-3">
+              
               <div class="w-10 shrink-0 text-center flex flex-col items-center justify-center">
                 <span class="text-[8px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-0.5">
                   {{ getEventMonth(event.iso) }}
@@ -95,7 +95,6 @@
                 
                 <div class="flex gap-1.5 flex-wrap">
                   <template v-for="validGames in [(event.game || []).filter(g => g.toLowerCase() !== 'stroke play')]" :key="event.id + '-games'">
-    
                     <div 
                       v-for="g in validGames" 
                       :key="g"
@@ -105,26 +104,27 @@
                         {{ validGames.length === 1 ? g : getInitials(g) }}
                       </span>
                     </div>
-                    
                   </template>
                 </div>
               </div>
-            </component>
+            </div>
 
-            <div class="flex items-center gap-2 shrink-0 pr-1">
-              <div v-if="getStatusUI(event.status)" :class="getStatusUI(event.status).color">
-                <Icon :name="getStatusUI(event.status).icon" class="size-5" />
+            <div class="flex items-center gap-2 shrink-0 pl-3 pr-1">
+              
+              <div v-if="getStatusUI(event.status, event.iso)" :class="getStatusUI(event.status, event.iso).color">
+                <Icon :name="getStatusUI(event.status, event.iso).icon" class="size-5" />
               </div>
               
               <ClientOnly>
                 <div v-if="isAdminMode" class="flex gap-1">
-                  <button @click="openEditModal(event)" class="p-1.5 text-slate-300 active:text-amber-500 transition-colors">
+                  <button @click.prevent="openEditModal(event)" class="p-1.5 text-slate-300 active:text-amber-500 transition-colors">
                     <Icon name="mdi:pencil-circle" class="size-6" />
                   </button>
-                  <button @click="promptDelete(event)" class="p-1 text-slate-300 active:text-red-500 transition-colors">
+                  <button @click.prevent="promptDelete(event)" class="p-1 text-slate-300 active:text-red-500 transition-colors">
                     <Icon name="mdi:close-circle-outline" class="size-5" />
                   </button>
                 </div>
+                
                 <template v-else-if="event.iso <= todayISO">
                   <Icon 
                     :name="(event.iso === todayISO && dataStore.isLeagueLiveToday(route.params.id)) ? 'mdi:poker-chip' : 'mdi:chevron-right'" 
@@ -133,8 +133,10 @@
                   />
                 </template>
               </ClientOnly>
+
             </div>
-          </div>
+          </component>
+
         </div>
 
         <div v-if="events.length === 0" class="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
@@ -193,6 +195,13 @@ const isDeleteModalOpen = ref(false);
 const eventToDelete = ref(null);
 
 let currentUnsub = null;
+
+// Safe local date generator
+const todayISO = [
+  new Date().getFullYear(),
+  String(new Date().getMonth() + 1).padStart(2, '0'),
+  String(new Date().getDate()).padStart(2, '0')
+].join('-');
 
 // --- COMPUTED DATA ---
 const leagueData = computed(() => {
@@ -288,12 +297,6 @@ const prevYear = () => {
   selectedYear.value = Math.max(selectedYear.value - 1, 2016);
 };
 
-const todayISO = [
-  new Date().getFullYear(),
-  String(new Date().getMonth() + 1).padStart(2, '0'),
-  String(new Date().getDate()).padStart(2, '0')
-].join('-');
-
 const getEventMonth = (iso) => {
   if (!iso) return 'TBD';
   return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
@@ -312,10 +315,8 @@ const formatEventDate = (event) => {
 };
 
 const getEventLink = (event) => {
-  // Use leagueData instead of the undefined props
-  const type = leagueData.value?.type || 'casual'; 
+  const type = leagueData.value?.type || 'casual';
   const iso = event.iso;
-  
   const isFinished = ['complete', 'rain', 'handicap', 'practice'].includes(event.status?.toLowerCase());
 
   return isFinished 
@@ -323,35 +324,45 @@ const getEventLink = (event) => {
     : `/leaderboard/${type}/${iso}/live?from=calendar`;
 };
 
-const getStatusUI = (status) => {
-  if (!status) return null; // null = planned (no icon)
+const getStatusUI = (status, iso) => {
+  // 1. If no status at all, check if it's in the past
+  if (!status) {
+    if (iso < todayISO) return { icon: 'mdi:check-circle-outline', color: 'text-slate-400' };
+    return null;
+  }
 
-  // Normalize the string so we don't have to worry about case sensitivity
-  const normalizedStatus = status.toLowerCase();
+  // 2. Normalize case and fix dashes (e.g., 'mdi-check-bold' becomes 'mdi:check-bold')
+  let normalizedStatus = status.toLowerCase();
+  normalizedStatus = normalizedStatus.replace(/^mdi-/, 'mdi:');
 
+  // 3. Handle specific highlighted cases
   switch (normalizedStatus) {
-    // 1. COMPLETE
     case 'complete':
     case 'mdi:check-bold':
       return { icon: 'mdi:check-circle', color: 'text-emerald-500' };
-
-    // 2. PRACTICE
+      
     case 'practice':
     case 'mdi:alpha-p-circle-outline':
       return { icon: 'mdi:flag-triangle', color: 'text-blue-500' };
-
-    // 3. RAIN / CANCELLED
+      
     case 'rain':
     case 'mdi:weather-pouring':
     case 'mdi:cancel':
       return { icon: 'mdi:weather-pouring', color: 'text-slate-400' };
-
-    // 4. HANDICAP
+      
     case 'handicap':
       return { icon: 'mdi:calculator', color: 'text-amber-500' };
-
-    // Fallback for anything else
+      
     default:
+      // 4. THE FIX: If the status IS an icon string (e.g., 'mdi:golf'), just render that exact icon!
+      if (normalizedStatus.startsWith('mdi:')) {
+        return { icon: normalizedStatus, color: 'text-slate-400' }; // Default color for custom icons
+      }
+      
+      // Fallback for past rounds with a text status we don't recognize
+      if (iso < todayISO) {
+        return { icon: 'mdi:check-circle-outline', color: 'text-slate-400' };
+      }
       return null;
   }
 };
@@ -359,7 +370,7 @@ const getStatusUI = (status) => {
 // --- LIFECYCLE ---
 onMounted(() => {
   loadEventsForYear(selectedYear.value);
-  dataStore.startLiveListener(route.params.id);
+  dataStore.startLiveListener({ leagueId: route.params.id });
 });
 
 onUnmounted(() => {

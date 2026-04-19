@@ -12,17 +12,25 @@
           v-for="item in menuItems" 
           :key="item.path"
           :to="`/leagues/${route.params.id}/${item.path}`" 
-          class="group flex items-center justify-between p-3 px-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all active:scale-[0.98] active:border-emerald-500 dark:active:border-emerald-500 shadow-sm"
+          class="card-interactive flex items-center justify-between p-4 px-5 shadow-sm"
         >
           <div class="flex items-center gap-4">
-            <div class="w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-xl transition-colors group-active:bg-emerald-50 dark:group-active:bg-emerald-900/30">
-              <Icon :name="item.icon" class="size-5 text-slate-600 dark:text-slate-400 group-active:text-emerald-500 transition-colors" />
+            <div class="w-8 h-8 flex items-center justify-center transition-colors">
+              <Icon 
+                :name="item.icon" 
+                class="size-6 text-slate-600 dark:text-slate-400 group-active:text-emerald-500 transition-colors" 
+              />
             </div>
+            
             <p class="font-black text-slate-800 dark:text-slate-200 uppercase text-[11px] tracking-widest">
               {{ item.label }}
             </p>
           </div>
-          <Icon name="mdi:chevron-right" class="text-slate-300 dark:text-slate-700 group-active:text-emerald-500 transition-colors size-5" />
+          
+          <Icon 
+            name="mdi:chevron-right" 
+            class="text-slate-300 dark:text-slate-700 group-active:text-emerald-500 transition-colors size-5" 
+          />
         </NuxtLink>
       </div>
     </template>

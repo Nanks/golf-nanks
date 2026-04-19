@@ -50,11 +50,11 @@
 @layer components {
   /* The standard static card */
   .card-base {
-    @apply bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm;
+    @apply bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm;
   }
 
   .card-interactive {
-    @apply bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-all hover:border-emerald-500/50 dark:hover:border-emerald-500/50 active:scale-[0.98] cursor-pointer;
+    @apply bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-emerald-500/50 dark:hover:border-emerald-500/50 active:scale-[0.98] cursor-pointer;
   }
 }
 
