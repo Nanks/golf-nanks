@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 pt-20">
     
-    <div class="px-2 mb-2 text-center flex justify-center items-center">
+    <div v-if="round" class="px-2 mb-2 text-center flex justify-center items-center">
       <p class="text-lg font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
         <Icon v-if="round.leagueId" name="mdi:lock" class="size-3 text-slate-400" />
         <span class="text-slate-800 dark:text-white italic">{{ round.type }}</span>
