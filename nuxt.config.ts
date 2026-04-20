@@ -36,7 +36,7 @@ export default defineNuxtConfig({
       title: 'Golf Nanks',
       meta: [
         { name: 'theme-color', content: '#020617' }, // Matches slate-950
-        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
       ],
       link: [
@@ -44,6 +44,13 @@ export default defineNuxtConfig({
         { rel: 'apple-touch-icon', href: '/icon.png' } // Required for iOS icons
       ]
     }
+  },
+
+  routeRules: {
+    // Ensure the main entry point always checks for a new version
+    '/': { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
+    // Standard assets (hashed by Vite) can be cached long-term
+    '/_nuxt/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } }
   },
 
   // Keep sourcemaps off for production performance
@@ -58,8 +65,15 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
+    workbox: {
+      // Force the new service worker to take over immediately
+      skipWaiting: true,
+      clientsClaim: true,
+      // Optional: add a cleanup for old caches
+      cleanupOutdatedCaches: true
+    },
     manifest: {
-      name: 'Golf Nanks',
+      name: 'Nanks',
       short_name: 'Nanks',
       theme_color: '#000000',
       background_color: '#000000',
