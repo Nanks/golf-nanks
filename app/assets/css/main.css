@@ -56,6 +56,14 @@
   .card-interactive {
     @apply bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-emerald-500/50 dark:hover:border-emerald-500/50 active:scale-[0.98] cursor-pointer;
   }
+
+  .text-primary {
+    @apply font-black italic uppercase tracking-tighter leading-none text-slate-800 dark:text-slate-100
+  }
+
+  .text-secondary {
+    @apply font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest
+  }
 }
 
 /* 5. Global Utilities & Animations */

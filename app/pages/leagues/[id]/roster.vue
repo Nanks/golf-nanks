@@ -50,13 +50,13 @@
         <div class="p-2 flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0 flex-1">
             <div class="flex flex-col min-w-0">
-              <span class="font-black text-slate-900 dark:text-white text-base leading-none italic uppercase tracking-tighter truncate">
+              <span class="text-xl text-primary">
                 {{ player.fname }} {{ player.lname }}
               </span>
               <button v-if="league?.cadence === 'yearly'" @click="openAuditModal(player)" 
                       class="flex items-center gap-1 mt-1.5 text-emerald-600 dark:text-emerald-500 active:opacity-60 transition-opacity">
-                <span class="text-[8px] font-black uppercase tracking-widest">
-                  L-HCP: {{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}
+                <span class="text-xs font-black uppercase tracking-widest">
+                  LEAGUE HCP: {{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}
                 </span>
                 <Icon name="mdi:information-outline" class="size-3" />
               </button>

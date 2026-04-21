@@ -16,6 +16,23 @@
         Season Standings • {{ selectedYear }}
       </p>
     </header>
+    <!-- <LeagueHeader 
+        :title="leagueData?.shortName || leagueData?.name || (type === 'casual' ? 'Casual' : type)"
+        :isAdmin="isAdmin"
+        :backTo="router.back()"
+        :backText="backText"
+      >
+        <template #action>
+          <ClientOnly>
+            <div class="text-3xl font-black uppercase italic tracking-tighter leading-none text-slate-800 dark:text-white">
+              {{ game }}
+            </div>
+            <div class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
+              Season Standings • {{ selectedYear }}
+            </div>
+          </ClientOnly>
+        </template>
+      </LeagueHeader> -->
 
     <div class="max-w-2xl mx-auto px-4">
       
@@ -50,10 +67,10 @@
           <div class="flex items-center gap-5">
             <span class="font-black text-slate-300 w-6 italic text-lg">{{ i + 1 }}</span>
             <div>
-              <p class="font-black uppercase text-sm tracking-tight text-slate-800 dark:text-white">
+              <p class="text-lg text-primary">
                 {{ p.name }}
               </p>
-              <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">
                 {{ p.playedCount }} / {{ totalPossibleWeeks }} Weeks Played
               </p>
             </div>

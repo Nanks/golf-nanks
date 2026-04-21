@@ -12,7 +12,7 @@
           v-for="item in menuItems" 
           :key="item.path"
           :to="`/leagues/${route.params.id}/${item.path}`" 
-          class="card-interactive flex items-center justify-between p-4 px-5 shadow-sm"
+          class="card-base flex items-center justify-between p-4 px-5 shadow-sm"
         >
           <div class="flex items-center gap-4">
             <div class="w-8 h-8 flex items-center justify-center transition-colors">
@@ -22,7 +22,7 @@
               />
             </div>
             
-            <p class="font-black text-slate-800 dark:text-slate-200 uppercase text-[11px] tracking-widest">
+            <p class="text-xl text-primary">
               {{ item.label }}
             </p>
           </div>

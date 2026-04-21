@@ -87,10 +87,9 @@
 
               <div class="flex-1 min-w-0 py-0.5">
                 <div class="flex items-center gap-2 mb-1">
-                  <h3 class="font-black text-slate-900 dark:text-white uppercase text-sm italic leading-none tracking-tighter truncate">
-                    {{ event.course || 'TBD' }}
+                  <h3 class="text-xl text-primary">
+                    {{ event.tees || 'TBD' }}
                   </h3>
-                  <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter shrink-0">{{ event.tees || 'TBD' }}</span>
                 </div>
                 
                 <div class="flex gap-1.5 flex-wrap">

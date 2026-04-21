@@ -11,10 +11,10 @@
     </div>
 
     <div class="mb-1">
-      <h2 class="text-2xl font-black italic uppercase tracking-tighter leading-none pr-12">
+      <h2 class="text-2xl text-primary">
         {{ league.shortName }}
       </h2>
-      <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+      <p class="text-xs text-secondary mt-1">
         {{ league.course }}
       </p>
     </div>
@@ -23,7 +23,7 @@
       v-if="league.nextRound" 
       @click.stop="handleBadgeAction(league)"
       :class="[
-        'inline-flex items-center gap-2 border rounded-lg px-3 py-1 transition-all',
+        'inline-flex items-center gap-2 border rounded px-3 transition-all',
         getActiveRoundForLeague(league.id) 
           // State 1: Active Round (Amber, clickable)
           ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 cursor-pointer active:scale-95' 
@@ -53,7 +53,7 @@
       </span>
     </div>
 
-    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700">
+    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-300">
       <Icon name="mdi:chevron-right" class="size-6" />
     </div>
   </div>
