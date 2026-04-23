@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 px-2 py-6 pt-24 max-w-2xl mx-auto select-none">
+  <div class="max-w-2xl mx-auto select-none">
     
     <template v-if="league">
       <LeagueHeader 
@@ -7,38 +7,39 @@
         :is-admin="isAdmin" 
       />
 
-      <div class="space-y-3">
+      <nav class="space-y-3">
         <NuxtLink 
           v-for="item in menuItems" 
           :key="item.path"
           :to="`/leagues/${route.params.id}/${item.path}`" 
-          class="card-base flex items-center justify-between p-4 px-5 shadow-sm"
+          class="card-interactive flex items-center justify-between p-4 px-5 group"
         >
           <div class="flex items-center gap-4">
-            <div class="w-8 h-8 flex items-center justify-center transition-colors">
+            <div class="w-8 h-8 flex items-center justify-center">
               <Icon 
                 :name="item.icon" 
-                class="size-6 text-slate-600 dark:text-slate-400 group-active:text-emerald-500 transition-colors" 
+                class="size-6 text-slate-500 dark:text-slate-400 transition-colors group-active:text-emerald-500" 
               />
             </div>
             
-            <p class="text-xl text-primary">
+            <p class="text-2xl text-primary">
               {{ item.label }}
             </p>
           </div>
           
           <Icon 
             name="mdi:chevron-right" 
-            class="text-slate-300 dark:text-slate-700 group-active:text-emerald-500 transition-colors size-5" 
+            class="size-5 text-slate-400 dark:text-slate-500 transition-colors group-active:text-emerald-500" 
           />
         </NuxtLink>
-      </div>
+      </nav>
     </template>
 
-    <div v-else class="pt-32 flex flex-col items-center justify-center text-slate-500">
-      <Icon name="mdi:alert-circle-outline" class="size-10 mb-2 opacity-50" />
-      <p class="text-[10px] font-black uppercase tracking-[0.2em]">League Not Found</p>
-      <NuxtLink to="/" class="mt-4 px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform text-slate-700 dark:text-slate-300">
+    <div v-else class="pt-20 flex flex-col items-center justify-center">
+      <Icon name="mdi:alert-circle-outline" class="size-12 mb-4 text-slate-700 opacity-20" />
+      <p class="text-secondary text-xs">League Not Found</p>
+      
+      <NuxtLink to="/" class="btn-primary mt-6 text-xs px-8">
         Return Home
       </NuxtLink>
     </div>

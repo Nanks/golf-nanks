@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 px-2 py-6 pt-24 max-w-2xl mx-auto pb-32">
+  <div class="max-w-2xl mx-auto select-none pb-32">
     
     <LeagueHeader 
       title="Roster" 
@@ -10,98 +10,79 @@
       <template #action v-if="isAdmin">
         <button 
           @click="isEditMode = !isEditMode"
-          :class="isEditMode ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
+          :class="isEditMode ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
           class="flex items-center gap-2 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
         >
           <Icon :name="isEditMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-3.5" />
-          <span class="hidden xs:inline">{{ isEditMode ? 'Finish Editing' : 'Manage' }}</span>
+          <span>{{ isEditMode ? 'Finish' : 'Manage' }}</span>
         </button>
       </template>
     </LeagueHeader>
 
     <Transition name="fade">
-      <div v-if="isEditMode" class="grid grid-cols-2 gap-2 mb-4">
-        <button 
-          @click="isAddModalOpen = true"
-          class="p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
-        >
-          <Icon name="mdi:plus-circle-outline" class="size-4" /> 
-          Add Player
+      <div v-if="isEditMode" class="grid grid-cols-2 gap-2 mb-6 px-1">
+        <button @click="isAddModalOpen = true" class="card-interactive p-4 border-2 border-dashed flex flex-col items-center gap-2">
+          <Icon name="mdi:plus-circle-outline" class="size-5 text-emerald-500" /> 
+          <span class="text-[10px] font-black uppercase tracking-widest">Add Player</span>
         </button>
-        <button 
-          @click="syncAllHandicaps"
-          class="p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-amber-500 hover:text-amber-500 transition-all flex items-center justify-center gap-2"
-        >
-          <Icon name="mdi:sync" class="size-4" /> 
-          Sync All
+        <button @click="syncAllHandicaps" class="card-interactive p-4 border-2 border-dashed flex flex-col items-center gap-2">
+          <Icon name="mdi:sync" class="size-5 text-amber-500" /> 
+          <span class="text-[10px] font-black uppercase tracking-widest">Sync All</span>
         </button>
       </div>
     </Transition>
 
-    <div class="space-y-2">
+    <div class="space-y-2 px-1">
       <div v-for="player in roster" :key="player.id" 
-          class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden transition-all shadow-sm">
+          class="card-base relative overflow-hidden group">
         
-        <div v-if="isPlayerAdmin(player)"
-             class="absolute top-0 left-0 bg-amber-500 text-white p-1 rounded-br-lg z-10 shadow-sm">
-          <Icon name="mdi:shield-check" class="size-3" />
-        </div>
-
-        <div class="p-2 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0 flex-1">
-            <div class="flex flex-col min-w-0">
-              <span class="text-xl text-primary">
+        <div class="p-3 flex items-center justify-between gap-3">
+          <div class="flex flex-col min-w-0 flex-1">
+            
+            <div class="flex items-center gap-1">
+              <Icon 
+                v-if="isPlayerAdmin(player)" 
+                name="mdi:shield-crown-outline" 
+                class="size-6 text-amber-500 shrink-0" 
+              />
+              <span class="text-2xl text-primary">
                 {{ player.fname }} {{ player.lname }}
               </span>
-              <button v-if="league?.cadence === 'yearly'" @click="openAuditModal(player)" 
-                      class="flex items-center gap-1 mt-1.5 text-emerald-600 dark:text-emerald-500 active:opacity-60 transition-opacity">
-                <span class="text-xs font-black uppercase tracking-widest">
-                  LEAGUE HCP: {{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}
-                </span>
-                <Icon name="mdi:information-outline" class="size-3" />
-              </button>
             </div>
+            
+            <button v-if="league?.cadence === 'yearly'" @click="openAuditModal(player)" 
+                    class="flex items-center gap-1.5 mt-1 group/hcp active:opacity-60 transition-opacity">
+              <span class="text-secondary text-xs text-emerald-500">
+                League HCP: <span class="tabular-nums">{{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}</span>
+              </span>
+              <Icon name="mdi:information-outline" class="size-3 text-emerald-500/50 group-active/hcp:text-emerald-500" />
+            </button>
           </div>
 
-          <div class="flex items-center gap-2 shrink-0">
-            <div class="relative bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800 min-w-[65px] text-center">
-              <p class="text-[7px] font-black text-slate-400 uppercase leading-none mb-1">GHIN</p>
-              <p class="font-black text-slate-900 dark:text-white text-xs leading-none">{{ player.ghin?.toFixed(1) || 'NH' }}</p>
+          <div class="flex items-center gap-1 shrink-0">
+            <div class="relative bg-slate-50 dark:bg-slate-950 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 min-w-[75px] text-center">
+              <p class="text-secondary text-[8px]">GHIN</p>
+              <p class="text-primary text-lg tabular-nums leading-none">
+                {{ player.ghin?.toFixed(1) || 'NH' }}
+              </p>
+              
               <button v-if="canEditPlayer(player)" @click="openGhinModal(player)" 
-                      class="absolute -top-2 -right-2 p-1 text-slate-300 hover:text-emerald-500 transition-colors">
-                <Icon name="mdi:pencil-circle" class="size-4" />
+                      class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-md z-10 active:scale-95 transition-transform">
+                <Icon name="mdi:pencil" class="size-[10px]" />
               </button>
             </div>
-            <button v-if="isEditMode" @click="handleRemoveClick(player)" class="p-1 text-slate-300 hover:text-red-500 transition-colors">
-              <Icon name="mdi:close-circle-outline" class="size-5" />
+
+            <button v-if="isEditMode" @click="handleRemoveClick(player)" class="p-2 text-slate-300 active:text-red-500 transition-colors">
+              <Icon name="mdi:close-circle-outline" class="size-6" />
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <HandicapAuditModal 
-      :is-open="isAuditModalOpen" 
-      :player="selectedPlayerForAudit" 
-      :league-id="route.params.id" 
-      @close="isAuditModalOpen = false" 
-    />
-
-    <GhinModal 
-      v-if="selectedPlayer" 
-      :is-open="isGhinModalOpen" 
-      :player="selectedPlayer" 
-      @close="isGhinModalOpen = false" 
-      @updated="fetchRoster" 
-    />
-
-    <PlayerPicker 
-      v-model:is-open="isAddModalOpen" 
-      :selected-players="roster" 
-      :can-create="isAdmin" 
-      @toggle="handleTogglePlayer" 
-      @create-new="handleCreateAndAdd" 
-    />
+    <HandicapAuditModal :is-open="isAuditModalOpen" :player="selectedPlayerForAudit" :league-id="route.params.id" @close="isAuditModalOpen = false" />
+    <GhinModal v-if="selectedPlayer" :is-open="isGhinModalOpen" :player="selectedPlayer" @close="isGhinModalOpen = false" @updated="fetchRoster" />
+    <PlayerPicker v-model:is-open="isAddModalOpen" :selected-players="roster" :can-create="isAdmin" @toggle="handleTogglePlayer" @create-new="handleCreateAndAdd" />
   </div>
 </template>
 
@@ -137,7 +118,7 @@ const selectedPlayerForAudit = ref(null);
 // Computed Admin Check
 const isAdmin = computed(() => {
   if (!league.value) return false;
-  return authStore.isAdminForType(league.value.type);
+  return authStore.isAdminForLeague(league.value.type); 
 });
 
 // --- Data Fetching ---

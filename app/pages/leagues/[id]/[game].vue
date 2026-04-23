@@ -1,134 +1,104 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 pt-20">
+  <div class="max-w-2xl mx-auto select-none pb-32">
     
-    <header class="p-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm">
+    <LeagueHeader 
+      :title="game" 
+      :back-to="`/leagues/${route.params.id}/menu`"
+      back-text="League Menu"
+    >
+      <template #title>
+        <span class="text-primary text-4xl text-emerald-500">{{ game }}</span>
+      </template>
+    </LeagueHeader>
+
+    <div class="flex items-center justify-center gap-6 mb-6">
       <button 
-        @click="router.back()" 
-        class="p-2 -ml-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-500 hover:text-emerald-600 transition-all active:scale-90"
+        @click="adjustYear(-1)" 
+        class="p-2 rounded-full bg-slate-200/50 dark:bg-slate-800 text-slate-400 active:scale-90 active:text-emerald-500 transition-all"
       >
         <Icon name="mdi:chevron-left" class="size-6" />
-    </button>
+      </button>
       
-      <h1 class="text-3xl font-black uppercase italic tracking-tighter leading-none text-slate-800 dark:text-white">
-        {{ game }}
-      </h1>
-      <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
-        Season Standings • {{ selectedYear }}
-      </p>
-    </header>
-    <!-- <LeagueHeader 
-        :title="leagueData?.shortName || leagueData?.name || (type === 'casual' ? 'Casual' : type)"
-        :isAdmin="isAdmin"
-        :backTo="router.back()"
-        :backText="backText"
+      <div class="text-center min-w-[80px]">
+        <span class="text-primary text-3xl tabular-nums">{{ selectedYear }}</span>
+      </div>
+
+      <button 
+        @click="adjustYear(1)" 
+        :disabled="parseInt(selectedYear) >= currentYear"
+        class="p-2 rounded-full bg-slate-200/50 dark:bg-slate-800 disabled:opacity-20 text-slate-400 active:scale-90 active:text-emerald-500 transition-all"
       >
-        <template #action>
-          <ClientOnly>
-            <div class="text-3xl font-black uppercase italic tracking-tighter leading-none text-slate-800 dark:text-white">
-              {{ game }}
-            </div>
-            <div class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
-              Season Standings • {{ selectedYear }}
-            </div>
-          </ClientOnly>
-        </template>
-      </LeagueHeader> -->
+        <Icon name="mdi:chevron-right" class="size-6" />
+      </button>
+    </div>
 
-    <div class="max-w-2xl mx-auto px-4">
-      
-      <div class="mt-6 mb-4 flex justify-center">
-        <div class="inline-flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar max-w-full">
-          <button 
-            v-for="year in availableYears" :key="year"
-            @click="selectedYear = year"
-            :class="selectedYear === year 
-              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
-              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'"
-            class="px-5 py-2 text-xs font-black rounded-xl transition-all uppercase tracking-widest flex-shrink-0"
-          >
-            {{ year }}
-          </button>
-        </div>
-      </div>
+    <div v-if="loading" class="flex flex-col items-center justify-center pt-20 gap-4">
+      <Icon name="mdi:loading" class="size-8 text-emerald-500 animate-spin" />
+      <p class="text-secondary text-[10px]">Calculating Totals...</p>
+    </div>
 
-      <div v-if="loading" class="flex flex-col items-center justify-center pt-20 gap-4">
-        <Icon name="mdi:loading" class="size-8 text-emerald-500 animate-spin" />
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-          Calculating {{ selectedYear }} totals...
-        </p>
-      </div>
-
-      <div v-else-if="standings.length > 0" class="space-y-3 pb-10">
-        <div v-for="(p, i) in standings" 
-            :key="p.name" 
-            @click="selectedDetails = p"
-            class="flex items-center justify-between p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all cursor-pointer">
-          
-          <div class="flex items-center gap-5">
-            <span class="font-black text-slate-300 w-6 italic text-lg">{{ i + 1 }}</span>
-            <div>
-              <p class="text-lg text-primary">
-                {{ p.name }}
-              </p>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                {{ p.playedCount }} / {{ totalPossibleWeeks }} Weeks Played
-              </p>
-            </div>
-          </div>
-
-          <span class="text-2xl font-black italic text-emerald-600 tabular-nums">
-            {{ formatPoints(p.totalPoints) }}
+    <div v-else-if="standings.length > 0" class="space-y-2 px-2">
+      <div v-for="(p, i) in standings" 
+          :key="p.name" 
+          @click="selectedDetails = p"
+          class="card-interactive flex items-center justify-between p-4 px-5 group">
+        
+        <div class="flex items-center gap-5">
+          <span class="text-primary text-xl text-slate-700 dark:text-slate-400 w-6">
+            {{ i + 1 }}
           </span>
+          <div>
+            <p class="text-xl text-primary">
+              {{ p.name }}
+            </p>
+            <p class="text-secondary text-xs mt-0.5">
+              {{ p.playedCount }} / {{ totalPossibleWeeks }} Weeks Played
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div v-else class="flex flex-col items-center justify-center pt-20 text-slate-400">
-        <Icon name="mdi:calendar-blank" class="size-16 opacity-10 mb-4" />
-        <p class="text-[10px] font-black uppercase tracking-widest">No data found for {{ selectedYear }}</p>
+        <span class="text-2xl text-primary text-emerald-500 tabular-nums">
+          {{ formatPoints(p.totalPoints) }}
+        </span>
       </div>
+    </div>
 
+    <div v-else class="flex flex-col items-center justify-center pt-20 text-slate-400">
+      <Icon name="mdi:calendar-blank" class="size-16 opacity-10 mb-4" />
+      <p class="text-secondary text-xs">No data found for {{ selectedYear }}</p>
     </div>
 
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="selectedDetails" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div @click="selectedDetails = null" class="absolute inset-0"></div>
-
-          <div class="relative w-full max-w-xs bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[55vh]">
+        <div v-if="selectedDetails" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @click.self="selectedDetails = null">
+          <div class="w-full max-w-xs card-base overflow-hidden flex flex-col max-h-[60vh] border-slate-200 dark:border-slate-800 shadow-2xl">
             
-            <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+            <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <div>
-                <h3 class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none">
-                  {{ selectedDetails.name }}
-                </h3>
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                  Played: <span class="text-slate-800 dark:text-white">{{ selectedDetails.playedCount }}</span> / {{ totalPossibleWeeks }} Weeks
+                <h3 class="text-primary text-lg leading-none">{{ selectedDetails.name }}</h3>
+                <p class="text-secondary text-[9px] mt-1">
+                  Played: <span class="text-emerald-500">{{ selectedDetails.playedCount }}</span> / {{ totalPossibleWeeks }}
                 </p>
               </div>
-              <button @click="selectedDetails = null" class="text-slate-400 p-1">
-                <Icon name="mdi:close" class="size-4" />
+              <button @click="selectedDetails = null" class="text-slate-400 p-1 active:scale-90">
+                <Icon name="mdi:close" class="size-5" />
               </button>
             </div>
 
-            <div class="p-2 overflow-y-auto no-scrollbar grid grid-cols-3 gap-1">
+            <div class="p-2 overflow-y-auto grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-950">
               <div v-for="round in selectedDetails.details" :key="round.date" 
                    :class="round.isDropped ? 'opacity-20 border-transparent' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'"
-                   class="flex flex-col items-center justify-center py-2 rounded-xl border transition-all">
-                
-                <span class="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">
-                  {{ getShortDate(round.date) }}
-                </span>
-                
-                <span :class="round.isDropped ? 'text-slate-800 dark:text-white' : 'text-emerald-600 dark:text-emerald-400'" 
-                      class="text-base font-black italic leading-none tabular-nums">
+                   class="flex flex-col items-center justify-center py-2.5 rounded-xl border transition-all">
+                <span class="text-secondary text-[8px] mb-1">{{ getShortDate(round.date) }}</span>
+                <span :class="round.isDropped ? 'text-slate-500' : 'text-emerald-500'" class="text-lg text-primary leading-none tabular-nums">
                   {{ formatPoints(round.points) }}
                 </span>
               </div>
             </div>
 
-            <div class="px-5 py-3 bg-slate-900 dark:bg-white flex justify-between items-center">
-              <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Season Total</span>
-              <span class="text-xl font-black italic text-white dark:text-slate-900">
+            <div class="p-4 bg-slate-900 dark:bg-white flex justify-between items-center">
+              <span class="text-secondary text-[9px] text-slate-400 dark:text-slate-500">Season Total</span>
+              <span class="text-2xl text-primary text-white dark:text-slate-900">
                 {{ formatPoints(selectedDetails.totalPoints) }}
               </span>
             </div>
@@ -136,7 +106,6 @@
         </div>
       </Transition>
     </Teleport>
-    
   </div>
 </template>
 
@@ -155,14 +124,12 @@ const totalPossibleWeeks = ref(0);
 const currentYear = new Date().getFullYear();
 const selectedYear = ref(currentYear.toString());
 
-// Generates an array like ["2021", "2022", "2023", "2024", "2025", "2026"]
-const availableYears = computed(() => {
-  const years = [];
-  for (let i = 0; i <= 5; i++) {
-    years.push((currentYear - i).toString());
+const adjustYear = (delta) => {
+  const newYear = parseInt(selectedYear.value) + delta;
+  if (newYear >= 2016 && newYear <= currentYear) {
+    selectedYear.value = newYear.toString();
   }
-  return years;
-});
+};
 
 const formatPoints = (points) => {
   if (points === undefined || points === null) return '0';

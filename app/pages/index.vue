@@ -1,84 +1,58 @@
 <template>
-  <div class="relative min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 pt-24 px-2 pb-24">
-
-    <div v-if="!isMounted || !authStore.isInitialized">
-      <div class="fixed inset-0 z-[100] bg-white dark:bg-slate-950 flex flex-col items-center justify-center">
-        <Icon name="mdi:golf" class="size-16 text-emerald-500 animate-bounce mb-4" />
-        <p class="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Loading Player...</p>
-      </div>
-    </div>
-
-    <div v-else>
-      
-      <section v-if="authStore.isLoggedIn && authStore.userProfile" class="mb-2">
-        <div class="card-base p-5 flex items-center justify-between gap-4">
-          <div>
-            <h1 class="text-xl font-black italic uppercase leading-none tracking-tighter">
-              {{ authStore.userProfile.fname }} {{ authStore.userProfile.lname }}
-            </h1>
-          </div>
-
-          <div @click="showGhinModal = true" class="relative active:scale-95 transition-transform cursor-pointer">
-            <div class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-md z-10">
-              <Icon name="mdi:pencil" class="size-2" />
-            </div>
-            
-            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-center min-w-[85px]">
-              <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">GHIN</p>
-              <p class="text-xl font-black italic tabular-nums leading-none">
-                {{ authStore.userProfile.ghin || '—' }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="mb-2">
-        <div class="flex items-center justify-between mb-2 px-3">
-          <h2 class="text-2xl font-black tracking-tighter uppercase italic text-emerald-500">Leagues</h2>
-          <button v-if="authStore.isLoggedIn" 
-                  @click="navigateTo('/rounds/setup')" 
-                  class="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 active:opacity-70">
-            <Icon name="mdi:plus-circle-outline" class="size-4" /> Casual Round
-          </button>
-        </div>
-
+  <div class="max-w-2xl mx-auto">
+    <section v-if="authStore.isLoggedIn && authStore.userProfile" class="mb-6">
+      <div class="card-base p-5 flex items-center justify-between gap-4">
         <div>
-          <div v-if="authStore.isLoggedIn && myLeagues.length > 0" class="mb-2">
-            <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 px-3">My Leagues</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 px-1">
-              <LeagueCard 
-                v-for="league in myLeagues" 
-                :key="league.id" 
-                :league="league" 
-                :is-member="true"
-              />
-            </div>
-          </div>
+          <h1 class="text-primary text-xl">
+            {{ authStore.userProfile.fname }} {{ authStore.userProfile.lname }}
+          </h1>
+        </div>
 
-          <div v-if="otherLeagues.length > 0">
-            <h3 v-if="authStore.isLoggedIn" class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 px-3">Other Leagues</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 px-1">
-              <LeagueCard 
-                v-for="league in otherLeagues" 
-                :key="league.id" 
-                :league="league" 
-                :is-member="false"
-              />
-            </div>
+        <div @click="showGhinModal = true" class="relative active:scale-95 transition-transform cursor-pointer">
+          <div class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-md z-10">
+            <Icon name="mdi:pencil" class="size-2" />
+          </div>
+          
+          <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-center min-w-[85px]">
+            <p class="text-secondary text-[9px] mb-1">GHIN</p>
+            <p class="text-primary text-xl tabular-nums">
+              {{ authStore.userProfile.ghin || '—' }}
+            </p>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between mb-4 px-2">
+        <h2 class="text-primary text-2xl text-emerald-500">Leagues</h2>
+        <button v-if="authStore.isLoggedIn" @click="navigateTo('/rounds/setup')" class="text-secondary text-[10px] text-emerald-500 flex items-center gap-1.5 active:opacity-70">
+          <Icon name="mdi:plus-circle-outline" class="size-4" /> Casual Round
+        </button>
+      </div>
+
+      <div class="space-y-6 mb-4">
+        <div v-if="myLeagues.length > 0">
+          <h3 class="text-secondary text-[10px] mb-3 px-2">My Leagues</h3>
+          <div class="grid grid-cols-1 gap-3">
+            <LeagueCard v-for="league in myLeagues" :key="league.id" :league="league" :is-member="true" />
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div v-if="otherLeagues.length > 0">
+          <h3 class="text-secondary text-[10px] mb-3 px-2">Other Leagues</h3>
+          <div class="grid grid-cols-1 gap-3">
+            <LeagueCard v-for="league in otherLeagues" :key="league.id" :league="league" :is-member="false" />
+          </div>
+        </div>
+      </div>
+    </section>
 
     <ClientOnly>
-      <GhinModal 
-        :is-open="showGhinModal" 
-        :player="authStore.userProfile" 
-        @close="showGhinModal = false" 
-      />
+      <GhinModal :is-open="showGhinModal" :player="authStore.userProfile" @close="showGhinModal = false" />
     </ClientOnly>
-
   </div>
 </template>
 
