@@ -201,7 +201,7 @@ export const runLeaguePass = (players, eventDetails) => {
     grossSkins: [],
     netSkins: [],
     deuces: [],
-    blindBestBall: [] // Always initialized!
+    blindBestBall: [] 
   };
 
   const per = eventDetails?.per || 0;
@@ -233,13 +233,12 @@ export const runLeaguePass = (players, eventDetails) => {
     });
   }
 
-  // 2. Blind Best Ball (Team Logic) - ALWAYS run this if we have players
+  // 2. Blind Best Ball (Team Logic)
   if (numPlayers > 1) {
     let pairings = [];
     const officialPairings = eventDetails?.bbb_pairings || [];
 
     if (officialPairings.length > 0) {
-      // OVERRIDE: Admin saved pairs
       officialPairings.forEach(pair => {
         const p1 = players.find(p => p.id === pair.p1?.id);
         const p2 = players.find(p => p.id === pair.p2?.id);
@@ -255,7 +254,6 @@ export const runLeaguePass = (players, eventDetails) => {
         }
       });
     } else {
-      // AUTO-PAIRING SCRAMBLE
       const getSeededValue = (str) => {
         let hash = 0;
         for (let i = 0; i < str.length; i++) hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
@@ -263,7 +261,7 @@ export const runLeaguePass = (players, eventDetails) => {
       };
 
       const shuffled = [...players].sort((a, b) => {
-        if (!isComplete) return Math.random() - 0.5; // LIVE CHAOS
+        if (!isComplete) return Math.random() - 0.5; 
         return getSeededValue(a.id + (eventDetails?.iso || '')) - getSeededValue(b.id + (eventDetails?.iso || ''));
       });
 
@@ -271,7 +269,6 @@ export const runLeaguePass = (players, eventDetails) => {
         if (shuffled[i + 1]) {
           const p1 = shuffled[i];
           const p2 = shuffled[i + 1];
-          
           let teamTotalNet = 0;
           for (let h = 0; h < totalHoles; h++) {
             const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
@@ -279,32 +276,72 @@ export const runLeaguePass = (players, eventDetails) => {
             const bestNet = Math.min(p1Net, p2Net);
             if (bestNet < 90) teamTotalNet += bestNet; 
           }
-
-          pairings.push({
-            player: `${p1.name} / ${p2.name}`,
-            score: teamTotalNet,
-            id: `${p1.id}-${p2.id}`, // Unique ID for Vue transition
-            hole: 'Team'
-          });
+          pairings.push({ player: `${p1.name} / ${p2.name}`, score: teamTotalNet, id: `${p1.id}-${p2.id}`, hole: 'Team' });
         }
       }
     }
-
     winnersLog.blindBestBall = pairings.sort((a, b) => a.score - b.score);
   }
 
-  // 3. Final Payout Safety
+  // 3. Apply Payouts safely
   const applyPayouts = (list) => {
     if (!list || list.length === 0) return [];
     const payoutPerWinner = potPerGame / list.length;
     return list.map(w => ({ ...w, money: payoutPerWinner }));
   };
 
-  // CRITICAL: Ensure blindBestBall is actually returned!
-  return {
+  const finalWinnersLog = {
     grossSkins: applyPayouts(winnersLog.grossSkins),
     netSkins: applyPayouts(winnersLog.netSkins),
     deuces: applyPayouts(winnersLog.deuces),
     blindBestBall: applyPayouts(winnersLog.blindBestBall) 
+  };
+
+  // 4. Map Wins to Player Objects (The moved processWithWins logic)
+  const winMap = {};
+  const categories = [
+    { key: 'grossSkins', label: 'Gross', color: 'bg-amber-500/10 text-amber-600' },
+    { key: 'netSkins', label: 'Net', color: 'bg-emerald-500/10 text-emerald-600' },
+    { key: 'deuces', label: 'Deuce', color: 'bg-blue-500/10 text-blue-600' }
+  ];
+
+  categories.forEach(({ key, label, color }) => {
+    const winnersList = finalWinnersLog[key] || [];
+    
+    winnersList.forEach(win => {
+      if (!winMap[win.id]) {
+        winMap[win.id] = { 
+          individualBadges: [], 
+          totalMoney: 0, 
+          grossSkinsCount: 0, 
+          netSkinsCount: 0,
+          grossSkinHoles: [], 
+          netSkinHoles: [] 
+        };
+      }
+      
+      winMap[win.id].individualBadges.push({ label: `${label} ${win.score} (${win.hole})`, color });
+      winMap[win.id].totalMoney += (win.money || 0);
+
+      if (key === 'grossSkins' && winMap[win.id].grossSkinHoles) {
+        winMap[win.id].grossSkinsCount++;
+        winMap[win.id].grossSkinHoles.push(win.hole);
+      }
+      if (key === 'netSkins' && winMap[win.id].netSkinHoles) {
+        winMap[win.id].netSkinsCount++;
+        winMap[win.id].netSkinHoles.push(win.hole);
+      }
+    });
+  });
+
+  const augmentedPlayers = players.map(p => ({
+    ...p,
+    winStats: winMap[p.id] || { individualBadges: [], totalMoney: 0, grossSkinsCount: 0, netSkinsCount: 0, grossSkinHoles: [], netSkinHoles: [] }
+  }));
+
+  // 5. Return Both Data Structures
+  return {
+    winnersLog: finalWinnersLog,
+    players: augmentedPlayers
   };
 };

@@ -1,7 +1,8 @@
 <template>
-  <div class="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+  <div class="min-h-screen bg-slate-950 flex flex-col items-center pt-4 sm:justify-center sm:pt-0 p-6 select-none">
     <div class="max-w-md w-full">
-      <header class="mb-12 text-center">
+      
+      <header class="mb-8 text-center">
         <h1 class="text-5xl font-black tracking-[0.15em] text-emerald-500 uppercase italic">
           Golf Nanks
         </h1>
@@ -14,26 +15,24 @@
         </div>
       </header>
 
-      <div class="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-2xl">
-        <div v-if="!otpSent" class="space-y-8">
+      <div class="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-2xl shadow-emerald-950/20">
+        
+        <div v-if="!otpSent" class="space-y-6">
           <div>
-            <h2 class="text-2xl font-black text-white uppercase tracking-tight">Welcome</h2>
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">
-              Authorized Access Only
-            </p>
+            <h2 class="text-2xl font-black text-white uppercase tracking-tight italic">Welcome</h2>
           </div>
           
           <div class="space-y-5">
             <div>
               <label class="block text-[10px] font-black uppercase text-slate-500 mb-2 tracking-[0.2em] ml-1">
-                Registered Mobile Number
+                Mobile Number
               </label>
               <input 
                 v-model="phoneNumber" 
                 type="tel" 
                 @input="formatDisplay"
                 placeholder="(555) 555-5555" 
-                class="w-full p-4 bg-slate-950 border border-slate-800 text-white rounded-2xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all font-mono text-lg"
+                class="w-full p-4 bg-slate-950 border border-slate-800 text-white rounded-2xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all font-mono text-lg text-center"
                 :disabled="isLoading"
               />
             </div>
@@ -41,7 +40,7 @@
             <button 
               @click="handleSendOtp" 
               id="login-button"
-              :disabled="isLoading || phoneNumber.length < 10"
+              :disabled="isLoading || phoneNumber.length < 14"
               class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-black py-4 rounded-2xl transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-900/20"
             >
               <span v-if="isLoading" class="flex items-center justify-center gap-2">
@@ -53,36 +52,34 @@
           </div>
         </div>
         
-        <div v-else class="space-y-8">
+        <div v-else class="space-y-6">
           <div>
-            <h2 class="text-2xl font-black text-white uppercase tracking-tight">Security Code</h2>
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">
-              Sent to {{ phoneNumber }}
+            <h2 class="text-2xl font-black text-white uppercase tracking-tight italic">Security Code</h2>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">
+              Sent to <span class="text-emerald-500">{{ phoneNumber }}</span>
             </p>
           </div>
 
-          <div class="space-y-6">
-            <div class="flex justify-between gap-2" @paste="handlePaste">
+          <div class="space-y-5">
+            <div>
               <input
-                v-for="(digit, index) in 6"
-                :key="index"
-                :ref="el => otpInputs[index] = el"
-                v-model="otpArray[index]"
+                ref="otpInputRef"
+                v-model="otpCode"
                 type="text"
                 inputmode="numeric"
-                maxlength="1"
                 autocomplete="one-time-code"
-                class="w-full max-w-[2.8rem] sm:max-w-[3rem] h-14 sm:h-16 bg-slate-950 border-2 border-slate-800 text-emerald-500 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all font-black text-center text-xl sm:text-2xl"
-                @input="handleInput(index, $event)"
-                @keydown.delete="handleDelete(index)"
+                maxlength="6"
+                placeholder="••••••"
+                class="w-full p-4 bg-slate-950 border border-slate-800 text-emerald-500 rounded-2xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all font-mono text-lg text-center placeholder:text-slate-700"
+                @input="handleOtpInput"
                 :disabled="isLoading"
               />
             </div>
 
             <button 
               @click="handleVerifyOtp" 
-              :disabled="isLoading || otpArray.join('').length < 6"
-              class="w-full bg-white text-slate-950 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs"
+              :disabled="isLoading || otpCode.length < 6"
+              class="w-full bg-white text-slate-950 font-black py-4 rounded-2xl hover:bg-slate-100 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs disabled:opacity-50"
             >
               <span v-if="isLoading">Finalizing...</span>
               <span v-else>Confirm Identity</span>
@@ -90,7 +87,7 @@
             
             <button 
               @click="resetOtp" 
-              class="w-full text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] hover:text-emerald-500 transition-colors"
+              class="w-full text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] hover:text-emerald-500 transition-colors pt-2"
             >
               Try different number
             </button>
@@ -98,7 +95,7 @@
         </div>
       </div>
       
-      <p class="text-center mt-8 text-[10px] font-bold text-slate-700 uppercase tracking-widest">
+      <p class="text-center mt-8 text-[9px] font-black text-slate-700 uppercase tracking-[0.3em]">
         &copy; {{ new Date().getFullYear() }} DB Nanks Industries
       </p>
     </div>
@@ -106,10 +103,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { collection, query, where, getDocs, limit, arrayUnion, doc, updateDoc,getDoc } from "firebase/firestore";
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { collection, query, where, getDocs, limit, arrayUnion, doc, updateDoc, getDoc } from "firebase/firestore";
 import { useAuthStore } from "~/stores/auth";
-
+import { useUIStore } from "~/stores/ui";
 
 const { $db } = useNuxtApp();
 const { initRecaptcha, sendOtp, verifyOtp } = useAuth();
@@ -119,8 +116,10 @@ const ui = useUIStore();
 
 const phoneNumber = ref('');
 const isLoading = ref(false);
-const otpArray = ref(['', '', '', '', '', '']);
-const otpInputs = ref([]);
+
+// OTP State
+const otpCode = ref('');
+const otpInputRef = ref(null);
 const otpSent = ref(false);
 
 onMounted(() => {
@@ -129,12 +128,11 @@ onMounted(() => {
 
 const initLoginCaptcha = () => {
   try {
-    // If the element exists, initialize it
     if (document.getElementById('login-button')) {
       initRecaptcha('login-button');
     }
   } catch (err) {
-    console.error("Captcha Init failed, retrying...", err);
+    console.error("Captcha Init failed", err);
   }
 };
 
@@ -150,6 +148,7 @@ onUnmounted(() => {
 
 const formatDisplay = () => {
   let x = phoneNumber.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+  if (!x) return;
   phoneNumber.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
 };
 
@@ -158,12 +157,12 @@ const handleSendOtp = async () => {
   
   isLoading.value = true;
   try {
-    // Standardize to E.164
+    // Convert to E.164 format for Firebase Auth
     let digits = phoneNumber.value.replace(/\D/g, '');
     if (digits.length === 10) digits = `1${digits}`;
     const formattedE164 = `+${digits}`;
 
-    // STRICT CHECK: Ensure player exists in pre-registered 'players' collection
+    // Verify player exists in the database
     const q = query(
       collection($db, "players"), 
       where("phone", "==", formattedE164),
@@ -174,22 +173,20 @@ const handleSendOtp = async () => {
     if (querySnapshot.empty) {
       toast.add({ 
         title: "Access Denied", 
-        description: "Your number is not registered in the league database.", 
+        description: "Mobile number not recognized in the league database.", 
         color: 'red' 
       });
       isLoading.value = false;
       return;
     }
 
-    // Persist doc ID to authStore and send OTP
-    const playerDoc = querySnapshot.docs[0]
     authStore.setPendingPlayerId(querySnapshot.docs[0].id);
     await sendOtp(formattedE164);
     otpSent.value = true;
     
   } catch (err) {
     console.error("Auth Error:", err);
-    toast.add({ title: "Service Error", description: "Could not send code.", color: 'red' });
+    toast.add({ title: "Service Error", description: "Failed to send code. Please try again.", color: 'red' });
   } finally {
     isLoading.value = false;
   }
@@ -198,96 +195,68 @@ const handleSendOtp = async () => {
 watch(otpSent, async (val) => {
   if (val) {
     await nextTick();
-    otpInputs.value[0]?.focus();
+    otpInputRef.value?.focus();
   }
 });
 
-const handleInput = (index, event) => {
-  const val = event.target.value;
-  
-  // Only allow numbers
-  if (!/^\d*$/.test(val)) {
-    otpArray.value[index] = '';
-    return;
-  }
+const handleOtpInput = (event) => {
+  // Strip out any non-numeric characters (handles pasting formatting issues)
+  otpCode.value = event.target.value.replace(/\D/g, '').slice(0, 6);
 
-  // Move to next box
-  if (val && index < 5) {
-    otpInputs.value[index + 1].focus();
+  // Auto-submit when exactly 6 digits are reached
+  if (otpCode.value.length === 6 && !ui.isGlobalLoading) {
+    handleVerifyOtp();
   }
-
-  // Auto-submit logic
-  const currentCode = otpArray.value.join('');
-  if (currentCode.length === 6) {
-    // Only call verify if we aren't already in the middle of a check
-    if (!ui.isGlobalLoading) {
-      handleVerifyOtp();
-    }
-  }
-};
-
-const handleDelete = (index) => {
-  if (!otpArray.value[index] && index > 0) {
-    otpInputs.value[index - 1].focus();
-  }
-};
-
-const handlePaste = (event) => {
-  const paste = event.clipboardData.getData('text').slice(0, 6);
-  if (!/^\d+$/.test(paste)) return;
-  
-  const digits = paste.split('');
-  digits.forEach((d, i) => {
-    if (i < 6) otpArray.value[i] = d;
-  });
-  
-  // Focus last filled or next empty
-  const nextIndex = digits.length >= 6 ? 5 : digits.length;
-  otpInputs.value[nextIndex].focus();
 };
 
 const resetOtp = () => {
   otpSent.value = false;
-  otpArray.value = ['', '', '', '', '', ''];
+  otpCode.value = '';
 };
 
 const handleVerifyOtp = async () => {
   if (ui.isGlobalLoading) return;
+  if (otpCode.value.length < 6) return;
 
-  const fullCode = otpArray.value.join('');
-  if (fullCode.length < 6) {
-    toast.add({ title: "Incomplete Code", description: "Please enter all 6 digits.", color: 'orange' });
-    return;
-  }
-
-  ui.setLoading(true, "Verifying Identity...");
+  ui.setLoading(true, "Authenticating...");
   
   try {
-    const result = await verifyOtp(fullCode); 
-    const user = result.user;
+    // 1. Grab the user safely
+    const user = await verifyOtp(otpCode.value); 
+
+    if (!user || !user.uid) {
+      throw new Error("Could not extract user UID.");
+    }
 
     if (authStore.pendingPlayerId) {
       const playerRef = doc($db, "players", authStore.pendingPlayerId);
       
-      // arrayUnion handles the "if not there already" logic automatically
+      // 2. Let Firebase handle the array natively!
       await updateDoc(playerRef, {
         uids: arrayUnion(user.uid),
-        lastLogin: new Date().toISOString() // Optional: good for tracking
+        lastLogin: new Date().toISOString()
       });
       
-      // Fetch the updated document to ensure the local store has the latest uids array
+      // 3. Fetch the freshly updated document
       const playerSnap = await getDoc(playerRef);
       if (playerSnap.exists()) {
-        authStore.setUser(user, { id: authStore.pendingPlayerId, ...playerSnap.data() });
+        // 4. Hydrate the store
+        authStore.setUser(user, { 
+          id: authStore.pendingPlayerId, 
+          ...playerSnap.data() 
+        });
+
+        // 5. Clean up the pending ID securely
+        authStore.setPendingPlayerId(null);
       }
     }
     
     navigateTo('/');
   } catch (err) {
-    console.error("Auth Error:", err);
-    otpArray.value = ['', '', '', '', '', ''];
-    otpInputs.value[0]?.focus();
-    toast.add({ title: "Verification Failed", description: "Invalid code.", color: 'red' });
+    console.error("Verification Error:", err);
+    otpCode.value = '';
+    otpInputRef.value?.focus();
+    toast.add({ title: "Invalid Code", description: "The code entered is incorrect.", color: 'red' });
   } finally {
     ui.setLoading(false);
   }

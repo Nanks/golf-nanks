@@ -45,7 +45,7 @@
                 name="mdi:shield-crown-outline" 
                 class="size-6 text-amber-500 shrink-0" 
               />
-              <span class="text-2xl text-primary">
+              <span class="text-xl text-primary">
                 {{ player.fname }} {{ player.lname }}
               </span>
             </div>

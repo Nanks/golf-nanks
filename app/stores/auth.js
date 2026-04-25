@@ -52,8 +52,6 @@ export const useAuthStore = defineStore('auth', {
         this.isInitialized = true; // Logged out is also an initialized state
         this.loading = false;
       }
-
-      this.pendingPlayerId = null;
     },
 
     // NEW: Middleware helper to prevent "race conditions" on refresh
