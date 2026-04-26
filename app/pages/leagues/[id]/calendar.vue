@@ -113,7 +113,7 @@ let currentUnsub = null
 
 const todayISO = new Date().toISOString().split('T')[0]
 const leagueData = computed(() => dataStore.leagues.find(l => l.id === route.params.id))
-const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(leagueData.value.type))
+const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(leagueData.value))
 
 const loadEventsForYear = (year) => {
   if (currentUnsub) currentUnsub()

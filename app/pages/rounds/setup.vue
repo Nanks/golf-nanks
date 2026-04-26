@@ -57,25 +57,34 @@
                  class="p-2.5 bg-white dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative group">
               
               <div class="grid grid-cols-12 gap-2 items-center">
-                <div class="col-span-7 flex items-center gap-2">
-                  <div class="w-8 h-8 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px] uppercase text-slate-400">
-                    {{ player.fname?.[0] }}{{ player.lname?.[0] }}
-                  </div>
-                  <div class="min-w-0">
-                    <h4 class="font-black uppercase italic tracking-tighter leading-none truncate text-sm text-slate-900 dark:text-white">
-                      {{ player.fname }} {{ player.lname }}
-                    </h4>
-                    <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                      {{ isLeague ? 'League HCP' : 'Index' }}: 
-                      <span class="text-emerald-500">{{ getDisplayHandicap(player) }}</span>
+                <div class="col-span-7 flex flex-col justify-center min-w-0 pl-1.5">
+                  <h4 class="font-black uppercase italic tracking-tighter leading-none truncate text-sm text-slate-900 dark:text-white">
+                    {{ player.fname }} {{ player.lname }}
+                  </h4>
+                  
+                  <div class="mt-1.5 flex items-center gap-1.5">
+                    
+                    <p v-if="isYearlyLeague" class="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                      League HCP: <span class="text-emerald-500">{{ getDisplayHandicap(player) }}</span>
                     </p>
+                    
+                    <template v-else>
+                      <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                        Index: <span class="text-emerald-500">{{ (player.ghin ?? 0).toFixed(1) }}</span>
+                      </p>
+                      <span v-if="player.teeId" class="w-px h-2 bg-slate-300 dark:bg-slate-700 rounded-full"></span>
+                      <p v-if="player.teeId" class="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                        CH: <span class="text-emerald-500">{{ getDynamicCourseHandicap(player) }}</span>
+                      </p>
+                    </template>
+
                   </div>
                 </div>
 
                 <div class="col-span-5">
                   <BaseSelect 
                     v-model="player.teeId"
-                    :options="sortedTeeOptions"
+                    :options="getAvailableTees(player)"
                     placeholder="Tee"
                     dense
                     :disabled="isLeague"
@@ -85,9 +94,9 @@
 
               <button 
                 @click="removePlayer(index)" 
-                class="absolute -top-2 -right-2 bg-white dark:bg-slate-800 rounded-full shadow-md border border-slate-200 dark:border-slate-700 p-1.5 active:scale-90 transition-transform z-10"
+                class="absolute -top-2.5 -left-2.5 bg-white dark:bg-slate-950 rounded-full p-0.5 active:scale-90 transition-transform z-10"
               >
-                <Icon name="mdi:close" class="size-4 text-slate-400 active:text-red-500" />
+                <Icon name="mdi:close-circle" class="size-[22px] text-slate-300 dark:text-slate-700 active:text-red-500 transition-colors" />
               </button>
             </div>
           </div>
@@ -124,17 +133,17 @@
 import { collection, addDoc } from 'firebase/firestore'
 import { useData } from '~/stores/data'
 import { useAuthStore } from '~/stores/auth'
+import { calcCourseHandicap } from '~/utils/gameLogic'
 
 const { $db } = useNuxtApp()
 const dataStore = useData()
 const authStore = useAuthStore()
 const route = useRoute()
 
-// Constants
 const TEE_MAPPING = {
   'mens': 'Blue',
   'senior': 'White',
-  'ladies': 'Ladies Green'
+  'ladies': 'Green'
 }
 
 // State
@@ -148,7 +157,8 @@ const isLeague = computed(() => route.query.isLeague === 'true')
 const leagueId = computed(() => route.query.leagueId || '')
 const currentLeague = computed(() => dataStore.leagues.find(l => l.id === leagueId.value))
 const leagueName = computed(() => currentLeague.value?.name || '')
-const isAdmin = computed(() => authStore.isAdminForType(currentLeague.value?.type))
+const isAdmin = computed(() => authStore.isAdminForLeague(currentLeague.value))
+const isYearlyLeague = computed(() => currentLeague.value?.cadence === 'yearly')
 
 // Computed
 const sortedCourses = computed(() => {
@@ -159,25 +169,50 @@ const sortedCourses = computed(() => {
 
 const selectedCourse = computed(() => dataStore.courses.find(c => c.id === selectedCourseId.value))
 
-const sortedTeeOptions = computed(() => {
-  if (!selectedCourse.value?.tees) return []
-  return Object.entries(selectedCourse.value.tees)
-    .map(([id, tee]) => ({ label: tee.name, value: id }))
-    .sort((a, b) => a.label.localeCompare(b.label))
-})
-
 const canStart = computed(() => {
   return selectedCourseId.value && players.value.length > 0 && players.value.every(p => p.teeId) && !loading.value
 })
 
-// Helpers
+// ==========================================
+// CENTRALIZED HELPERS 
+// ==========================================
+
+const getTeePar = (teeData) => {
+  return teeData?.pars?.reduce((sum, val) => sum + Number(val), 0) || 72
+}
+
+// UI: Display exact decimal for Yearly Leagues
 const getDisplayHandicap = (player) => {
-  const leagueHcp = isLeague.value && leagueId.value 
-    ? player.leagueHandicaps?.[leagueId.value] 
-    : null
-  const val = leagueHcp ?? player.ghin ?? 0
+  const hcp = player.leagueHandicaps?.[leagueId.value] ?? 0
+  return parseFloat(hcp).toFixed(3)
+}
+
+// UI: Display dynamic integer for Casual / Non-Yearly
+const getDynamicCourseHandicap = (player) => {
+  if (!selectedCourse.value || !player.teeId) return '-'
   
-  return parseFloat(val).toFixed(3)
+  const teeData = selectedCourse.value.tees[player.teeId]
+  if (!teeData) return '-'
+
+  return calcCourseHandicap(
+    player.ghin ?? 0, 
+    teeData.slope, 
+    teeData.rating, 
+    getTeePar(teeData)
+  )
+}
+
+const getAvailableTees = (player) => {
+  if (!selectedCourse.value?.tees) return []
+  return Object.entries(selectedCourse.value.tees)
+    .filter(([id, tee]) => {
+      if (tee.types && Array.isArray(tee.types) && tee.types.length > 0) {
+        return tee.types.includes(player.tee_type || 'mens')
+      }
+      return true
+    })
+    .map(([id, tee]) => ({ label: tee.name, value: id }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 const getTeeIdByName = (course, teeName) => {
@@ -187,16 +222,30 @@ const getTeeIdByName = (course, teeName) => {
 
 const applyTeeLogic = (playerList) => {
   if (!selectedCourse.value) return
-  const leagueTeeSetting = currentLeague.value?.nextRound?.tees
 
   playerList.forEach(p => {
-    let targetTeeName = ''
-    if (isLeague.value && leagueTeeSetting) {
-      targetTeeName = (leagueTeeSetting === 'Mixed') ? (TEE_MAPPING[p.tee_type] || 'Blue') : leagueTeeSetting
-    } else if (selectedCourse.value.name.toLowerCase().includes('elks')) {
-      targetTeeName = 'Blue'
+    let finalTeeId = ''
+    const pType = p.tee_type || 'mens'
+
+    // 1. LEAGUE ROUND (Hardcoded Tee)
+    // If the league has a teesId AND it isn't a 'Mixed' tee league
+    if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
+      finalTeeId = currentLeague.value.teesId
+    } 
+    // 2. MIXED LEAGUE or CASUAL ROUND (Player's Default)
+    else {
+      // Use the course's 'tee_types' map (e.g., 'ladies' -> 'v7A78o...')
+      if (selectedCourse.value.tee_types && selectedCourse.value.tee_types[pType]) {
+        finalTeeId = selectedCourse.value.tee_types[pType]
+      } 
+      // Ultimate Fallback
+      else {
+        const targetName = TEE_MAPPING[pType] || 'Blue'
+        finalTeeId = getTeeIdByName(selectedCourse.value, targetName)
+      }
     }
-    if (targetTeeName) p.teeId = getTeeIdByName(selectedCourse.value, targetTeeName)
+    
+    if (finalTeeId) p.teeId = finalTeeId
   })
 }
 
@@ -207,10 +256,12 @@ onMounted(async () => {
     players.value.push({ ...authStore.userProfile, teeId: '' })
   }
 
-  if (isLeague.value && currentLeague.value?.nextRound) {
-    const course = dataStore.courses.find(c => c.name === currentLeague.value.nextRound.course)
-    if (course) selectedCourseId.value = course.id
-  } else if (!isLeague.value) {
+  // NEW: Directly assign the courseId from the league document
+  if (isLeague.value && currentLeague.value?.courseId) {
+    selectedCourseId.value = currentLeague.value.courseId
+  } 
+  // Fallback for casual rounds
+  else if (!isLeague.value) {
     const elks = dataStore.courses.find(c => c.name.toLowerCase().includes('elks'))
     if (elks) selectedCourseId.value = elks.id
   }
@@ -264,43 +315,40 @@ const startRound = async () => {
       }
     })
 
+    // ----------------------------------------------------
+    // CLEANED UP PLAYER SNAPSHOT LOGIC
+    // ----------------------------------------------------
     const playerSnapshots = players.value.map(p => {
-      const selectedTeeData = selectedCourse.value.tees[p.teeId]
+      const teeData = selectedCourse.value.tees[p.teeId]
+      const teePar = getTeePar(teeData)
       
-      // Calculate dynamic par based on the selected tee's pars array
-      const teePar = selectedTeeData.pars?.reduce((sum, val) => sum + Number(val), 0) || 72;
-      
-      const leagueHcp = isLeague.value && leagueId.value 
-        ? p.leagueHandicaps?.[leagueId.value] 
-        : null
+      let finalIndex, finalCourseHcp;
 
-      let finalIndex, finalCourseHcp
-
-      if (leagueHcp !== null && leagueHcp !== undefined) {
-        finalIndex = parseFloat(leagueHcp)
-        // Keep the exact decimal precision requested for league tie-breakers
-        finalCourseHcp = isLeague.value ? parseFloat(finalIndex.toFixed(3)) : Math.round(finalIndex)
+      if (isYearlyLeague.value) {
+        // YEARLY LEAGUE: Strictly use the decimal from the player's league profile
+        const rawLeagueHcp = p.leagueHandicaps?.[leagueId.value] ?? 0;
+        finalIndex = parseFloat(rawLeagueHcp);
+        finalCourseHcp = parseFloat(finalIndex.toFixed(3)); 
       } else {
-        const ghinIndex = p.ghin ?? 0
-        // Calculate raw playing handicap using dynamic par
-        const raw = (ghinIndex * (selectedTeeData.slope / 113)) + (selectedTeeData.rating - teePar)
-        finalIndex = ghinIndex
-        finalCourseHcp = isLeague.value ? parseFloat(raw.toFixed(3)) : Math.round(raw)
+        // ALL OTHER ROUNDS: Strictly use GHIN and dynamic integer Course Handicap
+        finalIndex = p.ghin ?? 0;
+        finalCourseHcp = calcCourseHandicap(finalIndex, teeData.slope, teeData.rating, teePar);
       }
 
       return {
         id: p.id,
         fname: p.fname,
         lname: p.lname,
-        ghin: finalIndex,
-        index: finalCourseHcp,
-        teeId: p.teeId,
-        tees: selectedTeeData.name, 
+        ghin: finalIndex, 
+        index: finalCourseHcp, 
+        teesId: p.teeId,
+        tees: teeData.name, 
         tee_type: p.tee_type || 'mens'
       }
     })
 
     const roundData = {
+      courseId: selectedCourse.value.id,
       course: courseSnapshot.name,
       courseSnapshot,
       leagueId: leagueId.value,

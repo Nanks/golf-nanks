@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { collection, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy, limit } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy, limit, collectionGroup } from 'firebase/firestore'
 
 export const useData = defineStore('data', () => {
   const { $db } = useNuxtApp()
@@ -11,24 +11,22 @@ export const useData = defineStore('data', () => {
   const isHydrated = ref(false)
   const loading = ref(false)
   
-  // Track the active listener type so we can restart it when returning from background
   const activeListenerType = ref(null)
 
   const hydrateStore = async () => {
-    // Prevent double-fetching if two components call this at once
     if (isHydrated.value || loading.value) return
     loading.value = true
 
     try {
+      // 1. Fetch only ACTIVE leagues and all courses
       const [leaguesSnap, coursesSnap] = await Promise.all([
-        getDocs(collection($db, 'leagues')),
+        getDocs(query(collection($db, 'leagues'), where('active', '==', true))),
         getDocs(collection($db, 'courses'))
       ])
 
       const today = new Date().toISOString().split('T')[0]
       
-      // OPTIMIZATION: Use Promise.all for the sub-queries (calendar and tees)
-      // to avoid the "waterfall" effect in your loops
+      // 2. Process Leagues: Fetch only the upcoming calendar entry
       const leaguePromises = leaguesSnap.docs.map(async (lDoc) => {
         const league = { id: lDoc.id, ...lDoc.data() }
         const calQ = query(
@@ -42,10 +40,14 @@ export const useData = defineStore('data', () => {
         return league
       })
 
+      // 3. Process Courses: Fetch subcollection tees
       const coursePromises = coursesSnap.docs.map(async (cDoc) => {
         const teesSnap = await getDocs(collection($db, 'courses', cDoc.id, 'tees'))
         const teesMap = {}
-        teesSnap.docs.forEach(t => { teesMap[t.id] = t.data() })
+        teesSnap.docs.forEach(t => { 
+          // Include the doc ID in the tee data for easier mapping
+          teesMap[t.id] = { id: t.id, ...t.data() } 
+        })
         return { id: cDoc.id, ...cDoc.data(), tees: teesMap }
       })
 
@@ -60,28 +62,22 @@ export const useData = defineStore('data', () => {
     }
   }
 
-  // Helper to get local YYYY-MM-DD
   const getTodayISO = () => {
     const d = new Date();
     return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
   };
 
-  // GETTER: Check if a specific league is live right now
   const isLeagueLiveToday = computed(() => (leagueId) => {
     const today = getTodayISO();
     return liveRounds.value.some(r => r.leagueId === leagueId && r.iso === today);
   });
 
   const startLiveListener = (filters = {}) => {
-    // 1. Clean up existing to prevent memory leaks
     stopLiveListener()
-    
-    // 2. Store the filters so we can resume them after backgrounding
     activeListenerType.value = filters
 
     let q = collection($db, "live_rounds")
     
-    // 3. Dynamically apply filters
     if (filters.leagueId) {
       q = query(q, where("leagueId", "==", filters.leagueId))
     }
@@ -102,7 +98,6 @@ export const useData = defineStore('data', () => {
   }
 
   const resumeListener = () => {
-    // Re-run the listener with the saved filter object
     if (activeListenerType.value || liveRounds.value.length > 0) {
       startLiveListener(activeListenerType.value || {})
     }

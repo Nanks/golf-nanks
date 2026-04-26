@@ -75,8 +75,9 @@ export const getTotals = (values) => {
 
 export const calcRounds = (rounds, cal) => {
   return rounds.map(round => {
-    const teeData = round.courseSnapshot?.tees?.[round.tees];
+    const teeData = round.courseSnapshot?.tees?.[round.teesId];
     const pops = calcPops(round, teeData);
+    
     return {
       ...round,
       games: calcGames(round, cal, teeData, pops),
@@ -190,11 +191,29 @@ export const calcRawGross = (scores) => {
 };
 
 
+/**
+ * Internal helper for USGA tie-breaker (Countback)
+ * Compares Last 9, 6, 3, 18, then 17 back to 1.
+ */
+export const getTieBreakerValue = (scores, isHigherBetter = false) => {
+  if (!scores || scores.length < 18) return Array(22).fill(0);
+
+  const last9 = scores.slice(9, 18).reduce((a, b) => a + (Number(b) || 0), 0);
+  const last6 = scores.slice(12, 18).reduce((a, b) => a + (Number(b) || 0), 0);
+  const last3 = scores.slice(15, 18).reduce((a, b) => a + (Number(b) || 0), 0);
+  const reversedHoles = [...scores].reverse();
+
+  // Create sequence: [L9, L6, L3, H18, H17, ..., H1]
+  const values = [last9, last6, last3, ...reversedHoles];
+  
+  // For Net (lower is better), negate values so the highest "negated" value wins
+  return isHigherBetter ? values : values.map(v => -v);
+};
+
 export const runLeaguePass = (players, eventDetails) => {
   const totalHoles = eventDetails?.holes || 18;
   const gameKeys = eventDetails?.game || [];
   const numPlayers = players?.length || 0;
-  
   const isComplete = ['complete', 'mdi-check-bold'].includes(eventDetails?.status?.toLowerCase());
 
   const winnersLog = {
@@ -215,7 +234,8 @@ export const runLeaguePass = (players, eventDetails) => {
       id: p.id,
       name: p.name,
       gross: p.scores?.[i] || 0,
-      net: (p.scores?.[i] || 0) - (p.games?.pops?.[i] || 0)
+      // Use 'i' here to match the loop index
+      net: (p.scores?.[i] || 0) - (p.games?.pops?.[i] || 0) 
     })).filter(s => s.gross > 0);
 
     if (holeScores.length < numPlayers || numPlayers === 0) continue;
@@ -233,25 +253,38 @@ export const runLeaguePass = (players, eventDetails) => {
     });
   }
 
-  // 2. Blind Best Ball (Team Logic)
+  // 2. Blind Best Ball (Team Logic with Tie Breaker)
   if (numPlayers > 1) {
     let pairings = [];
     const officialPairings = eventDetails?.bbb_pairings || [];
+
+    const getPairingData = (p1, p2) => {
+      let teamTotalNet = 0;
+      let teamHoleScores = [];
+
+      for (let h = 0; h < totalHoles; h++) {
+        const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
+        const p2Net = p2.scores?.[h] > 0 ? p2.scores[h] - (p2.games?.pops?.[h] || 0) : 99;
+        const bestNet = Math.min(p1Net, p2Net);
+        
+        teamHoleScores.push(bestNet < 90 ? bestNet : 0);
+        if (bestNet < 90) teamTotalNet += bestNet; 
+      }
+
+      return {
+        player: `${p1.name} / ${p2.name}`,
+        score: teamTotalNet,
+        id: `${p1.id}-${p2.id}`,
+        hole: 'Team',
+        tieBreaker: getTieBreakerValue(teamHoleScores, false) // Net is lower-better
+      };
+    };
 
     if (officialPairings.length > 0) {
       officialPairings.forEach(pair => {
         const p1 = players.find(p => p.id === pair.p1?.id);
         const p2 = players.find(p => p.id === pair.p2?.id);
-        if (p1 && p2) {
-          let teamTotalNet = 0;
-          for (let h = 0; h < totalHoles; h++) {
-            const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
-            const p2Net = p2.scores?.[h] > 0 ? p2.scores[h] - (p2.games?.pops?.[h] || 0) : 99;
-            const bestNet = Math.min(p1Net, p2Net);
-            if (bestNet < 90) teamTotalNet += bestNet; 
-          }
-          pairings.push({ player: `${p1.name} / ${p2.name}`, score: teamTotalNet, id: `${p1.id}-${p2.id}`, hole: 'Team' });
-        }
+        if (p1 && p2) pairings.push(getPairingData(p1, p2));
       });
     } else {
       const getSeededValue = (str) => {
@@ -266,24 +299,21 @@ export const runLeaguePass = (players, eventDetails) => {
       });
 
       for (let i = 0; i < shuffled.length; i += 2) {
-        if (shuffled[i + 1]) {
-          const p1 = shuffled[i];
-          const p2 = shuffled[i + 1];
-          let teamTotalNet = 0;
-          for (let h = 0; h < totalHoles; h++) {
-            const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
-            const p2Net = p2.scores?.[h] > 0 ? p2.scores[h] - (p2.games?.pops?.[h] || 0) : 99;
-            const bestNet = Math.min(p1Net, p2Net);
-            if (bestNet < 90) teamTotalNet += bestNet; 
-          }
-          pairings.push({ player: `${p1.name} / ${p2.name}`, score: teamTotalNet, id: `${p1.id}-${p2.id}`, hole: 'Team' });
-        }
+        if (shuffled[i + 1]) pairings.push(getPairingData(shuffled[i], shuffled[i+1]));
       }
     }
-    winnersLog.blindBestBall = pairings.sort((a, b) => a.score - b.score);
+
+    // Sort with Tie Breaker
+    winnersLog.blindBestBall = pairings.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      for (let i = 0; i < a.tieBreaker.length; i++) {
+        if (a.tieBreaker[i] !== b.tieBreaker[i]) return b.tieBreaker[i] - a.tieBreaker[i];
+      }
+      return 0;
+    });
   }
 
-  // 3. Apply Payouts safely
+  // 3. Apply Payouts
   const applyPayouts = (list) => {
     if (!list || list.length === 0) return [];
     const payoutPerWinner = potPerGame / list.length;
@@ -297,7 +327,7 @@ export const runLeaguePass = (players, eventDetails) => {
     blindBestBall: applyPayouts(winnersLog.blindBestBall) 
   };
 
-  // 4. Map Wins to Player Objects (The moved processWithWins logic)
+  // 4. Map Wins to Player Objects
   const winMap = {};
   const categories = [
     { key: 'grossSkins', label: 'Gross', color: 'bg-amber-500/10 text-amber-600' },
@@ -307,39 +337,32 @@ export const runLeaguePass = (players, eventDetails) => {
 
   categories.forEach(({ key, label, color }) => {
     const winnersList = finalWinnersLog[key] || [];
-    
     winnersList.forEach(win => {
       if (!winMap[win.id]) {
         winMap[win.id] = { 
-          individualBadges: [], 
-          totalMoney: 0, 
-          grossSkinsCount: 0, 
-          netSkinsCount: 0,
-          grossSkinHoles: [], 
-          netSkinHoles: [] 
+          individualBadges: [], totalMoney: 0, 
+          grossSkinsCount: 0, netSkinsCount: 0, deucesCount: 0,
+          grossSkinHoles: [], netSkinHoles: [], deuceHoles: [] 
         };
       }
-      
       winMap[win.id].individualBadges.push({ label: `${label} ${win.score} (${win.hole})`, color });
       winMap[win.id].totalMoney += (win.money || 0);
 
-      if (key === 'grossSkins' && winMap[win.id].grossSkinHoles) {
-        winMap[win.id].grossSkinsCount++;
-        winMap[win.id].grossSkinHoles.push(win.hole);
-      }
-      if (key === 'netSkins' && winMap[win.id].netSkinHoles) {
-        winMap[win.id].netSkinsCount++;
-        winMap[win.id].netSkinHoles.push(win.hole);
-      }
+      if (key === 'grossSkins') { winMap[win.id].grossSkinsCount++; winMap[win.id].grossSkinHoles.push(win.hole); }
+      if (key === 'netSkins') { winMap[win.id].netSkinsCount++; winMap[win.id].netSkinHoles.push(win.hole); }
+      if (key === 'deuces') { winMap[win.id].deucesCount++; winMap[win.id].deuceHoles.push(win.hole); }
     });
   });
 
   const augmentedPlayers = players.map(p => ({
     ...p,
-    winStats: winMap[p.id] || { individualBadges: [], totalMoney: 0, grossSkinsCount: 0, netSkinsCount: 0, grossSkinHoles: [], netSkinHoles: [] }
+    winStats: winMap[p.id] || { 
+      individualBadges: [], totalMoney: 0, 
+      grossSkinsCount: 0, netSkinsCount: 0, deucesCount: 0,
+      grossSkinHoles: [], netSkinHoles: [], deuceHoles: [] 
+    }
   }));
 
-  // 5. Return Both Data Structures
   return {
     winnersLog: finalWinnersLog,
     players: augmentedPlayers

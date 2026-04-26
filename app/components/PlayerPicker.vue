@@ -27,14 +27,25 @@
             </div>
 
             <div v-if="!isCreatingManual" class="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <div class="relative">
-                <Icon :name="isSearching ? 'svg-spinners:ring-resize' : 'mdi:magnify'" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                <input 
-                  v-model="searchQuery" 
-                  type="text" 
-                  placeholder="Search members by name..." 
-                  class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-9 pr-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none dark:text-white transition-all"
-                />
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <Icon :name="isSearching ? 'svg-spinners:ring-resize' : 'mdi:magnify'" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                  <input 
+                    v-model="searchQuery" 
+                    type="text" 
+                    placeholder="Search members..." 
+                    class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-9 pr-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none dark:text-white transition-all"
+                  />
+                </div>
+                
+                <button 
+                  v-if="canCreate && mode !== 'setup'" 
+                  @click="startManualCreate('')" 
+                  class="shrink-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white rounded-xl px-4 flex flex-col items-center justify-center active:scale-95 transition-all shadow-sm"
+                >
+                  <Icon name="mdi:account-plus" class="size-5 mb-0.5" />
+                  <span class="text-[8px] font-black uppercase tracking-widest">New</span>
+                </button>
               </div>
             </div>
 
@@ -71,14 +82,48 @@
                     <input v-model="form.lname" type="text" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" />
                   </div>
                 </div>
+
                 <div class="space-y-1">
                   <label class="text-[9px] font-black uppercase text-slate-400 ml-1">Phone Number</label>
                   <input v-model="form.phone" type="tel" placeholder="(555) 000-0000" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
-                <div class="space-y-1">
-                  <label class="text-[9px] font-black uppercase text-slate-400 ml-1">GHIN Index</label>
-                  <input v-model="form.ghin" type="number" step="0.1" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" />
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1">GHIN Index</label>
+                    <input v-model="form.ghin" type="number" step="0.1" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1">Tee Type</label>
+                    <div class="flex gap-1 p-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl h-[46px]">
+                      <button 
+                        type="button"
+                        @click="form.tee_type = 'mens'"
+                        :class="[
+                          'flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all',
+                          form.tee_type === 'mens' 
+                            ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' 
+                            : 'text-slate-400 hover:text-slate-600'
+                        ]"
+                      >
+                        Mens
+                      </button>
+                      <button 
+                        type="button"
+                        @click="form.tee_type = 'ladies'"
+                        :class="[
+                          'flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all',
+                          form.tee_type === 'ladies' 
+                            ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' 
+                            : 'text-slate-400 hover:text-slate-600'
+                        ]"
+                      >
+                        Ladies
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
                 <button @click="submitManual" class="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs mt-4 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all">
                   Create & Add to Roster
                 </button>
@@ -161,7 +206,8 @@ const props = defineProps({
   isOpen: Boolean,
   selectedPlayers: Array,
   canCreate: { type: Boolean, default: false },
-  mode: { type: String, default: 'manage' } // 'manage' (roster) or 'setup' (round)
+  mode: { type: String, default: 'manage' },
+  defaultTeeType: { type: String, default: 'mens' }
 });
 
 const emit = defineEmits(['update:isOpen', 'toggle', 'create-new']);
@@ -176,11 +222,25 @@ const recentPlayersProfiles = ref([]);
 
 // --- FORM STATE ---
 const isCreatingManual = ref(false);
-const form = ref({ fname: '', lname: '', phone: '', ghin: 0.0 });
+const form = ref({ 
+  fname: '', 
+  lname: '', 
+  phone: '', 
+  ghin: 0.0, 
+  tee_type: props.defaultTeeType === 'ladies' ? 'ladies' : 'mens' 
+});
 
-const startManualCreate = () => {
-  const [f, ...l] = searchQuery.value.split(' ');
-  form.value = { fname: f || '', lname: l.join(' ') || '', phone: '', ghin: 0.0 };
+const startManualCreate = (overrideName) => {
+  const queryToUse = overrideName !== undefined ? overrideName : searchQuery.value;
+  const [f, ...l] = queryToUse.split(' ');
+  
+  form.value = { 
+    fname: f || '', 
+    lname: l.join(' ') || '', 
+    phone: '', 
+    ghin: 0.0,
+    tee_type: props.defaultTeeType === 'ladies' ? 'ladies' : 'mens'
+  };
   isCreatingManual.value = true;
 };
 

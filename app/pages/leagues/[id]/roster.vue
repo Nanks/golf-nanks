@@ -82,7 +82,7 @@
 
     <HandicapAuditModal :is-open="isAuditModalOpen" :player="selectedPlayerForAudit" :league-id="route.params.id" @close="isAuditModalOpen = false" />
     <GhinModal v-if="selectedPlayer" :is-open="isGhinModalOpen" :player="selectedPlayer" @close="isGhinModalOpen = false" @updated="fetchRoster" />
-    <PlayerPicker v-model:is-open="isAddModalOpen" :selected-players="roster" :can-create="isAdmin" @toggle="handleTogglePlayer" @create-new="handleCreateAndAdd" />
+    <PlayerPicker v-model:is-open="isAddModalOpen" :selected-players="roster" :can-create="isAdmin" :default-tee-type="league?.tee_type || 'mens'" @toggle="handleTogglePlayer" @create-new="handleCreateAndAdd" />
   </div>
 </template>
 
@@ -118,7 +118,7 @@ const selectedPlayerForAudit = ref(null);
 // Computed Admin Check
 const isAdmin = computed(() => {
   if (!league.value) return false;
-  return authStore.isAdminForLeague(league.value.type); 
+  return authStore.isAdminForLeague(league.value); 
 });
 
 // --- Data Fetching ---

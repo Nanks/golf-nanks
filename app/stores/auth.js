@@ -14,13 +14,20 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isLoggedIn: (state) => !!state.user,
-    isAdminForType: (state) => (type) => {
-      return state.userProfile?.adminTypes?.includes(type) || false;
-    },
-    isAdminForLeague: (state) => (leagueType) => {
-      const adminLevel = state.userProfile?.admin;
-      if (!adminLevel) return false;
-      return adminLevel === 'super' || adminLevel === leagueType;
+    
+    // Clean, dedicated Super Admin check
+    isSuperAdmin: (state) => state.userProfile?.admin === 'super',
+
+    // Updated League Admin check - Pass the actual league object from your components
+    isAdminForLeague: (state) => (league) => {
+      // 1. Fail fast if no user or no league
+      if (!state.user || !league) return false;
+      
+      // 2. Super Admins always get a free pass
+      if (state.userProfile?.admin === 'super') return true;
+      
+      // 3. Check if the user's Firebase UID is in the league's admins array
+      return league.admins?.includes(state.user.uid) || false;
     }
   },
 

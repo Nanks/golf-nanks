@@ -3,7 +3,7 @@
     
     <div v-if="uiStore.isGlobalLoading" class="flex flex-col items-center justify-center pt-32 space-y-4">
       <Icon name="mdi:golf" class="size-16 text-emerald-500 animate-bounce" />
-      <p class="text-secondary text-[10px] font-black uppercase tracking-widest">{{ uiStore.loadingMessage }}</p>
+      <p class="text-secondary text-[10px]">{{ uiStore.loadingMessage }}</p>
     </div>
 
     <template v-else-if="processedPlayers.length > 0">
@@ -15,65 +15,69 @@
       >
         <template #action>
           <ClientOnly>
-            <div v-if="mode === 'live'" class="flex items-center gap-1.5 bg-red-500 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+            <div v-if="mode === 'live'" class="flex items-center gap-1.5 bg-red-600 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
               <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> Live
             </div>
           </ClientOnly>
         </template>
       </LeagueHeader>
 
-      <div class="px-3 mb-3">
+      <div class="px-4 mb-4">
         <p class="text-secondary text-[10px]">
           {{ processedPlayers[0]?.course || 'Loading Course...' }} • {{ getShortDate(iso) }}
         </p>
       </div>
 
-      <div class="sticky top-20 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 py-2 mb-3">
-        <div class="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl overflow-x-auto no-scrollbar gap-1">
-          <button 
-            v-for="tab in availableTabs" :key="tab"
-            @click="activeTab = tab"
-            :class="activeTab === tab 
-              ? 'bg-white dark:bg-slate-800 text-emerald-500 shadow-sm' 
-              : 'text-slate-500 active:text-slate-800 dark:active:text-slate-200'"
-            class="flex-1 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter whitespace-nowrap transition-all text-center min-w-[90px]"
-          >
-            {{ tab }}
-          </button>
+      <div class="sticky top-20 z-40 bg-white/90 dark:bg-stone-950/90 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 py-2 mb-3">
+        <div class="relative">
+          <div class="flex bg-stone-100 dark:bg-stone-900 p-1 mx-3 rounded-xl overflow-x-auto no-scrollbar gap-1">
+            <button 
+              v-for="tab in availableTabs" :key="tab"
+              @click="activeTab = tab"
+              :class="[
+                activeTab === tab 
+                  ? 'bg-white dark:bg-stone-800 text-emerald-600 shadow-sm' 
+                  : 'text-stone-500 active:text-stone-800 dark:active:text-stone-200',
+                'flex-1 px-1 py-2 rounded-lg text-[11px] font-black uppercase tracking-tighter whitespace-nowrap transition-all text-center min-w-[22%] active:scale-[0.98]'
+              ]"
+            >
+              {{ tab.replace('Score', '').replace('Points', '') }}
+            </button>
+          </div>
+          <div class="absolute right-3 top-1 bottom-1 w-8 pointer-events-none bg-linear-to-l from-stone-100/80 dark:from-stone-900/80 to-transparent rounded-r-xl"></div>
         </div>
       </div>
 
-      <div>
+      <div class="px-3">
         <div class="relative">
-          <TransitionGroup :name="transitionName" tag="div" class="space-y-1.5">
+          <TransitionGroup :name="transitionName" tag="div" class="space-y-2">
             <div v-for="(row, index) in activeDisplayList" :key="row.id">
               
-              <div v-if="row.isWinnerRow" class="card-base flex items-center justify-between p-2.5">
-                <div class="flex items-center gap-2 flex-1 min-w-0">
+              <div v-if="row.isWinnerRow" class="card-base flex items-center justify-between p-3">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
                   <div class="w-6 shrink-0 text-center">
-                    <span class="text-primary text-lg text-slate-400">
+                    <span class="text-primary text-lg opacity-40">
                       {{ index === 0 ? '1' : (row.score === activeDisplayList[index-1].score ? '-' : index + 1) }}
                     </span>
                   </div>
-                  <div class="w-px h-7 bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                  <div class="w-px h-8 bg-stone-200 dark:bg-stone-800 shrink-0"></div>
                   <div class="min-w-0 flex flex-col leading-tight">
                     <p class="text-primary text-md">{{ row.player.split(' / ')[0] }}</p>
-                    <p class="text-primary text-md">{{ row.player.split(' / ')[1] || 'TBD' }}</p>
+                    <p class="text-primary text-md opacity-60">{{ row.player.split(' / ')[1] || 'TBD' }}</p>
                   </div>
                 </div>
-                <div class="flex flex-col items-end shrink-0 pl-3 border-l border-slate-200 dark:border-slate-800">
-                  <span class="text-primary text-2xl text-emerald-500 tabular-nums leading-none">
+                <div class="flex flex-col items-end shrink-0 pl-4 border-l border-stone-200 dark:border-stone-800">
+                  <span class="text-primary text-3xl text-emerald-600 tabular-nums">
                     {{ row.score }}
                   </span>
                 </div>
               </div>
 
-              <div v-else @click="openPlayerModal(row)" class="card-interactive p-2.5 flex flex-col gap-1">
-                
+              <div v-else @click="openPlayerModal(row)" class="card-interactive p-3 flex flex-col gap-1.5">
                 <div class="flex items-center justify-between gap-2">
-                  <div class="flex items-center gap-1 flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
                     <div class="w-6 shrink-0 text-center">
-                      <span class="text-primary text-md text-slate-700 dark:text-slate-300">
+                      <span class="text-primary text-md opacity-40">
                         {{ getRank(index) }}
                       </span>
                     </div>
@@ -83,56 +87,56 @@
                   </div>
 
                   <div class="text-right shrink-0">
-                    <span :class="row.scoreColor" class="text-xl text-primary leading-none tabular-nums italic tracking-tighter">
+                    <span :class="row.scoreColor" class="text-2xl text-primary leading-none tabular-nums italic">
                       {{ row.scoreDisplay }}
                     </span>
                   </div>
                 </div>
 
-                <div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/40">
-                  <div class="flex items-center gap-3">
+                <div class="flex items-center justify-between pt-1 border-t border-stone-100 dark:border-stone-800/60">
+                  <div class="flex items-center gap-4">
                     <span class="text-secondary text-[9px]">
-                      CH: <span class="text-slate-800 dark:text-slate-200 tabular-nums">{{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}</span>
+                      CH: <span class="text-stone-900 dark:text-stone-100 tabular-nums">{{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}</span>
                     </span>
                     
                     <span class="text-secondary text-[9px] flex items-center gap-1">
                       GROSS: 
-                      <span class="text-primary text-[11px] text-slate-950 dark:text-white tabular-nums bg-slate-100 dark:bg-slate-800 px-1 rounded-sm">
+                      <span class="text-primary text-[11px] bg-stone-200/50 dark:bg-stone-900 px-1.5 py-0.5 rounded">
                         {{ row.grossDisplay }}
                       </span>
                     </span>
 
                     <span class="text-secondary text-[9px]">
-                      THRU: <span class="text-slate-800 dark:text-slate-200 tabular-nums">{{ row.games.holesPlayed === (row.holes || 18) ? 'F' : (row.games.holesPlayed || '-') }}</span>
+                      THRU: <span class="text-stone-900 dark:text-stone-100 tabular-nums font-black">{{ row.games.holesPlayed === (row.holes || 18) ? 'F' : (row.games.holesPlayed || '-') }}</span>
                     </span>
                   </div>
 
-                  <span v-if="row.winStats?.totalMoney > 0" class="text-primary text-[11px] text-emerald-500 italic tracking-tight">
+                  <span v-if="row.winStats?.totalMoney > 0" class="text-primary text-sm text-emerald-600 italic font-black">
                     ${{ row.winStats.totalMoney.toFixed(2) }}
                   </span>
                 </div>
 
-                <div v-if="row.winStats?.individualBadges.length > 0" class="flex gap-1 overflow-x-auto no-scrollbar border-t border-slate-50 dark:border-slate-800/40">
-                  <span 
-                    v-for="(badge, bIdx) in row.winStats.individualBadges" 
-                    :key="bIdx" 
-                    :class="badge.color" 
-                    class="text-[8px] font-black px-1 rounded uppercase border border-current/10 whitespace-nowrap shrink-0"
-                  >
-                    {{ badge.label }}
-                  </span>
+                <div v-if="row.winStats?.individualBadges.length > 0" class="flex gap-1 overflow-x-auto no-scrollbar pt-1.5">
+                  <template v-for="(badge, bIdx) in row.winStats.individualBadges" :key="bIdx">
+                    <span 
+                      v-if="shouldShowBadge(badge.label)"
+                      :class="badge.color" 
+                      class="badge whitespace-nowrap shrink-0"
+                    >
+                      {{ badge.label }}
+                    </span>
+                  </template>
                 </div>
               </div>
-
             </div>
           </TransitionGroup>
         </div>
       </div>
     </template>
 
-    <div v-else class="flex flex-col items-center justify-center pt-32 text-slate-400">
+    <div v-else class="flex flex-col items-center justify-center pt-32 text-stone-400">
       <Icon name="mdi:golf-cart" class="size-20 opacity-10 mb-6" />
-      <p class="text-secondary text-xs">
+      <p class="text-secondary">
         {{ mode === 'live' ? 'No Live Rounds Active' : 'No History Found' }}
       </p>
     </div>
@@ -161,7 +165,7 @@ import { collection, query, where, getDocs, collectionGroup } from "firebase/fir
 import { useData } from '~/stores/data';
 import { useUIStore } from '~/stores/ui';
 import { useAuthStore } from '~/stores/auth';
-import { calcRounds, runLeaguePass } from '~/utils/gameLogic';
+import { calcRounds, runLeaguePass, getTieBreakerValue } from '~/utils/gameLogic';
 
 const route = useRoute();
 const dataStore = useData();
@@ -184,7 +188,7 @@ let shuffleTimer = null;
 // --- COMPUTED ---
 const leagueData = computed(() => dataStore.leagues.find(l => l.type === type));
 const isYearlyLeague = computed(() => leagueData.value?.cadence === 'yearly');
-const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(leagueData.value.type));
+const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(leagueData.value));
 const isHoleByHoleTab = computed(() => ['Blind Best Ball'].includes(activeTab.value));
 
 const processedPlayers = computed(() => {
@@ -196,12 +200,15 @@ const processedPlayers = computed(() => {
 });
 
 const sortedLeaderboard = computed(() => {
+  const isChicago = ['Chicago Points', 'Modified Chicago'].includes(activeTab.value);
+  
   const players = [...processedPlayers.value].map(p => {
     let scoreVal = 0;
     let display = '';
-    let color = 'text-slate-800 dark:text-white';
+    let color = 'text-stone-900 dark:text-white';
     let grossDisplay = '-';
     
+    // 1. Calculate Primary Score (Existing Logic)
     const grossUnder = p.games?.totalGrossUnder; 
     if (grossUnder !== undefined && grossUnder !== null) {
       grossDisplay = grossUnder === 0 ? 'E' : (grossUnder > 0 ? `+${grossUnder}` : grossUnder);
@@ -221,19 +228,55 @@ const sortedLeaderboard = computed(() => {
       scoreVal = p.games?.totalDeuces || 0;
       display = scoreVal.toString();
     }
-    else if (['Chicago Points', 'Modified Chicago'].includes(activeTab.value)) {
+    else if (isChicago) {
       const key = activeTab.value === 'Chicago Points' ? 'totalChicago' : 'totalModChicago';
       const val = p.games?.[key] || 0;
       scoreVal = isYearlyLeague.value ? val.toFixed(3) : Math.round(val);
       display = scoreVal.toString();
     }
 
-    return { ...p, scoreVal, scoreDisplay: display, scoreColor: color, grossDisplay };
+    // 2. Generate Tie Breaker Array (Countback)
+    // We use Chicago arrays for Chicago tabs, otherwise default to Net scores
+    let tieScores = [];
+    if (isChicago) {
+      tieScores = activeTab.value === 'Chicago Points' ? (p.games?.chicago || []) : (p.games?.modChicago || []);
+    } else {
+      tieScores = p.games?.net || [];
+    }
+
+    return { 
+      ...p, 
+      scoreVal, 
+      scoreDisplay: display, 
+      scoreColor: color, 
+      grossDisplay,
+      // Pass the tieScores to the utility (assumes getTieBreakerValue is imported/available)
+      tieBreaker: getTieBreakerValue(tieScores, isChicago) 
+    };
   });
 
+  // 3. Perform the Sort
   players.sort((a, b) => {
-    if (activeTab.value === 'Net Score') return a.scoreVal - b.scoreVal || b.thru - a.thru;
-    return b.scoreVal - a.scoreVal;
+    // Primary Sort: Net Score is Low-to-High, others are High-to-Low
+    if (activeTab.value === 'Net Score') {
+      if (a.scoreVal !== b.scoreVal) return a.scoreVal - b.scoreVal;
+    } else {
+      if (a.scoreVal !== b.scoreVal) return b.scoreVal - a.scoreVal;
+    }
+
+    // Secondary Sort: USGA Countback
+    // For Live rounds, we only tie-break if both players are finished (thru F)
+    if (a.games.holesPlayed === 18 && b.games.holesPlayed === 18) {
+      for (let i = 0; i < a.tieBreaker.length; i++) {
+        if (a.tieBreaker[i] !== b.tieBreaker[i]) {
+          // Tie-breaker array is pre-negated for Net, so higher value always wins
+          return b.tieBreaker[i] - a.tieBreaker[i];
+        }
+      }
+    }
+    
+    // Tertiary Sort: Holes Played (Thru status)
+    return b.games.holesPlayed - a.games.holesPlayed;
   });
 
   return players;
@@ -270,6 +313,16 @@ const backText = computed(() => mode !== 'live' || route.query.from === 'calenda
 const transitionName = computed(() => activeTab.value === 'Blind Best Ball' ? 'card-flip' : 'shuffle-list');
 
 // --- METHODS ---
+const shouldShowBadge = (label) => {
+  if (!eventDetails.value?.game) return false;
+  const games = eventDetails.value.game;
+  const lowerLabel = label.toLowerCase();
+  if (lowerLabel.includes('gross')) return games.includes('Gross Skins');
+  if (lowerLabel.includes('net')) return games.includes('Net Skins');
+  if (lowerLabel.includes('deuce')) return games.includes('Deuce Pot');
+  return true;
+};
+
 const fetchConfig = async () => {
   if (!leagueData.value) return;
   try {
@@ -277,14 +330,25 @@ const fetchConfig = async () => {
     const eventSnap = await getDocs(qEvent);
     if (!eventSnap.empty) {
       eventDetails.value = eventSnap.docs[0].data();
-      const tabs = ['Net Score'];
       const gameArray = eventDetails.value.game || [];
+      
+      // Dynamic Tab Sorting: Prioritize Chicago
+      let tabs = ['Net Score'];
+      if (gameArray.includes('Modified Chicago')) tabs.push('Modified Chicago');
+      if (gameArray.includes('Chicago Points')) tabs.push('Chicago Points');
+      
       if (['vegas', 'mbWed'].includes(type)) tabs.push('Birds');
       if (type === 'vegas') tabs.push('Deuces');
+
       gameArray.forEach(g => {
-        if (!['Gross Skins', 'Net Skins', 'Deuce Pot', 'Stroke Play'].includes(g) && !tabs.includes(g)) tabs.push(g);
+        const skip = ['Gross Skins', 'Net Skins', 'Deuce Pot', 'Stroke Play', 'Chicago Points', 'Modified Chicago'];
+        if (!skip.includes(g) && !tabs.includes(g)) tabs.push(g);
       });
+
       availableTabs.value = tabs;
+      // Set Chicago as active if present
+      if (gameArray.includes('Modified Chicago')) activeTab.value = 'Modified Chicago';
+      else if (gameArray.includes('Chicago Points')) activeTab.value = 'Chicago Points';
     }
   } catch (err) { console.error("Config Error:", err); }
 };
@@ -300,6 +364,7 @@ const normalizeLiveRounds = (liveGroups) => {
       lname: player.lname,
       index: player.index,
       ghin: player.ghin,
+      teesId: player.teesId,
       tees: player.tees,
       course: group.course,
       iso: group.iso,
