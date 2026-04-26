@@ -30,18 +30,22 @@ export default defineNuxtConfig({
     '@nuxt/icon'
   ],
 
-  app: {
+app: {
     pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'Golf Nanks',
       meta: [
-        { name: 'theme-color', content: '#020617' }, // Matches slate-950
+        { name: 'theme-color', content: '#020617' },
         { name: 'mobile-web-app-capable', content: 'yes' },
+        // Add these two lines for strict iOS compliance:
+        { name: 'apple-mobile-web-app-capable', content: 'yes' }, 
+        { name: 'apple-mobile-web-app-title', content: 'Golf Nanks' },
+        
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/icon.png' },
-        { rel: 'apple-touch-icon', href: '/icon.png' } // Required for iOS icons
+        { rel: 'apple-touch-icon', href: '/icon.png' } 
       ]
     }
   },
