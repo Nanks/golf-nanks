@@ -6,19 +6,26 @@ export const useConfirmStore = defineStore('confirm', {
     title: '',
     message: '',
     confirmText: 'Confirm',
-    variant: 'danger', // 'danger' | 'warning' | 'info'
-    resolve: null // This holds the Promise resolver
+    // New styling state
+    icon: 'mdi:alert-circle',
+    iconBg: 'bg-red-50',
+    iconColor: 'text-red-500',
+    confirmBtnClass: 'bg-red-600',
+    resolve: null 
   }),
 
   actions: {
-    /**
-     * Opens the modal and returns a Promise that resolves to true or false
-     */
     open(params) {
       this.title = params.title || 'Are you sure?'
       this.message = params.message || ''
       this.confirmText = params.confirmText || 'Confirm'
-      this.variant = params.variant || 'danger'
+      
+      // Capture the custom styling or fallback to "scary red"
+      this.icon = params.icon || 'mdi:alert-circle'
+      this.iconBg = params.iconBg || 'bg-red-50'
+      this.iconColor = params.iconColor || 'text-red-500'
+      this.confirmBtnClass = params.confirmBtnClass || 'bg-red-600'
+      
       this.isOpen = true
 
       return new Promise((res) => {

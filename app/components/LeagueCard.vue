@@ -1,123 +1,132 @@
 <template>
   <div 
     @click="navigateTo(`/leagues/${league.id}/menu`)" 
-    class="card-base px-5 py-2 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden select-none"
+    class="card-interactive px-5 py-4 cursor-pointer relative overflow-hidden select-none"
   >
-    <div 
-      v-if="isAdmin" 
-      class="absolute top-2 left-1 flex items-center gap-1 text-amber-500 z-10"
-    >
-      <Icon name="mdi:shield-crown-outline" class="size-3" />
+    <div v-if="isAdmin" class="absolute top-2 left-1.5 text-amber-500 z-10">
+      <Icon name="mdi:shield-crown-outline" class="size-3.5" />
     </div>
 
-    <div class="mb-1">
-      <h2 class="text-2xl text-primary">
+    <div 
+      v-if="hasLiveRounds" 
+      @click.stop="navigateTo(`/leaderboard/${league.id}/${todayIso}/live?from=home`)"
+      class="absolute top-3 right-10 flex items-center gap-1.5 border border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm z-20 cursor-pointer active:scale-95 transition-all"
+    >
+      <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> 
+      Live
+    </div>
+
+    <div class="mb-3">
+      <h2 class="text-2xl text-primary leading-tight">
         {{ league.shortName }}
       </h2>
-      <p class="text-xs text-secondary mt-1">
+      <p class="text-secondary text-[10px] uppercase tracking-widest">
         {{ league.course }}
       </p>
     </div>
 
     <div 
-      v-if="league.nextRound" 
-      @click.stop="handleBadgeAction(league)"
+      v-if="nextRoundData" 
+      @click.stop="handleBadgeAction"
       :class="[
-        'inline-flex items-center gap-2 border rounded px-3 transition-all',
-        getActiveRoundForLeague(league.id) 
-          // State 1: Active Round (Amber, clickable)
-          ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 cursor-pointer active:scale-95' 
-          // State 2: Scheduled for Today (Emerald, clickable)
-          : isToday(league.nextRound.iso)
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 cursor-pointer active:scale-95'
-            // State 3: Scheduled for the Future (Grey, not clickable)
-            : 'bg-slate-500/10 border-slate-500/20 text-slate-500 cursor-default'
+        'inline-flex items-center gap-2 border rounded-xl px-3 py-1.5 transition-all shadow-sm',
+        activeRoundId 
+          ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 active:scale-95' 
+          : isToday(nextRoundData.iso)
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 active:scale-95'
+            : 'bg-stone-500/10 border-stone-500/20 text-stone-500 cursor-default'
       ]"
     >
       <Icon 
-        :name="getActiveRoundForLeague(league.id) 
+        :name="activeRoundId 
           ? 'mdi:calculator' 
-          : isToday(league.nextRound.iso) 
+          : isToday(nextRoundData.iso) 
             ? 'mdi:play-circle-outline' 
             : 'mdi:calendar-check'" 
-        class="size-3.5" 
+        class="size-4" 
       />
-      <span class="text-[9px] font-black uppercase tracking-widest">
+      <span class="text-[10px] font-black uppercase tracking-widest">
         {{ 
-          getActiveRoundForLeague(league.id) 
+          activeRoundId 
             ? 'Resume Round' 
-            : isToday(league.nextRound.iso) 
+            : isToday(nextRoundData.iso) 
               ? 'Start Round' 
-              : `Next: ${league.nextRound.iso} • ${league.nextRound.tees}`
+              : `Next: ${nextRoundData.iso} • ${nextRoundData.tees || nextRoundData.teeColor || ''}`
         }}
       </span>
     </div>
 
-    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-300">
+    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 dark:text-stone-700">
       <Icon name="mdi:chevron-right" class="size-6" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue' // Added missing import
+import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
-
 import { useToast } from '~/composables/useToast'
 
 const props = defineProps({
-  league: Object
+  league: { type: Object, required: true }
 })
 
 const authStore = useAuthStore()
 const dataStore = useData()
-
 const toast = useToast()
 
-// --- ADMIN LOGIC ---
-const isAdmin = computed(() => {
-  // Ensure the getter we added to auth.js exists and is callable
-  if (typeof authStore.isAdminForLeague === 'function') {
-    return authStore.isAdminForLeague(props.league.type)
-  }
-  return false
-})
-
-// --- ROUND LOGIC ---
 const todayIso = new Date().toISOString().split('T')[0]
 
-const getActiveRoundForLeague = (leagueId) => {
-  const myId = authStore.userProfile?.id
+// --- REACTIVE DATA ---
+
+// 1. Reactive Event Logic: Pulls directly from the calendar array in the store
+const nextRoundData = computed(() => {
+  if (!props.league.calendar?.length) return props.league.nextRound || null
   
+  // Find today's event or the next upcoming one
+  const events = [...props.league.calendar].sort((a, b) => a.iso.localeCompare(b.iso))
+  const todayEvent = events.find(e => e.iso === todayIso)
+  
+  // If an event is found for today, it prioritizes it (enabling the Start/Resume button)
+  if (todayEvent) return todayEvent
+
+  return events.find(e => e.iso > todayIso) || events[0]
+})
+
+// 2. Live Badge Logic: Checks specifically for leagueId in live_rounds
+const hasLiveRounds = computed(() => {
+  return dataStore.liveRounds.some(r => r.leagueId === props.league.id)
+})
+
+// 3. User Active Round Logic: Checks if the current user has a round to resume
+const activeRoundId = computed(() => {
+  const myId = authStore.userProfile?.id
   return dataStore.liveRounds.find(r => 
-    r.leagueId === leagueId && 
+    r.leagueId === props.league.id && 
     r.iso === todayIso &&
     r.players?.some(p => p.id === myId)
   )?.id || null
-}
+})
 
+const isAdmin = computed(() => authStore.isAdminForLeague?.(props.league.id))
 const isToday = (isoDate) => isoDate === todayIso
 
-const handleBadgeAction = (league) => {
-  const activeId = getActiveRoundForLeague(league.id)
-  
-  if (activeId) {
-    // Always allow resuming an active round
-    navigateTo(`/rounds/${activeId}`)
-  } else if (league.nextRound && isToday(league.nextRound.iso)) {
-    // Only allow starting a new round if the calendar date matches today
+// --- ACTIONS ---
+const handleBadgeAction = () => {
+  if (activeRoundId.value) {
+    navigateTo(`/rounds/${activeRoundId.value}`)
+  } else if (nextRoundData.value && isToday(nextRoundData.value.iso)) {
     navigateTo({
       path: '/rounds/setup',
-      query: { leagueId: league.id, isLeague: 'true' }
+      query: { leagueId: props.league.id, isLeague: 'true' }
     })
   } else {
     toast.add({
       title: 'Too Early!',
-      description: `This round cannot be started until ${league.nextRound.iso}.`,
-      color: 'amber' // Uses your warning color
+      description: `This round cannot be started until ${nextRoundData.value?.iso}.`,
+      color: 'amber'
     })
-    console.log('Round cannot be started yet.')
   }
 }
 </script>
