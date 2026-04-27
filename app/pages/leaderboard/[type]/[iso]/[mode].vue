@@ -15,8 +15,18 @@
       >
         <template #action>
           <ClientOnly>
-            <div v-if="mode === 'live'" class="flex items-center gap-1.5 bg-red-600 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
-              <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> Live
+            <div class="flex items-center gap-2">
+              <button 
+                v-if="isAdmin && mode === 'live' && eventDetails?.status !== 'complete'"
+                @click="completeEvent"
+                class="flex items-center gap-1 bg-emerald-600 active:bg-emerald-700 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg transition-colors"
+              >
+                <Icon name="mdi:lock-check" class="size-3" /> Lock Event
+              </button>
+
+              <div v-if="mode === 'live'" class="flex items-center gap-1.5 bg-red-600 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+                <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> Live
+              </div>
             </div>
           </ClientOnly>
         </template>
@@ -44,16 +54,32 @@
               {{ tab.replace('Score', '').replace('Points', '') }}
             </button>
           </div>
-          <div class="absolute right-3 top-1 bottom-1 w-8 pointer-events-none bg-linear-to-l from-stone-100/80 dark:from-stone-900/80 to-transparent rounded-r-xl"></div>
         </div>
       </div>
 
       <div class="px-3">
         <div class="relative">
+          
+          <div v-if="isPreviewingPairings && activeTab === 'Blind Best Ball'" class="mb-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-2 rounded-xl flex items-center justify-between">
+            <span class="text-[9px] font-black uppercase text-amber-600 dark:text-amber-500 tracking-widest flex items-center gap-1.5">
+              <Icon name="mdi:eye" class="size-3" /> Previewing Pairings
+            </span>
+            <button @click="isPreviewingPairings = false; updateLeaderboard(dataStore.liveRounds)" class="text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest active:scale-95 transition-transform">
+              Hide
+            </button>
+          </div>
+
           <TransitionGroup :name="transitionName" tag="div" class="space-y-2">
-            <div v-for="(row, index) in activeDisplayList" :key="row.id">
-              
-              <div v-if="row.isWinnerRow" class="card-base flex items-center justify-between p-3">
+            <div 
+                v-for="(row, index) in activeDisplayList" 
+                :key="row.id"
+                class="active:scale-[0.98] transition-transform"
+            >
+              <div 
+                v-if="row.isWinnerRow" 
+                @click="openTeamModal(row)"
+                class="card-base cursor-pointer flex items-center justify-between p-3"
+              >
                 <div class="flex items-center gap-3 flex-1 min-w-0">
                   <div class="w-6 shrink-0 text-center">
                     <span class="text-primary text-lg opacity-40">
@@ -62,32 +88,36 @@
                   </div>
                   <div class="w-px h-8 bg-stone-200 dark:bg-stone-800 shrink-0"></div>
                   <div class="min-w-0 flex flex-col leading-tight">
-                    <p class="text-primary text-md">{{ row.player.split(' / ')[0] }}</p>
+                    <p class="text-primary text-md font-black">{{ row.player.split(' / ')[0] }}</p>
                     <p class="text-primary text-md opacity-60">{{ row.player.split(' / ')[1] || 'TBD' }}</p>
                   </div>
                 </div>
                 <div class="flex flex-col items-end shrink-0 pl-4 border-l border-stone-200 dark:border-stone-800">
-                  <span class="text-primary text-3xl text-emerald-600 tabular-nums">
+                  <span class="text-primary text-3xl text-emerald-600 tabular-nums font-black italic">
                     {{ row.score }}
                   </span>
                 </div>
               </div>
 
-              <div v-else @click="openPlayerModal(row)" class="card-interactive p-3 flex flex-col gap-1.5">
+              <div 
+                v-else 
+                @click="openPlayerModal(row)" 
+                class="card-interactive cursor-pointer p-3 flex flex-col gap-1.5"
+              >
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2 flex-1 min-w-0">
                     <div class="w-6 shrink-0 text-center">
-                      <span class="text-primary text-md opacity-40">
+                      <span class="text-primary text-md opacity-40 font-black">
                         {{ getRank(index) }}
                       </span>
                     </div>
-                    <h3 class="text-lg text-primary">
+                    <h3 class="text-lg text-primary font-black uppercase italic">
                       {{ row.name }}
                     </h3>
                   </div>
 
                   <div class="text-right shrink-0">
-                    <span :class="row.scoreColor" class="text-2xl text-primary leading-none tabular-nums italic">
+                    <span :class="row.scoreColor" class="text-2xl font-black leading-none tabular-nums italic">
                       {{ row.scoreDisplay }}
                     </span>
                   </div>
@@ -95,22 +125,13 @@
 
                 <div class="flex items-center justify-between pt-1 border-t border-stone-100 dark:border-stone-800/60">
                   <div class="flex items-center gap-4">
-                    <span class="text-secondary text-[9px]">
-                      CH: <span class="text-stone-900 dark:text-stone-100 tabular-nums">{{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}</span>
+                    <span class="text-secondary text-[9px] font-black uppercase">
+                      HCP: <span class="text-stone-900 dark:text-stone-100 tabular-nums">{{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}</span>
                     </span>
-                    
-                    <span class="text-secondary text-[9px] flex items-center gap-1">
-                      GROSS: 
-                      <span class="text-primary text-[11px] bg-stone-200/50 dark:bg-stone-900 px-1.5 py-0.5 rounded">
-                        {{ row.grossDisplay }}
-                      </span>
-                    </span>
-
-                    <span class="text-secondary text-[9px]">
+                    <span class="text-secondary text-[9px] font-black uppercase">
                       THRU: <span class="text-stone-900 dark:text-stone-100 tabular-nums font-black">{{ row.games.holesPlayed === (row.holes || 18) ? 'F' : (row.games.holesPlayed || '-') }}</span>
                     </span>
                   </div>
-
                   <span v-if="row.winStats?.totalMoney > 0" class="text-primary text-sm text-emerald-600 italic font-black">
                     ${{ row.winStats.totalMoney.toFixed(2) }}
                   </span>
@@ -130,11 +151,34 @@
               </div>
             </div>
           </TransitionGroup>
+
+          <div 
+            v-if="activeTab === 'Blind Best Ball' && activeDisplayList.length === 0" 
+            class="flex flex-col items-center justify-center py-12 text-center"
+          >
+            <div class="bg-stone-100 dark:bg-stone-900/50 p-6 rounded-[2.5rem] border border-dashed border-stone-200 dark:border-stone-800">
+              <Icon name="mdi:shuffle-variant" class="size-10 text-stone-300 dark:text-stone-700 mb-3" :class="{'animate-pulse': !isAdmin}" />
+              <h4 class="text-sm font-black text-stone-400 uppercase tracking-widest italic leading-none">
+                Pairings Not Set
+              </h4>
+              <p class="text-[10px] text-stone-500 mt-2 max-w-[180px] font-medium leading-tight">
+                Pairings will appear here once the event is locked.
+              </p>
+              
+              <button 
+                v-if="isAdmin && mode === 'live'" 
+                @click="isPreviewingPairings = true; updateLeaderboard(dataStore.liveRounds)"
+                class="mt-4 px-4 py-2 bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 hover:text-emerald-600 transition-colors shadow-sm"
+              >
+                Preview Pairings
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </template>
 
-    <div v-else class="flex flex-col items-center justify-center pt-32 text-stone-400">
+    <div v-else-if="!uiStore.isGlobalLoading" class="flex flex-col items-center justify-center pt-32 text-stone-400">
       <Icon name="mdi:golf-cart" class="size-20 opacity-10 mb-6" />
       <p class="text-secondary">
         {{ mode === 'live' ? 'No Live Rounds Active' : 'No History Found' }}
@@ -148,6 +192,13 @@
         :player="selectedPlayer" 
         :event="eventDetails"
         @close="isModalOpen = false" 
+      />
+      <BlindBestBallModal 
+        v-if="selectedTeam && eventDetails"
+        :is-open="isTeamModalOpen" 
+        :team="selectedTeam" 
+        :event="eventDetails" 
+        @close="isTeamModalOpen = false" 
       />
       <LiveRoundFooter 
         v-if="mode === 'live' && roundId" 
@@ -166,6 +217,7 @@ import { useData } from '~/stores/data';
 import { useUIStore } from '~/stores/ui';
 import { useAuthStore } from '~/stores/auth';
 import { calcRounds, runLeaguePass, getTieBreakerValue } from '~/utils/gameLogic';
+import { completeLeagueEvent } from '~/utils/leagueActions';
 
 const route = useRoute();
 const dataStore = useData();
@@ -181,9 +233,14 @@ const eventDetails = ref(null);
 const activeTab = ref('Net Score');
 const availableTabs = ref(['Net Score']);
 const winnersLog = ref({ grossSkins: [], netSkins: [], deuces: [], blindBestBall: [] });
+
 const selectedPlayer = ref(null);
 const isModalOpen = ref(false);
-let shuffleTimer = null;
+
+const selectedTeam = ref(null);
+const isTeamModalOpen = ref(false);
+
+const isPreviewingPairings = ref(false);
 
 // --- COMPUTED ---
 const leagueData = computed(() => dataStore.leagues.find(l => l.type === type));
@@ -192,42 +249,26 @@ const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(le
 const isHoleByHoleTab = computed(() => ['Blind Best Ball'].includes(activeTab.value));
 
 const processedPlayers = computed(() => {
-  return roundsSource.value.map(p => ({
+  return (roundsSource.value || []).map(p => ({
     ...p,
-    netRel: p.games.totalNet ?? 0,
-    thru: p.games.holesPlayed ?? 0
+    netRel: p.games?.totalNet ?? 0,
+    thru: p.games?.holesPlayed ?? 0
   }));
 });
 
 const sortedLeaderboard = computed(() => {
   const isChicago = ['Chicago Points', 'Modified Chicago'].includes(activeTab.value);
-  
   const players = [...processedPlayers.value].map(p => {
     let scoreVal = 0;
     let display = '';
     let color = 'text-stone-900 dark:text-white';
-    let grossDisplay = '-';
     
-    // 1. Calculate Primary Score (Existing Logic)
-    const grossUnder = p.games?.totalGrossUnder; 
-    if (grossUnder !== undefined && grossUnder !== null) {
-      grossDisplay = grossUnder === 0 ? 'E' : (grossUnder > 0 ? `+${grossUnder}` : grossUnder);
-    }
-
     if (activeTab.value === 'Net Score') {
       scoreVal = p.netRel;
       const fmt = isYearlyLeague.value ? p.netRel.toFixed(3) : Math.round(p.netRel);
       display = p.netRel === 0 ? 'E' : (p.netRel > 0 ? `+${fmt}` : fmt);
       if (p.netRel < 0) color = 'text-red-500';
     } 
-    else if (activeTab.value === 'Birds') {
-      scoreVal = p.games?.totalBirds || 0;
-      display = scoreVal.toString();
-    }
-    else if (activeTab.value === 'Deuces') {
-      scoreVal = p.games?.totalDeuces || 0;
-      display = scoreVal.toString();
-    }
     else if (isChicago) {
       const key = activeTab.value === 'Chicago Points' ? 'totalChicago' : 'totalModChicago';
       const val = p.games?.[key] || 0;
@@ -235,47 +276,25 @@ const sortedLeaderboard = computed(() => {
       display = scoreVal.toString();
     }
 
-    // 2. Generate Tie Breaker Array (Countback)
-    // We use Chicago arrays for Chicago tabs, otherwise default to Net scores
-    let tieScores = [];
-    if (isChicago) {
-      tieScores = activeTab.value === 'Chicago Points' ? (p.games?.chicago || []) : (p.games?.modChicago || []);
-    } else {
-      tieScores = p.games?.net || [];
-    }
-
+    let tieScores = isChicago ? (p.games?.chicago || []) : (p.games?.net || []);
     return { 
       ...p, 
       scoreVal, 
       scoreDisplay: display, 
       scoreColor: color, 
-      grossDisplay,
-      // Pass the tieScores to the utility (assumes getTieBreakerValue is imported/available)
       tieBreaker: getTieBreakerValue(tieScores, isChicago) 
     };
   });
 
-  // 3. Perform the Sort
   players.sort((a, b) => {
-    // Primary Sort: Net Score is Low-to-High, others are High-to-Low
     if (activeTab.value === 'Net Score') {
       if (a.scoreVal !== b.scoreVal) return a.scoreVal - b.scoreVal;
     } else {
       if (a.scoreVal !== b.scoreVal) return b.scoreVal - a.scoreVal;
     }
-
-    // Secondary Sort: USGA Countback
-    // For Live rounds, we only tie-break if both players are finished (thru F)
-    if (a.games.holesPlayed === 18 && b.games.holesPlayed === 18) {
-      for (let i = 0; i < a.tieBreaker.length; i++) {
-        if (a.tieBreaker[i] !== b.tieBreaker[i]) {
-          // Tie-breaker array is pre-negated for Net, so higher value always wins
-          return b.tieBreaker[i] - a.tieBreaker[i];
-        }
-      }
+    for (let i = 0; i < a.tieBreaker.length; i++) {
+      if (a.tieBreaker[i] !== b.tieBreaker[i]) return b.tieBreaker[i] - a.tieBreaker[i];
     }
-    
-    // Tertiary Sort: Holes Played (Thru status)
     return b.games.holesPlayed - a.games.holesPlayed;
   });
 
@@ -313,14 +332,44 @@ const backText = computed(() => mode !== 'live' || route.query.from === 'calenda
 const transitionName = computed(() => activeTab.value === 'Blind Best Ball' ? 'card-flip' : 'shuffle-list');
 
 // --- METHODS ---
+const openPlayerModal = (row) => { selectedPlayer.value = row; isModalOpen.value = true; };
+
+const openTeamModal = (pairing) => {
+  const rawId = pairing.id.replace('team-', '');
+  const [p1Id, p2Id] = rawId.split('-');
+  const p1 = processedPlayers.value.find(p => p.id === p1Id);
+  const p2 = processedPlayers.value.find(p => p.id === p2Id);
+
+  if (p1 && p2) {
+    selectedTeam.value = { p1, p2, totalNet: pairing.score };
+    isTeamModalOpen.value = true;
+  }
+};
+
 const shouldShowBadge = (label) => {
   if (!eventDetails.value?.game) return false;
   const games = eventDetails.value.game;
   const lowerLabel = label.toLowerCase();
-  if (lowerLabel.includes('gross')) return games.includes('Gross Skins');
-  if (lowerLabel.includes('net')) return games.includes('Net Skins');
+  if (lowerLabel.includes('gross skins')) return games.includes('Gross Skins');
+  if (lowerLabel.includes('net skins')) return games.includes('Net Skins');
   if (lowerLabel.includes('deuce')) return games.includes('Deuce Pot');
   return true;
+};
+
+const completeEvent = async () => {
+  if (!confirm("Are you sure you want to lock this event? Pairings and results will be permanently set.")) return;
+  try {
+    uiStore.setLoading(true, "Locking Event...");
+    await completeLeagueEvent($db, leagueData.value.id, iso);
+    eventDetails.value.status = 'complete';
+    isPreviewingPairings.value = false;
+    if (mode === 'live') updateLeaderboard(dataStore.liveRounds);
+  } catch (err) {
+    console.error("Failed to complete event:", err);
+    alert("Failed to lock the event.");
+  } finally {
+    uiStore.setLoading(false);
+  }
 };
 
 const fetchConfig = async () => {
@@ -331,90 +380,117 @@ const fetchConfig = async () => {
     if (!eventSnap.empty) {
       eventDetails.value = eventSnap.docs[0].data();
       const gameArray = eventDetails.value.game || [];
-      
-      // Dynamic Tab Sorting: Prioritize Chicago
       let tabs = ['Net Score'];
       if (gameArray.includes('Modified Chicago')) tabs.push('Modified Chicago');
       if (gameArray.includes('Chicago Points')) tabs.push('Chicago Points');
-      
-      if (['vegas', 'mbWed'].includes(type)) tabs.push('Birds');
-      if (type === 'vegas') tabs.push('Deuces');
-
-      gameArray.forEach(g => {
-        const skip = ['Gross Skins', 'Net Skins', 'Deuce Pot', 'Stroke Play', 'Chicago Points', 'Modified Chicago'];
-        if (!skip.includes(g) && !tabs.includes(g)) tabs.push(g);
-      });
-
+      if (gameArray.includes('Blind Best Ball')) tabs.push('Blind Best Ball');
       availableTabs.value = tabs;
-      // Set Chicago as active if present
       if (gameArray.includes('Modified Chicago')) activeTab.value = 'Modified Chicago';
       else if (gameArray.includes('Chicago Points')) activeTab.value = 'Chicago Points';
+    } else {
+      eventDetails.value = { iso, status: 'active', game: [] };
     }
   } catch (err) { console.error("Config Error:", err); }
 };
 
-const normalizeLiveRounds = (liveGroups) => {
-  if (!liveGroups) return [];
-  return liveGroups.flatMap(group => {
-    if (!group.players) return [];
-    return group.players.map(player => ({
-      id: player.id,
-      name: `${player.fname} ${player.lname}`,
-      fname: player.fname,
-      lname: player.lname,
-      index: player.index,
-      ghin: player.ghin,
-      teesId: player.teesId,
-      tees: player.tees,
-      course: group.course,
-      iso: group.iso,
-      courseSnapshot: group.courseSnapshot,
-      scores: group.scores[player.id] || Array(18).fill(0) 
-    }));
-  });
+const ensureTeeData = (playerRow) => {
+  const safeRow = { ...playerRow };
+  const snapshot = safeRow.courseSnapshot || { tees: {} };
+  const teesObj = snapshot.tees || {};
+  let actualTeeData = teesObj[safeRow.teesId] || teesObj[safeRow.tees] || Object.values(teesObj)[0];
+
+  if (!actualTeeData) {
+    actualTeeData = { pars: Array(18).fill(4), hnds: Array(18).fill(18) };
+  }
+
+  safeRow.teesId = safeRow.teesId || safeRow.tees || "fallback_id";
+  safeRow.courseSnapshot = {
+    ...snapshot,
+    tees: { ...teesObj, [safeRow.teesId]: actualTeeData }
+  };
+  return safeRow;
+};
+
+const normalizeLiveRounds = (liveRounds) => {
+  if (!liveRounds || !Array.isArray(liveRounds)) return [];
+  return liveRounds
+    .filter(roundDoc => roundDoc.iso === iso && roundDoc.courseSnapshot)
+    .flatMap(roundDoc => {
+      if (!roundDoc.players || !Array.isArray(roundDoc.players)) return [];
+      return roundDoc.players.map(player => ensureTeeData({
+        ...player,
+        name: player.name || `${player.fname} ${player.lname}`,
+        iso: roundDoc.iso,
+        course: roundDoc.course,
+        courseSnapshot: roundDoc.courseSnapshot,
+        scores: roundDoc.scores?.[player.id] || Array(18).fill(0)
+      }));
+    });
+};
+
+const updateLeaderboard = (liveRounds) => {
+  if (!eventDetails.value || !liveRounds || liveRounds.length === 0) return;
+  try {
+    const flatPlayers = normalizeLiveRounds(liveRounds);
+    if (flatPlayers.length === 0) {
+      uiStore.setLoading(false);
+      return;
+    }
+    const simulationEvent = { 
+      ...eventDetails.value, 
+      status: isPreviewingPairings.value ? 'complete' : eventDetails.value.status 
+    };
+    const calc = calcRounds(flatPlayers, simulationEvent);
+    const res = runLeaguePass(calc, simulationEvent);
+    winnersLog.value = res.winnersLog || { grossSkins: [], netSkins: [], deuces: [], blindBestBall: [] };
+    roundsSource.value = res.players || [];
+  } catch (err) {
+    console.error("🔥 Calc Error:", err);
+  } finally {
+    uiStore.setLoading(false);
+  }
 };
 
 onMounted(async () => {
   uiStore.setLoading(true, `Syncing Leaderboard...`);
   await fetchConfig();
-
   if (mode === 'live') {
     dataStore.startLiveListener(type);
     watch(() => dataStore.liveRounds, (newRounds) => {
-      const calc = calcRounds(normalizeLiveRounds(newRounds), eventDetails.value);
-      const res = runLeaguePass(calc, eventDetails.value);
-      winnersLog.value = res.winnersLog;
-      roundsSource.value = res.players;
+      if (newRounds && newRounds.length > 0) {
+        updateLeaderboard(newRounds);
+      } else if (newRounds?.length === 0) {
+        uiStore.setLoading(false);
+      }
     }, { immediate: true, deep: true });
-
-    if (!['complete', 'mdi-check-bold'].includes(eventDetails.value?.status?.toLowerCase())) {
-      shuffleTimer = setInterval(() => {
-        if (activeTab.value === 'Blind Best Ball') {
-          const res = runLeaguePass(calcRounds(normalizeLiveRounds(dataStore.liveRounds), eventDetails.value), eventDetails.value);
-          winnersLog.value = res.winnersLog;
-          roundsSource.value = res.players;
-        }
-      }, 5000);
-    }
   } else {
-    const q = query(collectionGroup($db, "rounds"), where("type", "==", type), where("iso", "==", iso));
-    const snap = await getDocs(q);
-    const calc = calcRounds(snap.docs.map(d => ({ id: d.id, ...d.data() })), eventDetails.value);
-    if (calc?.length) {
-      const res = runLeaguePass(calc, eventDetails.value);
-      winnersLog.value = res.winnersLog;
-      roundsSource.value = res.players;
+    try {
+      const q = query(collectionGroup($db, "rounds"), where("type", "==", type), where("iso", "==", iso));
+      const snap = await getDocs(q); 
+      const rawRounds = snap.docs.map(d => {
+        const data = d.data();
+        return ensureTeeData({ 
+          id: d.id, 
+          ...data, 
+          name: data.name || `${data.fname} ${data.lname}` 
+        });
+      });
+      if (rawRounds.length > 0) {
+        const calc = calcRounds(rawRounds, eventDetails.value);
+        const res = runLeaguePass(calc, eventDetails.value);
+        winnersLog.value = res.winnersLog;
+        roundsSource.value = res.players;
+      }
+    } catch (err) {
+      console.error("Historical Error:", err);
+    } finally {
+      uiStore.setLoading(false);
     }
   }
-  uiStore.setLoading(false);
 });
 
-onUnmounted(() => {
-  if (mode === 'live') dataStore.stopLiveListener();
-  if (shuffleTimer) clearInterval(shuffleTimer);
-});
+onUnmounted(() => { if (mode === 'live') dataStore.stopLiveListener(); });
 
-const openPlayerModal = (row) => { selectedPlayer.value = row; isModalOpen.value = true; };
 const getShortDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 </script>
 
@@ -427,6 +503,5 @@ const getShortDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en
 .card-flip-enter-from { opacity: 0; transform: rotateX(-90deg) translateY(20px); }
 .card-flip-leave-to { opacity: 0; transform: rotateX(90deg) translateY(-20px); }
 .card-flip-move { transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.shuffle-list-leave-active, .card-flip-leave-active { position: absolute; width: 100%; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 </style>

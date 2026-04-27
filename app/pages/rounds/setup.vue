@@ -302,22 +302,20 @@ const startRound = async () => {
       tees: {}
     }
 
+    // IMPORTANT: Save the `types` array so the scorecard can filter tees later
     Object.entries(selectedCourse.value.tees).forEach(([id, tee]) => {
-      courseSnapshot.tees[tee.name] = {
+      courseSnapshot.tees[id] = { 
         name: tee.name,
         active: true,
         rating: tee.rating,
         slope: tee.slope,
         pars: tee.pars || [], 
         hnds: tee.hnds || [], 
-        old_rating: tee.old_rating || tee.rating,
-        old_slope: tee.old_slope || tee.slope
+        par: getTeePar(tee),
+        types: tee.types || [] // <-- MUST CARRY THIS OVER
       }
     })
 
-    // ----------------------------------------------------
-    // CLEANED UP PLAYER SNAPSHOT LOGIC
-    // ----------------------------------------------------
     const playerSnapshots = players.value.map(p => {
       const teeData = selectedCourse.value.tees[p.teeId]
       const teePar = getTeePar(teeData)
@@ -325,12 +323,10 @@ const startRound = async () => {
       let finalIndex, finalCourseHcp;
 
       if (isYearlyLeague.value) {
-        // YEARLY LEAGUE: Strictly use the decimal from the player's league profile
         const rawLeagueHcp = p.leagueHandicaps?.[leagueId.value] ?? 0;
         finalIndex = parseFloat(rawLeagueHcp);
         finalCourseHcp = parseFloat(finalIndex.toFixed(3)); 
       } else {
-        // ALL OTHER ROUNDS: Strictly use GHIN and dynamic integer Course Handicap
         finalIndex = p.ghin ?? 0;
         finalCourseHcp = calcCourseHandicap(finalIndex, teeData.slope, teeData.rating, teePar);
       }
@@ -347,10 +343,25 @@ const startRound = async () => {
       }
     })
 
+    // Determine the officially designated event tees
+    let eventTeeId = '';
+    let eventTeeName = '';
+    
+    if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
+      eventTeeId = currentLeague.value.teesId;
+      eventTeeName = currentLeague.value.tees;
+    } else {
+      // Fallback for casual/mixed rounds
+      eventTeeId = playerSnapshots[0]?.teesId || '';
+      eventTeeName = playerSnapshots[0]?.tees || 'Mixed';
+    }
+
     const roundData = {
       courseId: selectedCourse.value.id,
       course: courseSnapshot.name,
       courseSnapshot,
+      tees: eventTeeName,
+      teesId: eventTeeId,
       leagueId: leagueId.value,
       type: isLeague.value ? (currentLeague.value?.type || 'league') : 'casual',
       createdAt: new Date().toISOString(),

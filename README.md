@@ -42,3 +42,15 @@ Next Steps for the Next Session:
 Continue standardizing remaining pages (like the actual scoring/live leaderboard) using the new .text-primary and .card-interactive classes.
 
 Ensure the isClickable logic remains consistent across all list-based views.
+
+Let’s pick up on the Golf Nanks project. To get centered, here is where we left off on the [mode].vue Leaderboard:
+
+Data Consistency: We standardized both live_rounds and players/rounds to use teesId and a courseSnapshot keyed by those IDs.
+
+The "Data Healer": We implemented ensureTeeData in the leaderboard to bridge any remaining gaps between player objects and the snapshot so gameLogic.js doesn't crash on hnds.
+
+Admin Logic: We moved the event completion logic to utils/leagueActions.js and added a "Preview Pairings" mode for Blind Best Ball that simulates a complete status without saving to the DB.
+
+UI: The leaderboard now shows a "Pairings Not Set" state for Blind Best Ball when not locked/previewed, and the header includes a "Lock Event" button for admins.
+
+Current Goal: [Insert what you want to work on next, e.g., "Reviewing the Blind Best Ball modal" or "Testing the lock transition"]
