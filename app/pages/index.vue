@@ -14,7 +14,7 @@
           </div>
           
           <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-center min-w-[85px]">
-            <p class="text-secondary text-[9px] mb-1">GHIN</p>
+            <p class="text-secondary text-xs">GHIN</p>
             <p class="text-primary text-xl tabular-nums">
               {{ authStore.userProfile.ghin || '—' }}
             </p>
@@ -24,7 +24,7 @@
     </section>
 
     <section>
-      <div class="flex items-center justify-between mb-4 px-2">
+      <div class="flex items-center justify-between mb-2 px-2">
         <h2 class="text-primary text-2xl text-emerald-500">Leagues</h2>
         <button v-if="authStore.isLoggedIn" @click="navigateTo('/rounds/setup')" class="text-secondary text-[10px] text-emerald-500 flex items-center gap-1.5 active:opacity-70">
           <Icon name="mdi:plus-circle-outline" class="size-4" /> Casual Round
@@ -33,7 +33,7 @@
 
       <div class="space-y-6 mb-4">
         <div v-if="myLeagues.length > 0">
-          <h3 class="text-secondary text-[10px] mb-3 px-2">My Leagues</h3>
+          <h3 class="text-secondary text-xs mb-3 px-2">My Leagues</h3>
           <div class="grid grid-cols-1 gap-3">
             <LeagueCard 
               v-for="league in myLeagues" 
@@ -46,7 +46,7 @@
 
       <div class="space-y-6">
         <div v-if="otherLeagues.length > 0">
-          <h3 class="text-secondary text-[10px] mb-3 px-2">Other Leagues</h3>
+          <h3 class="text-secondary text-xs mb-3 px-2">Other Leagues</h3>
           <div class="grid grid-cols-1 gap-3">
             <LeagueCard v-for="league in otherLeagues" :key="league.id" :league="league" :is-member="false" />
           </div>

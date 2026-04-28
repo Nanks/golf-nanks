@@ -1,80 +1,105 @@
 <template>
-  <div class="p-6 max-w-lg mx-auto">
-    <div class="mb-8">
-      <button 
-        @click="navigateTo('/')" 
-        class="text-stone-500 flex items-center gap-1 text-xs mb-4 uppercase tracking-widest font-bold"
+  <div class="p-2 max-w-lg mx-auto">
+    <LeagueHeader 
+        :title="leagueName" 
+        :is-admin="isAdmin"
+        :back-to="'/'"
+        back-text="Back to Home"
       >
-        <Icon name="mdi:arrow-left" />
-        Back to Home
-      </button>
-      <h1 class="text-4xl font-black uppercase italic text-primary leading-none">
-        {{ leagueName }}
-      </h1>
-      <p class="text-secondary text-xs uppercase tracking-[0.2em] mt-1">
-        League Menu
-      </p>
-    </div>
+    </LeagueHeader>
 
-    <div class="grid gap-4">
+    <div class="grid gap-2">
+      
       <div 
         v-if="activeRoundId" 
         @click="navigateTo(`/rounds/${activeRoundId}`)"
-        class="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 p-5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all"
+        class="card-interactive flex items-center justify-between p-5 !border-amber-500/30"
       >
         <div class="flex items-center gap-4">
-          <div class="bg-amber-500 text-black p-2 rounded-xl shadow-lg shadow-amber-500/20">
+          <div class="bg-amber-500 text-black p-2 rounded-xl shadow-lg shadow-amber-500/10">
             <Icon name="mdi:calculator" class="size-6" />
           </div>
           <div>
-            <h3 class="font-black uppercase text-amber-600 dark:text-amber-400">Resume My Round</h3>
-            <p class="text-[10px] text-amber-500/70 uppercase font-bold tracking-widest">Active Scorecard Found</p>
+            <h3 class="font-black text-xl italic uppercase text-amber-700 dark:text-amber-500">Resume Round</h3>
           </div>
         </div>
-        <Icon name="mdi:chevron-right" class="text-amber-500" />
+        <Icon name="mdi:chevron-right" class="text-amber-600/50 dark:text-amber-500" />
+      </div>
+
+      <div 
+        v-else-if="hasEventToday" 
+        @click="startRound"
+        class="card-interactive flex items-center justify-between p-5 !border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10"
+      >
+        <div class="flex items-center gap-4">
+          <div class="bg-emerald-500 text-white p-2 rounded-xl shadow-lg shadow-emerald-500/20">
+            <Icon name="mdi:golf-tee" class="size-6" />
+          </div>
+          <div class="flex flex-col">
+            <h3 class="font-black text-xl italic uppercase text-emerald-700 dark:text-emerald-400 leading-none mb-1">Start Round</h3>
+            <p class="text-[9px] font-black uppercase tracking-widest text-emerald-600/70 dark:text-emerald-400/70">
+              {{ leagueData?.nextRound?.course || 'Course TBD' }} • {{ leagueData?.nextRound?.tees || 'Tees TBD' }}
+            </p>
+          </div>
+        </div>
+        <Icon name="mdi:chevron-right" class="text-emerald-600/50 dark:text-emerald-400" />
       </div>
 
       <div 
         v-if="isLive" 
         @click="navigateTo(`/leaderboard/${leagueId}/${todayIso}/live`)"
-        class="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all"
+        class="card-interactive flex items-center justify-between p-5 !border-emerald-500/30"
       >
         <div class="flex items-center gap-4">
-          <div class="bg-emerald-500 text-black p-2 rounded-xl shadow-lg shadow-emerald-500/20">
+          <div class="bg-emerald-500 text-black p-2 rounded-xl shadow-lg shadow-emerald-500/10">
             <Icon name="mdi:trophy-outline" class="size-6" />
           </div>
           <div>
-            <h3 class="font-black uppercase text-emerald-600 dark:text-emerald-400">Live Leaderboard</h3>
-            <p class="text-[10px] text-emerald-500/70 uppercase font-bold tracking-widest">Real-time Standings</p>
+            <h3 class="font-black text-xl italic uppercase text-emerald-700 dark:text-emerald-500">Live Leaderboard</h3>
           </div>
         </div>
-        <Icon name="mdi:chevron-right" class="text-emerald-500" />
+        <Icon name="mdi:chevron-right" class="text-emerald-600/50 dark:text-emerald-400" />
       </div>
 
       <div 
-        @click="navigateTo(`/leagues/${leagueId}/schedule`)"
-        class="flex items-center justify-between bg-stone-500/5 border border-stone-500/10 p-5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all"
+        v-for="game in yearlyGames" 
+        :key="game"
+        @click="navigateTo(`/leagues/${leagueId}/${game}`)"
+        class="card-interactive flex items-center justify-between p-5"
       >
         <div class="flex items-center gap-4">
-          <div class="bg-stone-200 dark:bg-stone-800 text-primary p-2 rounded-xl">
+          <div class="bg-slate-200 dark:bg-stone-900 text-slate-500 p-2 rounded-xl">
+            <Icon name="mdi:medal-outline" class="size-6" />
+          </div>
+          <h3 class="text-primary text-xl">{{ game }}</h3>
+        </div>
+        <Icon name="mdi:chevron-right" class="text-slate-400" />
+      </div>
+
+      <div 
+        @click="navigateTo(`/leagues/${leagueId}/calendar`)"
+        class="card-interactive flex items-center justify-between p-5"
+      >
+        <div class="flex items-center gap-4">
+          <div class="bg-slate-200 dark:bg-stone-900 text-slate-500 p-2 rounded-xl">
             <Icon name="mdi:calendar-month-outline" class="size-6" />
           </div>
-          <h3 class="font-black uppercase text-primary">Season Schedule</h3>
+          <h3 class="text-primary text-xl">Calendar</h3>
         </div>
-        <Icon name="mdi:chevron-right" class="text-stone-400" />
+        <Icon name="mdi:chevron-right" class="text-slate-400" />
       </div>
 
       <div 
         @click="navigateTo(`/leagues/${leagueId}/roster`)"
-        class="flex items-center justify-between bg-stone-500/5 border border-stone-500/10 p-5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all"
+        class="card-interactive flex items-center justify-between p-5"
       >
         <div class="flex items-center gap-4">
-          <div class="bg-stone-200 dark:bg-stone-800 text-primary p-2 rounded-xl">
+          <div class="bg-slate-200 dark:bg-stone-900 text-slate-500 p-2 rounded-xl">
             <Icon name="mdi:account-group-outline" class="size-6" />
           </div>
-          <h3 class="font-black uppercase text-primary">League Roster</h3>
+          <h3 class="text-primary text-xl">Roster</h3>
         </div>
-        <Icon name="mdi:chevron-right" class="text-stone-400" />
+        <Icon name="mdi:chevron-right" class="text-slate-400" />
       </div>
     </div>
   </div>
@@ -91,15 +116,26 @@ const route = useRoute()
 const authStore = useAuthStore()
 const dataStore = useData()
 
-const leagueId = route.params.id // Standardized on Document ID (e.g., KqyvWn81FCGEhsRx4tfI)
+const leagueId = route.params.id 
 const todayIso = getLocalIsoDate()
 
-// Find league name from store
-const leagueName = computed(() => {
-  return dataStore.leagues.find(l => l.id === leagueId)?.shortName || 'League'
+// 1. Find the current league object
+const leagueData = computed(() => {
+  return dataStore.leagues.find(l => l.id === leagueId)
 })
 
-// Check if ANY live rounds exist for this league today
+const leagueName = computed(() => leagueData.value?.shortName || 'League')
+
+// 2. Pull yearly games array from the league document
+const yearlyGames = computed(() => leagueData.value?.yearly_games || [])
+
+const isAdmin = computed(() => authStore.isAdminForLeague?.(leagueId))
+
+// --- NEW: Check if there is an event matching today's ISO ---
+const hasEventToday = computed(() => {
+  return leagueData.value?.nextRound?.iso === todayIso
+})
+
 const isLive = computed(() => {
   return dataStore.liveRounds.some(r => 
     r.leagueId === leagueId && 
@@ -107,7 +143,6 @@ const isLive = computed(() => {
   )
 })
 
-// Check if CURRENT USER has a specific round to resume
 const activeRoundId = computed(() => {
   const myId = authStore.userProfile?.id
   if (!myId || !dataStore.liveRounds.length) return null
@@ -120,4 +155,8 @@ const activeRoundId = computed(() => {
   
   return found?.id || null
 })
+
+const startRound = () => {
+  navigateTo(`/rounds/setup?leagueId=${leagueId}&isLeague=true&from=menu`) 
+}
 </script>

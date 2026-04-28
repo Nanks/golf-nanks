@@ -1,7 +1,7 @@
 <template>
   <div 
     @click="navigateTo(`/leagues/${league.id}/menu`)" 
-    class="card-interactive px-5 py-4 cursor-pointer relative overflow-hidden select-none"
+    class="card-interactive px-5 py-2 cursor-pointer relative overflow-hidden select-none"
   >
     <div v-if="isAdmin" class="absolute top-2 left-1.5 text-amber-500 z-10">
       <Icon name="mdi:shield-crown-outline" class="size-3.5" />
@@ -10,17 +10,17 @@
     <div 
       v-if="hasLiveRounds" 
       @click.stop="navigateTo(`/leaderboard/${league.id}/${todayIso}/live?from=home`)"
-      class="absolute top-3 right-10 flex items-center gap-1.5 border border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm z-20 cursor-pointer active:scale-95 transition-all"
+      class="absolute top-3 right-10 flex items-center gap-1.5 border border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full text-xs font-black uppercase shadow-sm z-20 cursor-pointer active:scale-95 transition-all"
     >
       <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> 
       Live
     </div>
 
-    <div class="mb-3">
+    <div class="mb-1">
       <h2 class="text-2xl text-primary leading-tight font-black uppercase italic">
         {{ league.shortName }}
       </h2>
-      <p class="text-secondary text-[10px] uppercase tracking-widest font-bold">
+      <p class="text-secondary text-xs uppercase tracking-widest font-bold">
         {{ league.course }}
       </p>
     </div>
@@ -34,19 +34,19 @@
           ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 active:scale-95' 
           : isToday(nextRoundData.iso)
             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 active:scale-95'
-            : 'bg-stone-500/10 border-stone-500/20 text-stone-500 cursor-default'
+            : 'bg-stone-500/10 border-stone-700/20 dark:border-stone-300/20 text-stone-700 dark:text-stone-300 cursor-default'
       ]"
     >
       <Icon 
         :name="activeRoundId ? 'mdi:calculator' : isToday(nextRoundData.iso) ? 'mdi:play-circle-outline' : 'mdi:calendar-check'" 
         class="size-4" 
       />
-      <span class="text-[10px] font-black uppercase tracking-widest">
+      <span class="text-xs font-black uppercase tracking-widest">
         {{ activeRoundId ? 'Resume Round' : isToday(nextRoundData.iso) ? 'Start Round' : `Next: ${nextRoundData.iso}` }}
       </span>
     </div>
 
-    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 dark:text-stone-700">
+    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-stone-700 dark:text-stone-300">
       <Icon name="mdi:chevron-right" class="size-6" />
     </div>
   </div>

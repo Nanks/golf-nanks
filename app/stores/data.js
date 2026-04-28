@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { collection, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy, limit, collectionGroup } from 'firebase/firestore'
+import { ref, computed } from 'vue'
 
 export const useData = defineStore('data', () => {
   const { $db } = useNuxtApp()
@@ -13,20 +14,23 @@ export const useData = defineStore('data', () => {
   
   const activeListenerType = ref(null)
 
+  const getTodayISO = () => {
+    const d = new Date();
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  };
+
   const hydrateStore = async () => {
     if (isHydrated.value || loading.value) return
     loading.value = true
 
     try {
-      // 1. Fetch only ACTIVE leagues and all courses
       const [leaguesSnap, coursesSnap] = await Promise.all([
         getDocs(query(collection($db, 'leagues'), where('active', '==', true))),
         getDocs(collection($db, 'courses'))
       ])
 
-      const today = new Date().toISOString().split('T')[0]
+      const today = getTodayISO()
       
-      // 2. Process Leagues: Fetch only the upcoming calendar entry
       const leaguePromises = leaguesSnap.docs.map(async (lDoc) => {
         const league = { id: lDoc.id, ...lDoc.data() }
         const calQ = query(
@@ -40,12 +44,10 @@ export const useData = defineStore('data', () => {
         return league
       })
 
-      // 3. Process Courses: Fetch subcollection tees
       const coursePromises = coursesSnap.docs.map(async (cDoc) => {
         const teesSnap = await getDocs(collection($db, 'courses', cDoc.id, 'tees'))
         const teesMap = {}
         teesSnap.docs.forEach(t => { 
-          // Include the doc ID in the tee data for easier mapping
           teesMap[t.id] = { id: t.id, ...t.data() } 
         })
         return { id: cDoc.id, ...cDoc.data(), tees: teesMap }
@@ -62,9 +64,26 @@ export const useData = defineStore('data', () => {
     }
   }
 
-  const getTodayISO = () => {
-    const d = new Date();
-    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  // --- NEW: Targeted refresh for when a calendar is updated ---
+  const refreshLeagueCalendar = async (leagueId) => {
+    try {
+      const today = getTodayISO();
+      const calQ = query(
+        collection($db, 'leagues', leagueId, 'calendar'),
+        where('iso', '>=', today),
+        orderBy('iso', 'asc'),
+        limit(1)
+      );
+      const calSnap = await getDocs(calQ);
+      const nextRound = !calSnap.empty ? { id: calSnap.docs[0].id, ...calSnap.docs[0].data() } : null;
+
+      const idx = leagues.value.findIndex(l => l.id === leagueId);
+      if (idx > -1) {
+        leagues.value[idx].nextRound = nextRound;
+      }
+    } catch (err) {
+      console.error("Error refreshing league calendar:", err);
+    }
   };
 
   const isLeagueLiveToday = computed(() => (leagueId) => {
@@ -113,25 +132,9 @@ export const useData = defineStore('data', () => {
     }
   }
 
-  const fetchHistoricByIso = async (type, iso) => {
-    try {
-      const q = query(
-        collectionGroup($db, "rounds"), 
-        where("type", "==", type),
-        where("iso", "==", iso)
-      )
-      const snap = await getDocs(q)
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-    } catch (err) {
-      console.error("Error fetching historic rounds:", err);
-      return []
-    }
-  }
-
   return { 
     liveRounds, leagues, courses, isHydrated, loading,
     hydrateStore, startLiveListener, stopLiveListener, resumeListener,
-    deleteLiveRound,
-    fetchHistoricByIso
+    deleteLiveRound, refreshLeagueCalendar // <-- Don't forget to export it
   }
 })

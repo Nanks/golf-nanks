@@ -5,7 +5,7 @@
       <p class="text-secondary text-[10px]">{{ uiStore.loadingMessage }}</p>
     </div>
 
-    <template v-else-if="processedPlayers.length > 0">
+    <template v-else-if="leagueData && processedPlayers.length > 0">
       <LeagueHeader 
         :title="leagueData?.shortName || leagueData?.name || 'Leaderboard'"
         :is-admin="isAdmin"
@@ -31,10 +31,14 @@
         </template>
       </LeagueHeader>
 
-      <div class="px-4 mb-4">
-        <p class="text-secondary text-[10px]">
-          {{ processedPlayers[0]?.course || 'Loading...' }} • {{ getShortDate(iso) }}
-        </p>
+      <div class="px-4 mb-4 flex items-center gap-2 text-secondary text-[10px] font-black uppercase tracking-widest">
+        <span>{{ eventDetails?.course || 'Course TBD' }}</span>
+        <span class="opacity-30">•</span>
+        <span>{{ getShortDate(iso) }}</span>
+        <span class="opacity-30">•</span>
+        <span :class="eventStatusDisplay.color">
+          {{ eventStatusDisplay.text }}
+        </span>
       </div>
 
       <div class="sticky top-20 z-40 bg-white/90 dark:bg-stone-950/90 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 py-2 mb-3">
@@ -104,28 +108,13 @@
               </div>
             </div>
           </TransitionGroup>
-
-          <div v-if="activeTab === 'Blind Best Ball' && activeDisplayList.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
-            <div class="bg-stone-100 dark:bg-stone-900/50 p-6 rounded-[2.5rem] border border-dashed border-stone-200 dark:border-stone-800">
-              <Icon name="mdi:shuffle-variant" class="size-10 text-stone-300 dark:text-stone-700 mb-3" />
-              <h4 class="text-sm font-black text-stone-400 uppercase tracking-widest italic">Pairings Not Set</h4>
-              <p class="text-[10px] text-stone-500 mt-2 max-w-[180px]">Pairings will appear here once the event is locked.</p>
-              <button 
-                v-if="isAdmin && mode === 'live'" 
-                @click="isPreviewingPairings = true; updateLeaderboard(dataStore.liveRounds)"
-                class="mt-4 px-4 py-2 bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
-              >
-                Preview Pairings
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </template>
 
     <div v-else-if="!uiStore.isGlobalLoading" class="flex flex-col items-center justify-center pt-32 text-stone-400">
       <Icon name="mdi:golf-cart" class="size-20 opacity-10 mb-6" />
-      <p class="text-secondary">{{ mode === 'live' ? 'No Live Rounds Active' : 'No History Found' }}</p>
+      <p class="text-secondary uppercase font-black tracking-widest">{{ mode === 'live' ? 'No Live Rounds Active' : 'No History Found' }}</p>
     </div>
 
     <ClientOnly>
@@ -133,10 +122,10 @@
       <BlindBestBallModal v-if="selectedTeam && eventDetails" :is-open="isTeamModalOpen" :team="selectedTeam" :event="eventDetails" @close="isTeamModalOpen = false" />
       
       <LiveRoundFooter 
-        v-if="mode === 'live' && roundId && route.query.from !== 'menu' && route.query.from !== 'home'" 
+        v-if="mode === 'live' && roundId && leagueData && !['calendar', 'menu', 'home'].includes(route.query.from)" 
         active-tab="leaderboard" 
         :round-id="roundId" 
-        :league-type="type" 
+        :league-type="leagueId" 
         :iso="iso" 
       />
     </ClientOnly>
@@ -144,7 +133,7 @@
 </template>
 
 <script setup>
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, collectionGroup, query, where, getDocs } from "firebase/firestore";
 import { useData } from '~/stores/data';
 import { useUIStore } from '~/stores/ui';
 import { useAuthStore } from '~/stores/auth';
@@ -159,7 +148,7 @@ const authStore = useAuthStore();
 const { ask } = useConfirm();
 const { $db } = useNuxtApp();
 
-const { type, iso, mode = 'live' } = route.params;
+const { type: leagueId, iso, mode = 'live' } = route.params;
 
 // --- STATE ---
 const roundsSource = ref([]);
@@ -174,19 +163,34 @@ const isTeamModalOpen = ref(false);
 const isPreviewingPairings = ref(false);
 
 // --- COMPUTED ---
-const leagueData = computed(() => dataStore.leagues.find(l => l.id === type || l.type === type));
+const leagueData = computed(() => dataStore.leagues.find(l => l.id === leagueId));
 const isYearlyLeague = computed(() => leagueData.value?.cadence === 'yearly');
-const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(leagueData.value.id));
+
+const eventStatusDisplay = computed(() => {
+  const s = eventDetails.value?.status?.toLowerCase() || 'active';
+  if (['complete', 'mdi-check-bold', 'mdi:check-bold'].includes(s)) return { text: 'FINAL', color: 'text-emerald-500' };
+  if (['rain', 'mdi-weather-pouring', 'mdi:cancel'].includes(s)) return { text: 'RAIN OUT', color: 'text-stone-400' };
+  if (['practice', 'mdi-alpha-p-circle-outline'].includes(s)) return { text: 'PRACTICE', color: 'text-blue-500' };
+  return { text: 'ACTIVE', color: 'text-amber-500' };
+});
+
+const isAdmin = computed(() => {
+  if (!leagueData.value) return false;
+  return authStore.isAdminForLeague(leagueData.value.id);
+});
 
 const processedPlayers = computed(() => (roundsSource.value || []).map(p => ({
   ...p,
-  netRel: p.games?.totalNet ?? 0,
-  thru: p.games?.holesPlayed ?? 0
+  netRel: p.games?.totalNet ?? p.totalNet ?? 0,
+  thru: p.games?.holesPlayed ?? p.holes ?? 0
 })));
 
 const activeDisplayList = computed(() => {
   if (activeTab.value === 'Blind Best Ball') {
-    const isLocked = eventDetails.value?.status === 'complete';
+    // FIX: Recognize 'mdi-check-bold' as a locked/complete state
+    const currentStatus = eventDetails.value?.status?.toLowerCase() || '';
+    const isLocked = ['complete', 'mdi-check-bold', 'mdi:check-bold'].includes(currentStatus);
+    
     if (!isLocked && !isPreviewingPairings.value) return [];
     return (winnersLog.value?.blindBestBall || []).map(win => ({ ...win, id: `team-${win.id}`, isWinnerRow: true }));
   }
@@ -198,7 +202,7 @@ const activeDisplayList = computed(() => {
       scoreVal = p.netRel;
       const fmt = isYearlyLeague.value ? p.netRel.toFixed(3) : Math.round(p.netRel);
       display = p.netRel === 0 ? 'E' : (p.netRel > 0 ? `+${fmt}` : fmt);
-      if (p.netRel < 0) color = 'text-red-500';
+      if (p.netRel < 0) color = 'text-emerald-500'; 
     } else if (isChicago) {
       const key = activeTab.value === 'Chicago Points' ? 'totalChicago' : 'totalModChicago';
       scoreVal = p.games?.[key] || 0;
@@ -212,10 +216,15 @@ const activeDisplayList = computed(() => {
     if (activeTab.value === 'Net Score') {
       if (a.scoreVal !== b.scoreVal) return a.scoreVal - b.scoreVal;
     } else if (a.scoreVal !== b.scoreVal) return b.scoreVal - a.scoreVal;
+
     for (let i = 0; i < a.tieBreaker.length; i++) {
       if (a.tieBreaker[i] !== b.tieBreaker[i]) return b.tieBreaker[i] - a.tieBreaker[i];
     }
-    return b.games.holesPlayed - a.games.holesPlayed;
+
+    const aHoles = a.games?.holesPlayed ?? a.holes ?? 0;
+    const bHoles = b.games?.holesPlayed ?? b.holes ?? 0;
+    
+    return bHoles - aHoles;
   });
 });
 
@@ -228,15 +237,18 @@ const getRank = (index) => {
 const roundId = computed(() => {
   if (mode !== 'live' || !dataStore.liveRounds?.length || !leagueData.value) return null;
   const myId = authStore.userProfile?.id;
-  const myRound = dataStore.liveRounds.find(r => r.leagueId === leagueData.value.id && r.players?.some(p => p.id === myId));
+  const myRound = dataStore.liveRounds.find(r => 
+    r.leagueId === leagueId && 
+    r.players?.some(p => String(p.id) === String(myId))
+  );
   return myRound?.id || dataStore.liveRounds[0]?.id || null;
 });
 
 const backRoute = computed(() => {
-  if (route.query.from === 'menu') return `/leagues/${leagueData.value?.id}/menu`;
+  if (route.query.from === 'menu') return `/leagues/${leagueId}/menu`;
   if (route.query.from === 'home') return '/';
-  if (mode !== 'live' || route.query.from === 'calendar') return `/leagues/${leagueData.value?.id}/calendar`;
-  return roundId.value ? `/rounds/${roundId.value}` : `/leagues/${leagueData.value?.id}/menu`;
+  if (mode !== 'live' || route.query.from === 'calendar') return `/leagues/${leagueId}/calendar`;
+  return roundId.value ? `/rounds/${roundId.value}` : `/leagues/${leagueId}/menu`;
 });
 
 const backText = computed(() => {
@@ -246,6 +258,16 @@ const backText = computed(() => {
 });
 
 // --- METHODS ---
+const shouldShowBadge = (label) => {
+  if (!eventDetails.value?.game) return false;
+  const games = eventDetails.value.game;
+  const lowerLabel = label.toLowerCase();
+  if (lowerLabel.includes('gross skins')) return games.includes('Gross Skins');
+  if (lowerLabel.includes('net skins')) return games.includes('Net Skins');
+  if (lowerLabel.includes('deuce')) return games.includes('Deuce Pot');
+  return true;
+};
+
 const openPlayerModal = (row) => { 
   selectedPlayer.value = row; 
   isModalOpen.value = true; 
@@ -262,16 +284,6 @@ const openTeamModal = (pairing) => {
   }
 };
 
-const shouldShowBadge = (label) => {
-  if (!eventDetails.value?.game) return false;
-  const games = eventDetails.value.game;
-  const lowerLabel = label.toLowerCase();
-  if (lowerLabel.includes('gross skins')) return games.includes('Gross Skins');
-  if (lowerLabel.includes('net skins')) return games.includes('Net Skins');
-  if (lowerLabel.includes('deuce')) return games.includes('Deuce Pot');
-  return true;
-};
-
 const completeEvent = async () => {
   const confirmed = await ask("Complete Event?", "Pairings and results will be permanently set for this round.", {
     confirmText: "Complete",
@@ -283,35 +295,44 @@ const completeEvent = async () => {
   if (!confirmed) return;
   try {
     uiStore.setLoading(true, "Locking Event...");
-    await completeLeagueEvent($db, leagueData.value.id, iso);
+    await completeLeagueEvent($db, leagueId, iso);
     eventDetails.value.status = 'complete';
     isPreviewingPairings.value = false;
-    if (mode === 'live') updateLeaderboard(dataStore.liveRounds);
+    
+    // Re-trigger calculation with updated status
+    if (mode === 'live') {
+      const normalized = normalizeLiveRounds(dataStore.liveRounds);
+      processLeaderboard(normalized);
+    }
   } finally {
     uiStore.setLoading(false);
   }
 };
 
-const updateLeaderboard = (liveRounds) => {
-  if (!eventDetails.value || !liveRounds?.length) {
-    uiStore.setLoading(false);
+// --- UNIFIED CALCULATION ENGINE ---
+const processLeaderboard = (flatPlayersArray) => {
+  if (!eventDetails.value || !flatPlayersArray?.length) {
+    roundsSource.value = flatPlayersArray || [];
     return;
   }
-  try {
-    const flatPlayers = normalizeLiveRounds(liveRounds);
-    const simulationEvent = { ...eventDetails.value, status: isPreviewingPairings.value ? 'complete' : eventDetails.value.status };
-    const res = runLeaguePass(calcRounds(flatPlayers, simulationEvent), simulationEvent);
-    winnersLog.value = res.winnersLog || { blindBestBall: [] };
-    roundsSource.value = res.players || [];
-  } finally {
-    uiStore.setLoading(false);
-  }
+  
+  const simulationEvent = { 
+    ...eventDetails.value, 
+    status: isPreviewingPairings.value ? 'complete' : eventDetails.value.status 
+  };
+  
+  const calculatedRounds = calcRounds(flatPlayersArray, simulationEvent);
+  const res = runLeaguePass(calculatedRounds, simulationEvent);
+  
+  winnersLog.value = res.winnersLog || { blindBestBall: [] };
+  roundsSource.value = res.players || [];
 };
 
+// --- DATA PIPELINE: LIVE ---
 const normalizeLiveRounds = (liveRounds) => {
   return liveRounds
-    .filter(r => r.iso === iso && r.courseSnapshot && r.leagueId === leagueData.value?.id)
-    .flatMap(r => r.players.map(p => ensureTeeData({
+    .filter(r => r.iso === iso && r.leagueId === leagueId)
+    .flatMap(r => r.players.map(p => ({
       ...p,
       name: p.name || `${p.fname} ${p.lname}`,
       iso: r.iso,
@@ -321,10 +342,41 @@ const normalizeLiveRounds = (liveRounds) => {
     })));
 };
 
-const ensureTeeData = (p) => {
-  const snap = p.courseSnapshot || { tees: {} };
-  const tee = snap.tees[p.teesId] || snap.tees[p.tees] || Object.values(snap.tees)[0] || { pars: Array(18).fill(4), hnds: Array(18).fill(18) };
-  return { ...p, teesId: p.teesId || p.tees || "fallback", courseSnapshot: { ...snap, tees: { ...snap.tees, [p.teesId]: tee } } };
+// --- DATA PIPELINE: HISTORY ---
+const fetchHistoryRounds = async () => {
+  try {
+    const roundsRef = collectionGroup($db, "rounds");
+    const q = query(
+      roundsRef, 
+      where("leagueId", "==", leagueId), 
+      where("iso", "==", iso)
+    );
+    const snap = await getDocs(q);
+    
+    if (snap.empty) {
+      processLeaderboard([]);
+      return;
+    }
+
+    const flatHistoryPlayers = snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: data.playerKey || doc.ref.parent.parent?.id || doc.id,
+        name: data.name || "Unknown Player",
+        iso: data.iso,
+        course: data.course || "Course TBD",
+        courseSnapshot: data.courseSnapshot || { tees: {} },
+        teesId: data.teesId || data.tees || "fallback",
+        scores: data.scores || Array(18).fill(0),
+        index: data.index || 0,
+        ...data
+      };
+    });
+    
+    processLeaderboard(flatHistoryPlayers);
+  } catch (err) {
+    console.error("History Fetch Error:", err);
+  }
 };
 
 // --- LIFECYCLE ---
@@ -332,13 +384,27 @@ onMounted(async () => {
   uiStore.setLoading(true, "Syncing...");
   try {
     if (!leagueData.value) return;
-    const q = query(collection($db, "leagues", leagueData.value.id, "calendar"), where("iso", "==", iso));
+    
+    const q = query(collection($db, "leagues", leagueId, "calendar"), where("iso", "==", iso));
     const snap = await getDocs(q);
     eventDetails.value = snap.empty ? { iso, status: 'active', game: [] } : snap.docs[0].data();
-    availableTabs.value = ['Net Score', ...(eventDetails.value.game || []).filter(g => ['Modified Chicago', 'Chicago Points', 'Blind Best Ball'].includes(g))];
+    
+    availableTabs.value = ['Net Score', ...(eventDetails.value.game || []).filter(g => 
+      ['Modified Chicago', 'Chicago Points', 'Blind Best Ball'].includes(g)
+    )];
+
     if (mode === 'live') {
-      dataStore.startLiveListener();
-      watch(() => dataStore.liveRounds, updateLeaderboard, { immediate: true, deep: true });
+      dataStore.startLiveListener({ leagueId });
+      
+      // Watcher acts as the "Live Data Pipeline" trigger
+      watch(() => dataStore.liveRounds, (newLiveRounds) => {
+        const normalized = normalizeLiveRounds(newLiveRounds);
+        processLeaderboard(normalized);
+      }, { immediate: true, deep: true });
+      
+    } else {
+      // History Pipeline trigger
+      await fetchHistoryRounds();
     }
   } finally {
     uiStore.setLoading(false);
@@ -346,6 +412,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => mode === 'live' && dataStore.stopLiveListener());
+
 const getShortDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 </script>
 

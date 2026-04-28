@@ -11,9 +11,9 @@
         <button 
           @click="isEditMode = !isEditMode"
           :class="isEditMode ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
-          class="flex items-center gap-2 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+          class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
         >
-          <Icon :name="isEditMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-3.5" />
+          <Icon :name="isEditMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-5" />
           <span>{{ isEditMode ? 'Finish' : 'Manage' }}</span>
         </button>
       </template>

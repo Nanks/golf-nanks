@@ -3,8 +3,8 @@
     <div class="max-w-md mx-auto pt-2">
       
       <LeagueHeader 
-        back-to="/" 
-        back-text="Dashboard"
+        :back-to="backRoute" 
+        :back-text="backText"
         :is-admin="isAdmin"
       >
         <template #title>
@@ -134,6 +134,7 @@ import { collection, addDoc } from 'firebase/firestore'
 import { useData } from '~/stores/data'
 import { useAuthStore } from '~/stores/auth'
 import { calcCourseHandicap } from '~/utils/gameLogic'
+import { getLocalIsoDate } from '~/utils/leagueActions'
 
 const { $db } = useNuxtApp()
 const dataStore = useData()
@@ -160,7 +161,21 @@ const leagueName = computed(() => currentLeague.value?.name || '')
 const isAdmin = computed(() => authStore.isAdminForLeague(currentLeague.value))
 const isYearlyLeague = computed(() => currentLeague.value?.cadence === 'yearly')
 
+const backRoute = computed(() => {
+  return route.query.from === 'menu' ? `/leagues/${leagueId.value}/menu` : '/';
+});
+
+const backText = computed(() => {
+  return route.query.from === 'menu' ? 'Menu' : 'Dashboard';
+});
+
 // Computed
+const scheduledEvent = computed(() => {
+  const today = getLocalIsoDate;
+  if (!currentLeague.value?.nextRound) return null;
+  return currentLeague.value.nextRound.iso === today ? currentLeague.value.nextRound : null;
+});
+
 const sortedCourses = computed(() => {
   return [...dataStore.courses]
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -227,19 +242,19 @@ const applyTeeLogic = (playerList) => {
     let finalTeeId = ''
     const pType = p.tee_type || 'mens'
 
-    // 1. LEAGUE ROUND (Hardcoded Tee)
-    // If the league has a teesId AND it isn't a 'Mixed' tee league
-    if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
+    // 1. SCHEDULED EVENT (Highest Priority)
+    if (scheduledEvent.value && scheduledEvent.value.teesId && scheduledEvent.value.tees !== 'Mixed') {
+      finalTeeId = scheduledEvent.value.teesId
+    }
+    // 2. LEAGUE DEFAULT (Hardcoded Tee)
+    else if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
       finalTeeId = currentLeague.value.teesId
     } 
-    // 2. MIXED LEAGUE or CASUAL ROUND (Player's Default)
+    // 3. MIXED LEAGUE or CASUAL ROUND (Player's Default)
     else {
-      // Use the course's 'tee_types' map (e.g., 'ladies' -> 'v7A78o...')
       if (selectedCourse.value.tee_types && selectedCourse.value.tee_types[pType]) {
         finalTeeId = selectedCourse.value.tee_types[pType]
-      } 
-      // Ultimate Fallback
-      else {
+      } else {
         const targetName = TEE_MAPPING[pType] || 'Blue'
         finalTeeId = getTeeIdByName(selectedCourse.value, targetName)
       }
@@ -256,15 +271,20 @@ onMounted(async () => {
     players.value.push({ ...authStore.userProfile, teeId: '' })
   }
 
-  // NEW: Directly assign the courseId from the league document
-  if (isLeague.value && currentLeague.value?.courseId) {
+  // 1. Use Scheduled Event Course first
+  if (scheduledEvent.value?.courseId) {
+    selectedCourseId.value = scheduledEvent.value.courseId
+  }
+  // 2. Fallback to League Default Course
+  else if (isLeague.value && currentLeague.value?.courseId) {
     selectedCourseId.value = currentLeague.value.courseId
   } 
-  // Fallback for casual rounds
+  // 3. Fallback for casual rounds
   else if (!isLeague.value) {
     const elks = dataStore.courses.find(c => c.name.toLowerCase().includes('elks'))
     if (elks) selectedCourseId.value = elks.id
   }
+  
   applyTeeLogic(players.value)
 })
 
@@ -347,11 +367,13 @@ const startRound = async () => {
     let eventTeeId = '';
     let eventTeeName = '';
     
-    if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
+    if (scheduledEvent.value && scheduledEvent.value.tees !== 'Mixed') {
+      eventTeeId = scheduledEvent.value.teesId || '';
+      eventTeeName = scheduledEvent.value.tees || 'Mixed';
+    } else if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
       eventTeeId = currentLeague.value.teesId;
       eventTeeName = currentLeague.value.tees;
     } else {
-      // Fallback for casual/mixed rounds
       eventTeeId = playerSnapshots[0]?.teesId || '';
       eventTeeName = playerSnapshots[0]?.tees || 'Mixed';
     }
