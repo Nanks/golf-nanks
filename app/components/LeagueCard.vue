@@ -67,6 +67,7 @@ import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
 import { useToast } from '~/composables/useToast'
+import {getLocalIsoDate} from '~/utils/leagueActions'
 
 const props = defineProps({
   league: { type: Object, required: true }
@@ -76,7 +77,7 @@ const authStore = useAuthStore()
 const dataStore = useData()
 const toast = useToast()
 
-const todayIso = new Date().toISOString().split('T')[0]
+const todayIso = getLocalIsoDate();
 
 // --- REACTIVE DATA ---
 

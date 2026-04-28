@@ -63,13 +63,14 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
+import {getLocalIsoDate} from '~/utils/leagueActions'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const dataStore = useData()
 
 const leagueId = route.params.id
-const todayIso = new Date().toISOString().split('T')[0]
+const todayIso = getLocalIsoDate();
 
 const league = computed(() => dataStore.leagues.find(l => l.id === leagueId))
 

@@ -101,6 +101,7 @@ import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore"
 import { useUIStore, useAuthStore, useData } from "#imports"
+import {getLocalIsoDate} from '~/utils/leagueActions'
 
 const { $db } = useNuxtApp()
 const route = useRoute()
@@ -111,7 +112,7 @@ const selectedYear = ref(currentYear); const events = ref([]); const isAdminMode
 const isModalOpen = ref(false); const activeEvent = ref(null); const isDeleteModalOpen = ref(false); const eventToDelete = ref(null)
 let currentUnsub = null
 
-const todayISO = new Date().toISOString().split('T')[0]
+const todayIso = getLocalIsoDate();
 const leagueData = computed(() => dataStore.leagues.find(l => l.id === route.params.id))
 const isAdmin = computed(() => leagueData.value && authStore.isAdminForLeague(leagueData.value))
 
