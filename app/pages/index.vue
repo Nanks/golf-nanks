@@ -35,8 +35,12 @@
         <div v-if="myLeagues.length > 0">
           <h3 class="text-secondary text-[10px] mb-3 px-2">My Leagues</h3>
           <div class="grid grid-cols-1 gap-3">
-            <LeagueCard v-for="league in myLeagues" :key="league.id" :league="league" :is-member="true" />
-          </div>
+            <LeagueCard 
+              v-for="league in myLeagues" 
+              :key="`${league.id}-${authStore.isInitialized}`" 
+              :league="league" 
+              :is-member="true"
+            /></div>
         </div>
       </div>
 
@@ -69,12 +73,13 @@ const isMounted = ref(false)
 
 // Computed Data
 const myLeagues = computed(() => {
-  // Wait until we are mounted and auth is fully ready
-  if (!isMounted.value || !authStore.isInitialized || !authStore.isLoggedIn || !authStore.userProfile?.leagues) {
-    return []
-  }
-  return dataStore.leagues.filter(l => authStore.userProfile.leagues.includes(l.id))
-})
+  if (!isMounted.value || !authStore.isInitialized || !authStore.isLoggedIn) return [];
+  
+  // Standardizing on the document ID check
+  return dataStore.leagues.filter(l => 
+    authStore.userProfile?.leagues?.includes(l.id)
+  );
+});
 
 const otherLeagues = computed(() => {
   // Prevent hydration mismatches by returning empty until mounted

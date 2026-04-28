@@ -17,42 +17,32 @@
     </div>
 
     <div class="mb-3">
-      <h2 class="text-2xl text-primary leading-tight">
+      <h2 class="text-2xl text-primary leading-tight font-black uppercase italic">
         {{ league.shortName }}
       </h2>
-      <p class="text-secondary text-[10px] uppercase tracking-widest">
+      <p class="text-secondary text-[10px] uppercase tracking-widest font-bold">
         {{ league.course }}
       </p>
     </div>
 
     <div 
-      v-if="nextRoundData" 
+      v-if="activeRoundId || nextRoundData" 
       @click.stop="handleBadgeAction"
       :class="[
-        'inline-flex items-center gap-2 border rounded-xl px-3 py-1.5 transition-all shadow-sm',
+        'inline-flex items-center gap-2 border rounded-xl px-3 py-1.5 transition-all shadow-sm z-30',
         activeRoundId 
-          ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 active:scale-95' 
+          ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 active:scale-95' 
           : isToday(nextRoundData.iso)
             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 active:scale-95'
             : 'bg-stone-500/10 border-stone-500/20 text-stone-500 cursor-default'
       ]"
     >
       <Icon 
-        :name="activeRoundId 
-          ? 'mdi:calculator' 
-          : isToday(nextRoundData.iso) 
-            ? 'mdi:play-circle-outline' 
-            : 'mdi:calendar-check'" 
+        :name="activeRoundId ? 'mdi:calculator' : isToday(nextRoundData.iso) ? 'mdi:play-circle-outline' : 'mdi:calendar-check'" 
         class="size-4" 
       />
       <span class="text-[10px] font-black uppercase tracking-widest">
-        {{ 
-          activeRoundId 
-            ? 'Resume Round' 
-            : isToday(nextRoundData.iso) 
-              ? 'Start Round' 
-              : `Next: ${nextRoundData.iso} • ${nextRoundData.tees || nextRoundData.teeColor || ''}`
-        }}
+        {{ activeRoundId ? 'Resume Round' : isToday(nextRoundData.iso) ? 'Start Round' : `Next: ${nextRoundData.iso}` }}
       </span>
     </div>
 
@@ -63,11 +53,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
 import { useToast } from '~/composables/useToast'
-import {getLocalIsoDate} from '~/utils/leagueActions'
+import { getLocalIsoDate } from '~/utils/leagueActions'
 
 const props = defineProps({
   league: { type: Object, required: true }
@@ -76,38 +66,54 @@ const props = defineProps({
 const authStore = useAuthStore()
 const dataStore = useData()
 const toast = useToast()
+const todayIso = getLocalIsoDate()
 
-const todayIso = getLocalIsoDate();
+// --- LOGGING ---
+const log = (msg, obj = null) => {
+  console.log(`[Card: ${props.league.shortName}] ${msg}`, obj || '');
+}
 
-// --- REACTIVE DATA ---
+// --- STATE & WATCHERS ---
+const activeRoundId = ref(null)
 
-// 1. Reactive Event Logic: Pulls directly from the calendar array in the store
+// This watcher fixes the "Lazy Evaluation" issue by forcing a check whenever rounds load
+watch(
+  [() => dataStore.liveRounds, () => authStore.isInitialized],
+  ([rounds, ready]) => {
+    log("Running Resume Check...");
+    
+    if (!ready || !rounds.length) {
+      activeRoundId.value = null;
+      return;
+    }
+
+    const myId = authStore.userProfile?.id;
+    const found = rounds.find(r => {
+      const isLeague = r.leagueId === props.league.id;
+      const isDate = r.iso === todayIso;
+      const isMe = r.players?.some(p => String(p.id) === String(myId));
+      
+      if (isLeague) {
+        log(`Match Status: Date(${isDate}) Player(${isMe})`, { roundId: r.id, myId });
+      }
+      
+      return isLeague && isDate && isMe;
+    });
+
+    activeRoundId.value = found?.id || null;
+  },
+  { immediate: true, deep: true }
+);
+
+// --- OTHER COMPUTED ---
 const nextRoundData = computed(() => {
   if (!props.league.calendar?.length) return props.league.nextRound || null
-  
-  // Find today's event or the next upcoming one
   const events = [...props.league.calendar].sort((a, b) => a.iso.localeCompare(b.iso))
-  const todayEvent = events.find(e => e.iso === todayIso)
-  
-  // If an event is found for today, it prioritizes it (enabling the Start/Resume button)
-  if (todayEvent) return todayEvent
-
-  return events.find(e => e.iso > todayIso) || events[0]
+  return events.find(e => e.iso === todayIso) || events.find(e => e.iso > todayIso) || events[0]
 })
 
-// 2. Live Badge Logic: Checks specifically for leagueId in live_rounds
 const hasLiveRounds = computed(() => {
-  return dataStore.liveRounds.some(r => r.leagueId === props.league.id)
-})
-
-// 3. User Active Round Logic: Checks if the current user has a round to resume
-const activeRoundId = computed(() => {
-  const myId = authStore.userProfile?.id
-  return dataStore.liveRounds.find(r => 
-    r.leagueId === props.league.id && 
-    r.iso === todayIso &&
-    r.players?.some(p => p.id === myId)
-  )?.id || null
+  return dataStore.liveRounds.some(r => r.leagueId === props.league.id && r.iso === todayIso)
 })
 
 const isAdmin = computed(() => authStore.isAdminForLeague?.(props.league.id))
@@ -121,12 +127,6 @@ const handleBadgeAction = () => {
     navigateTo({
       path: '/rounds/setup',
       query: { leagueId: props.league.id, isLeague: 'true' }
-    })
-  } else {
-    toast.add({
-      title: 'Too Early!',
-      description: `This round cannot be started until ${nextRoundData.value?.iso}.`,
-      color: 'amber'
     })
   }
 }
