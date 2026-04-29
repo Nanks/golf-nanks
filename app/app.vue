@@ -13,6 +13,8 @@
         <NuxtPage />
       </div>
     </NuxtLayout>
+
+    <PwaUpdater />
   </div>
 </template>
 

@@ -8,8 +8,6 @@ export default defineNuxtConfig({
     compatibilityVersion: 4,
   },
 
-  // 1. ADD RUNTIME CONFIG
-  // This replaces hardcoded strings in 01.firebase.ts
   runtimeConfig: {
     public: {
       firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,
@@ -30,17 +28,15 @@ export default defineNuxtConfig({
     '@nuxt/icon'
   ],
 
-app: {
+  app: {
     pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'Golf Nanks',
       meta: [
-        { name: 'theme-color', content: '#020617' },
+        { name: 'theme-color', content: '#020617' }, // Tailwind slate-950
         { name: 'mobile-web-app-capable', content: 'yes' },
-        // Add these two lines for strict iOS compliance:
         { name: 'apple-mobile-web-app-capable', content: 'yes' }, 
         { name: 'apple-mobile-web-app-title', content: 'Golf Nanks' },
-        
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
       ],
       link: [
@@ -51,39 +47,46 @@ app: {
   },
 
   routeRules: {
-    // Ensure the main entry point always checks for a new version
     '/': { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
-    // Standard assets (hashed by Vite) can be cached long-term
     '/_nuxt/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } }
   },
 
-  // Keep sourcemaps off for production performance
   sourcemap: false,
 
   vite: {
     plugins: [tailwindcss()],
-    // Removed specific Firebase includes unless you specifically hit build errors
   },
 
   css: ['~/assets/css/main.css'],
 
   pwa: {
-    registerType: 'autoUpdate',
+    // 1. CHANGED: Use the prompt pattern so it doesn't break mid-round
+    registerType: 'prompt',
+    client: {
+      installPrompt: true,
+      // Check for an update every hour in the background if they leave it open
+      periodicSyncForUpdates: 3600, 
+    },
     workbox: {
-      // Force the new service worker to take over immediately
-      skipWaiting: true,
-      clientsClaim: true,
-      // Optional: add a cleanup for old caches
-      cleanupOutdatedCaches: true
+      // 2. REMOVED: skipWaiting and clientsClaim. 
+      // We want the SW to wait in the background until the user clicks "Refresh Now"
+      cleanupOutdatedCaches: true,
+      // Tell workbox exactly what to cache for offline use
+      globPatterns: ['**/*.{js,css,html,png,svg,ico}'] 
     },
     manifest: {
-      name: 'Nanks',
+      name: 'Golf Nanks', // 3. MATCHED: Sync with your app.head title
       short_name: 'Nanks',
-      theme_color: '#000000',
-      background_color: '#000000',
+      theme_color: '#020617', // 4. MATCHED: Sync with app.head theme-color
+      background_color: '#020617',
       display: 'standalone',
-      // Update these to your actual icon paths in /public
       icons: [
+        // 5. ADDED: Browsers expect both a 192x192 and 512x512 to consider it a "valid" PWA
+        {
+          src: '/icon.png',
+          sizes: '192x192',
+          type: 'image/png'
+        },
         { 
           src: '/icon.png', 
           sizes: '512x512', 
@@ -96,7 +99,7 @@ app: {
 
   colorMode: {
     classSuffix: '', 
-    preference: 'dark', // Given your screenshot, dark is likely your preferred default
+    preference: 'dark', 
     fallback: 'dark'
   },
 
