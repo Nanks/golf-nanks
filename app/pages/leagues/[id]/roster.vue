@@ -135,6 +135,8 @@ const fetchRoster = async () => {
     
     roster.value = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
+      // ADDED ACTIVE CHECK: Filter out archived players
+      .filter(p => p.active !== false)
       .sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
   } catch (e) {
     console.error("Fetch Roster Failed:", e);
@@ -170,8 +172,8 @@ const handleTogglePlayer = async (player) => {
 
 const handleCreateAndAdd = async (formData) => {
   // 1. Phone Validation
-  const digits = formData.phone.replace(/\D/g, '');
-  if (digits.length !== 10) {
+  const digits = formData.phone?.replace(/\D/g, '') || '';
+  if (digits && digits.length !== 10) {
     toast.add("Phone must be exactly 10 digits.", 'error');
     return;
   }
@@ -182,7 +184,7 @@ const handleCreateAndAdd = async (formData) => {
     ...formData,
     fname: normalize(formData.fname),
     lname: normalize(formData.lname),
-    phone: `+1${digits}`
+    phone: digits ? `+1${digits}` : '' // Optional phone formatting
   };
 
   ui.setLoading(true, "Checking duplicates...");
@@ -213,6 +215,7 @@ const finalizePlayerCreation = async (data) => {
       ...data,
       ghin: Number(data.ghin) || 0,
       leagues: [route.params.id],
+      active: true, // EXPLICITLY SET ACTIVE: TRUE
       createdAt: serverTimestamp(),
       admin: false,
       leagueHandicaps: {},

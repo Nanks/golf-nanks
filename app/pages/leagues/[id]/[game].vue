@@ -11,22 +11,29 @@
       </template>
     </LeagueHeader>
 
-    <div class="flex items-center justify-center gap-6 mb-6">
+    <div class="flex items-center justify-center gap-6 mb-8 mt-2">
       <button 
         @click="adjustYear(-1)" 
-        class="p-2 rounded-full bg-slate-200/50 dark:bg-slate-800 text-slate-400 active:scale-90 active:text-emerald-500 transition-all"
+        :disabled="parseInt(selectedYear) <= 2016" 
+        class="p-2.5 rounded-xl border transition-all flex items-center justify-center"
+        :class="parseInt(selectedYear) <= 2016 
+          ? 'border-transparent text-slate-300 dark:text-slate-800 bg-transparent' 
+          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-sm active:scale-95 hover:bg-emerald-500/20'"
       >
         <Icon name="mdi:chevron-left" class="size-6" />
       </button>
       
-      <div class="text-center min-w-[80px]">
-        <span class="text-primary text-3xl tabular-nums">{{ selectedYear }}</span>
+      <div class="text-center min-w-[100px]">
+        <span class="text-primary text-4xl tabular-nums">{{ selectedYear }}</span>
       </div>
-
+      
       <button 
         @click="adjustYear(1)" 
-        :disabled="parseInt(selectedYear) >= currentYear"
-        class="p-2 rounded-full bg-slate-200/50 dark:bg-slate-800 disabled:opacity-20 text-slate-400 active:scale-90 active:text-emerald-500 transition-all"
+        :disabled="parseInt(selectedYear) >= currentYear" 
+        class="p-2.5 rounded-xl border transition-all flex items-center justify-center"
+        :class="parseInt(selectedYear) >= currentYear 
+          ? 'border-transparent text-slate-300 dark:text-slate-800 bg-transparent' 
+          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-sm active:scale-95 hover:bg-emerald-500/20'"
       >
         <Icon name="mdi:chevron-right" class="size-6" />
       </button>

@@ -10,8 +10,8 @@
             <div class="w-12 h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full mx-auto mt-3 mb-1 shrink-0"></div>
 
             <div class="px-6 py-4 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center shrink-0">
-              <div>
-                <h3 class="text-xl font-black text-stone-800 dark:text-white uppercase tracking-tight italic">
+              <div class="min-w-0 pr-2">
+                <h3 class="text-xl font-black text-stone-800 dark:text-white uppercase tracking-tight italic truncate">
                   {{ isCreatingManual ? 'New Player' : (mode === 'setup' ? 'Select Group' : 'Add to Roster') }}
                 </h3>
                 <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-0.5">
@@ -19,22 +19,33 @@
                 </p>
               </div>
               
-              <button 
-                @click="isCreatingManual ? isCreatingManual = false : closePicker()" 
-                :class="isCreatingManual 
-                  ? 'text-stone-600 dark:text-stone-400 bg-stone-100 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700' 
-                  : 'text-emerald-700 dark:text-emerald-500 bg-emerald-500/15 border border-emerald-500/30'"
-                class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform shadow-sm"
-              >
-                <template v-if="isCreatingManual">
-                  <Icon name="mdi:arrow-left" class="size-3.5" />
-                  <span>Back</span>
-                </template>
-                <template v-else>
-                  <span>Done</span>
-                  <Icon name="mdi:check-bold" class="size-3.5" />
-                </template>
-              </button>
+              <div class="flex items-center gap-2 shrink-0">
+                <button 
+                  v-if="!isCreatingManual && canCreate" 
+                  @click="startManualCreate" 
+                  class="text-[9px] font-black text-amber-700 dark:text-amber-500 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1.5 rounded-lg uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform shadow-sm"
+                >
+                  <Icon name="mdi:account-plus" class="size-3.5" /> 
+                  <span>New</span>
+                </button>
+
+                <button 
+                  @click="isCreatingManual ? isCreatingManual = false : closePicker()" 
+                  :class="isCreatingManual 
+                    ? 'text-stone-600 dark:text-stone-400 bg-stone-100 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700' 
+                    : 'text-emerald-700 dark:text-emerald-500 bg-emerald-500/15 border border-emerald-500/30'"
+                  class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform shadow-sm"
+                >
+                  <template v-if="isCreatingManual">
+                    <Icon name="mdi:arrow-left" class="size-3.5" />
+                    <span>Back</span>
+                  </template>
+                  <template v-else>
+                    <span>Done</span>
+                    <Icon name="mdi:check-bold" class="size-3.5" />
+                  </template>
+                </button>
+              </div>
             </div>
 
             <div v-if="!isCreatingManual && selectedPlayers.length > 0" class="px-4 py-2.5 bg-stone-50 dark:bg-stone-800/30 border-b border-stone-100 dark:border-stone-800 shrink-0 shadow-sm z-10">
@@ -102,22 +113,19 @@
                   </div>
                 </div>
 
-                <button @click="submitManual" class="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs mt-4 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all">
-                  Create & Add to List
+                <button 
+                  @click="submitManual" 
+                  :disabled="isLoading"
+                  class="w-full flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs mt-4 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"
+                >
+                  <Icon v-if="isLoading" name="mdi:loading" class="size-4 animate-spin" />
+                  {{ isLoading ? 'Checking...' : 'Create & Add to List' }}
                 </button>
               </div>
 
               <div v-else class="pb-4">
-                <div class="flex items-center justify-between mb-2.5 px-1">
+                <div class="mb-2.5 px-1">
                   <h4 class="text-[10px] font-black text-stone-400 uppercase tracking-widest">Available Players</h4>
-                  
-                  <button 
-                    v-if="canCreate" 
-                    @click="startManualCreate" 
-                    class="text-[9px] font-black text-amber-700 dark:text-amber-500 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1.5 rounded-lg uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform shadow-sm"
-                  >
-                    <Icon name="mdi:account-plus" class="size-3.5" /> New
-                  </button>
                 </div>
 
                 <div v-if="isLoading" class="py-8 text-center">
@@ -150,8 +158,9 @@
 </template>
 
 <script setup>
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { ref, computed, watch } from 'vue';
+import { useConfirm } from '~/composables/useConfirm'; // <-- Added Import
 
 const props = defineProps({
   isOpen: Boolean,
@@ -165,6 +174,7 @@ const props = defineProps({
 const emit = defineEmits(['update:isOpen', 'toggle', 'create-new']);
 
 const { $db } = useNuxtApp();
+const confirm = useConfirm(); // <-- Initialized Composable
 
 const allPlayers = ref([]);
 const isLoading = ref(false);
@@ -190,10 +200,73 @@ const startManualCreate = () => {
   isCreatingManual.value = true;
 };
 
-const submitManual = () => {
-  if (!form.value.fname || !form.value.lname) return alert("Full name required.");
-  emit('create-new', { ...form.value });
-  isCreatingManual.value = false;
+const submitManual = async () => {
+  const fNameStr = form.value.fname.trim();
+  const lNameStr = form.value.lname.trim();
+
+  if (!fNameStr || !lNameStr) return alert("Full name required.");
+
+  isLoading.value = true;
+  try {
+    // 1. Check if the player already exists
+    const qRef = query(
+      collection($db, "players"),
+      where("fname", "==", fNameStr),
+      where("lname", "==", lNameStr)
+    );
+    const snap = await getDocs(qRef);
+
+    if (!snap.empty) {
+      // Player found
+      const existingDoc = snap.docs[0];
+      const existingData = existingDoc.data();
+
+      // Check if they are already active
+      if (existingData.active !== false) {
+        alert(`${fNameStr} ${lNameStr} is already an active player.`);
+      } else {
+        // Player is archived - Use Custom Confirm UI
+        const wantsToReactivate = await confirm.ask(
+          'Reactivate Player?', 
+          `<b>${fNameStr} ${lNameStr}</b> is currently archived in the database. Would you like to reactivate them instead of creating a duplicate?`,
+          { 
+            confirmText: 'Reactivate', 
+            icon: 'mdi:account-convert', 
+            iconBg: 'bg-amber-50 dark:bg-amber-900/30', 
+            iconColor: 'text-amber-500',
+            confirmBtnClass: 'bg-amber-500 hover:bg-amber-600'
+          }
+        );
+        
+        if (wantsToReactivate) {
+          const updates = { active: true };
+          
+          if (form.value.phone && form.value.phone !== existingData.phone) updates.phone = form.value.phone;
+          if (form.value.ghin && Number(form.value.ghin) !== Number(existingData.ghin)) updates.ghin = Number(form.value.ghin);
+          if (form.value.tee_type && form.value.tee_type !== existingData.tee_type) updates.tee_type = form.value.tee_type;
+
+          await updateDoc(doc($db, "players", existingDoc.id), updates);
+          
+          const reactivatedPlayer = { id: existingDoc.id, ...existingData, ...updates };
+          
+          allPlayers.value.push(reactivatedPlayer);
+          allPlayers.value.sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
+          emit('toggle', reactivatedPlayer);
+          
+          isCreatingManual.value = false;
+        }
+      }
+    } else {
+      // 2. Safe to create new
+      emit('create-new', { ...form.value, fname: fNameStr, lname: lNameStr, active: true });
+      isCreatingManual.value = false;
+    }
+  } catch (err) {
+    console.error("Error verifying player existence:", err);
+    alert("There was an error checking the database.");
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const closePicker = () => {
@@ -216,6 +289,7 @@ watch(() => props.isOpen, async (opened) => {
       
       allPlayers.value = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(p => p.active !== false)
         .sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
         
     } catch (e) {

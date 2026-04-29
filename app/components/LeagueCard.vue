@@ -68,11 +68,6 @@ const dataStore = useData()
 const toast = useToast()
 const todayIso = getLocalIsoDate()
 
-// --- LOGGING ---
-const log = (msg, obj = null) => {
-  console.log(`[Card: ${props.league.shortName}] ${msg}`, obj || '');
-}
-
 // --- STATE & WATCHERS ---
 const activeRoundId = ref(null)
 
@@ -80,7 +75,6 @@ const activeRoundId = ref(null)
 watch(
   [() => dataStore.liveRounds, () => authStore.isInitialized],
   ([rounds, ready]) => {
-    log("Running Resume Check...");
     
     if (!ready || !rounds.length) {
       activeRoundId.value = null;
@@ -92,10 +86,6 @@ watch(
       const isLeague = r.leagueId === props.league.id;
       const isDate = r.iso === todayIso;
       const isMe = r.players?.some(p => String(p.id) === String(myId));
-      
-      if (isLeague) {
-        log(`Match Status: Date(${isDate}) Player(${isMe})`, { roundId: r.id, myId });
-      }
       
       return isLeague && isDate && isMe;
     });
