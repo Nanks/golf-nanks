@@ -52,17 +52,17 @@
     @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider;
   }
   
-  /* .badge-emerald { 
-    @apply badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20; 
-  } */
+  .badge-emerald { 
+    @apply bg-emerald-500/10 text-emerald-500 border border-emerald-500/20; 
+  }
 
-  /* .badge-slate { 
-    @apply badge bg-slate-500/10 text-slate-500 border border-slate-500/20; 
-  } */
+  .badge-slate { 
+    @apply bg-slate-500/10 text-slate-500 border border-slate-500/20; 
+  }
 
-  /* .badge-amber { 
-    @apply badge bg-amber-500/10 text-amber-500 border border-amber-500/20; 
-  } */
+  .badge-amber { 
+    @apply bg-amber-500/10 text-amber-500 border border-amber-500/20; 
+  }
 
   /* The standard static card */
   .card-base {

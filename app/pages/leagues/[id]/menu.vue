@@ -1,7 +1,8 @@
 <template>
-  <div class="p-2 max-w-lg mx-auto">
+  <div class="px-2 max-w-lg mx-auto">
     <LeagueHeader 
-        :title="leagueName" 
+        :title="leagueName"
+        subtitle="Menu" 
         :is-admin="isAdmin"
         :back-to="'/'"
         back-text="Back to Home"

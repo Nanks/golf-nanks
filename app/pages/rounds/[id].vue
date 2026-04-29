@@ -1,55 +1,56 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
+  <div class="min-h-screen bg-stone-50 dark:bg-stone-950 pb-32">
     
-    <div v-if="round" class="px-2 py-3 text-center">
+    <div v-if="round" class="py-1 text-center border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm mb-2">
       <p class="text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2">
-        <Icon v-if="round.leagueId" name="mdi:lock" class="size-3 text-slate-400" />
-        <span class="text-slate-800 dark:text-white italic">{{ round.type }}</span>
-        <span class="text-slate-300 dark:text-slate-700">•</span>
+        <Icon v-if="round.leagueId" name="mdi:lock" class="size-3 text-stone-400" />
+        <span class="text-stone-800 dark:text-white italic">{{ round.type }}</span>
+        <span class="text-stone-300 dark:text-stone-700">•</span>
         <span class="text-emerald-600 dark:text-emerald-500">{{ round.course }}</span>
-        <span class="text-slate-300 dark:text-slate-700">•</span>
-        <span class="text-slate-500">{{ formatDate(round.iso) }}</span>
+        <span class="text-stone-300 dark:text-stone-700">•</span>
+        <span class="text-stone-500">{{ formatDate(round.iso) }}</span>
       </p>
     </div>
 
-    <div v-if="round" class="px-2 max-w-2xl mx-auto">
+    <div v-if="round" class="px-1 max-w-2xl mx-auto">
       
-      <div v-if="round.holes === 18 || !round.holes" class="flex bg-slate-200 dark:bg-slate-800 rounded-xl p-1 mb-3 shadow-inner mx-1">
-        <button @click="activeNine = 'front'" :class="activeNine === 'front' ? 'bg-white dark:bg-slate-900 shadow-sm text-emerald-600' : 'text-slate-500'" class="flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all">Front 9</button>
-        <button @click="activeNine = 'back'" :class="activeNine === 'back' ? 'bg-white dark:bg-slate-900 shadow-sm text-emerald-600' : 'text-slate-500'" class="flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all">Back 9</button>
+      <div v-if="round.holes === 18 || !round.holes" class="flex bg-stone-200 dark:bg-stone-800 rounded-lg p-1 mb-3 shadow-inner mx-1">
+        <button @click="activeNine = 'front'" :class="activeNine === 'front' ? 'bg-white dark:bg-stone-900 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-stone-500'" class="flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all">Front 9</button>
+        <button @click="activeNine = 'back'" :class="activeNine === 'back' ? 'bg-white dark:bg-stone-900 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-stone-500'" class="flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all">Back 9</button>
       </div>
 
-      <div class="flex w-full px-2 mb-1 justify-between">
+      <div class="flex w-full px-1 mb-1 justify-between">
         <div v-for="h in displayedHoles" :key="'hdr'+h" class="flex-1 text-center">
           <span 
             class="text-[9px] font-black uppercase transition-colors leading-none block"
-            :class="round.ddHoles?.includes(h) ? 'text-lime-500' : 'text-slate-400'"
+            :class="round.ddHoles?.includes(h) ? 'text-lime-500' : 'text-stone-400'"
           >
             #{{ h }}
           </span>
         </div>
       </div>
 
-      <div class="space-y-2.5">
-        <div v-for="p in round.players" :key="p.id" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <div class="space-y-1">
+        <div v-for="p in round.players" :key="p.id" class="bg-white dark:bg-stone-950 rounded-xl border border-stone-200 dark:border-stone-900 overflow-hidden shadow-sm">
           
-          <div class="bg-slate-50 dark:bg-slate-800/80 px-3 py-1.5 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+          <div class="bg-stone-100 dark:bg-stone-900 px-2 py-1.5 flex justify-between items-center border-b border-stone-200 dark:border-stone-800">
             <div class="flex items-center gap-2">
-              <span class="font-black text-sm text-slate-800 dark:text-white uppercase italic tracking-tight leading-none">
+              <span class="font-black text-sm text-stone-900 dark:text-white uppercase italic tracking-tight leading-none">
                 {{ p.fname }} {{ p.lname }}
               </span>
-              <span class="text-[9px] font-black text-emerald-600 uppercase bg-emerald-50 dark:bg-emerald-950/30 px-1 py-0.5 rounded border border-emerald-100 dark:border-emerald-800 shadow-sm leading-none mt-[1px]">
+              <span class="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase bg-emerald-50 dark:bg-emerald-500/10 px-1 py-0.5 rounded border border-emerald-500/20 shadow-sm leading-none mt-[1px]">
                 CH: {{ formatPlayerHcp(p.index) }}
               </span>
             </div>
           </div>
 
-          <div class="flex w-full px-2 py-2 gap-1 justify-between">
+          <div class="flex w-full px-1 py-1.5 gap-[3px] justify-between">
             <div v-for="h in displayedHoles" :key="p.id + h" class="flex-1 flex flex-col items-center">
-              <div class="relative w-full aspect-square max-w-[2.5rem]">
+              
+              <div class="relative w-full aspect-square max-w-[2.75rem]">
                 
-                <div v-if="showBirds && getGameStat(p.id, h, 'birds') > 0" class="absolute -top-1.5 -left-1 text-emerald-600 bg-white dark:bg-slate-900 rounded-full px-0.5 z-20 shadow-sm border border-slate-100 dark:border-slate-800">
-                  <span class="text-[10px] font-black leading-none">{{ Math.floor(getGameStat(p.id, h, 'birds')) }}</span>
+                <div v-if="showBirds && getGameStat(p.id, h, 'birds') > 0" class="absolute -top-1.5 -left-1 text-emerald-600 bg-white dark:bg-stone-900 rounded-full px-0.5 z-20 shadow-sm border border-stone-200 dark:border-stone-700">
+                  <span class="text-[9px] font-black leading-none">{{ Math.floor(getGameStat(p.id, h, 'birds')) }}</span>
                   <span v-if="getGameStat(p.id, h, 'birds') % 1 !== 0" class="text-[7px] font-black leading-none ml-[1px]">½</span>
                 </div>
 
@@ -60,34 +61,35 @@
                 <button 
                   @click="openKeypad(h, p.id)"
                   :class="getScoreClass(p, h)"
-                  class="absolute inset-0 w-full h-full rounded-[0.4rem] font-black text-lg transition-all active:scale-75 flex flex-col items-center justify-center border-2 pb-[2px] z-10"
+                  class="absolute inset-0 w-full h-full rounded font-black text-[22px] transition-all active:scale-75 flex flex-col items-center justify-center border-2 pb-[1px] z-10"
                 >
-                  <span class="mt-0.5 leading-none" v-html="round.scores[p.id][h-1] || '&nbsp;'"></span>
+                  <span class="leading-none" v-html="round.scores[p.id][h-1] || '&nbsp;'"></span>
                   
-                  <div v-if="getGameStat(p.id, h, 'pops') > 0" class="absolute bottom-1 w-full flex justify-center items-end gap-[1px]">
-                    <div v-for="dot in Math.floor(getGameStat(p.id, h, 'pops'))" :key="p.id+h+dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                  <div v-if="getGameStat(p.id, h, 'pops') > 0" class="absolute bottom-[2px] w-full flex justify-center items-end gap-[2px]">
+                    <div v-for="dot in Math.floor(getGameStat(p.id, h, 'pops'))" :key="p.id+h+dot" class="size-1 rounded-full bg-emerald-500"></div>
                   </div>
                 </button>
               </div>
+
             </div>
           </div>
 
-          <div class="bg-slate-50/50 dark:bg-slate-800/30 px-3 py-1.5 flex justify-between items-center border-t border-slate-100 dark:border-slate-800 text-[10px] font-black tracking-widest uppercase">
-            <div class="text-slate-400">
-              {{ activeNine === 'front' ? 'OUT' : 'IN' }}: <span class="text-slate-800 dark:text-white text-xs">{{ pStats[p.id]?.activeNineTotal || 0 }}</span>
+          <div class="bg-stone-50 dark:bg-stone-900 px-2 py-1 flex justify-between items-center border-t border-stone-100 dark:border-stone-800 text-sm font-black tracking-widest uppercase">
+            <div class="text-stone-400">
+              {{ activeNine === 'front' ? 'OUT' : 'IN' }}: <span class="text-stone-900 dark:text-white text-sm">{{ pStats[p.id]?.activeNineTotal || 0 }}</span>
             </div>
             <div class="flex gap-4">
-              <div class="text-slate-400">NET: <span :class="getNetColor(p.id)" class="text-xs italic">{{ getNetDisplay(p.id) }}</span></div>
-              <div class="text-slate-400">GROSS: <span class="text-slate-800 dark:text-white text-xs italic">{{ pStats[p.id]?.totalGross || 0 }}</span></div>
+              <div class="text-stone-400">NET: <span :class="getNetColor(p.id)" class="text-sm italic">{{ getNetDisplay(p.id) }}</span></div>
+              <div class="text-stone-400">GROSS: <span class="text-stone-900 dark:text-white text-sm italic">{{ pStats[p.id]?.totalGross || 0 }}</span></div>
             </div>
           </div>
         </div>
 
-        <div class="flex gap-3 mt-6">
-          <button @click="showPlayerPicker = true" class="flex-1 py-3 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 hover:text-emerald-600 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-sm">
+        <div class="flex gap-3 mt-5 px-1">
+          <button @click="showPlayerPicker = true" class="flex-1 py-3 bg-white dark:bg-stone-900 border-2 border-dashed border-stone-200 dark:border-stone-800 text-stone-400 hover:text-emerald-600 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-sm">
             + Manage Group
           </button>
-          <button v-if="!round.leagueId" @click="finishCasualRound" class="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+          <button v-if="!round.leagueId" @click="finishCasualRound" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
             <Icon name="mdi:flag-checkered" class="size-4" /> Finish Round
           </button>
         </div>
@@ -110,7 +112,7 @@
         v-if="round"
         activeTab="scorecard"
         :roundId="round.id"
-        :leagueType="round.type"
+        :leagueType="round.leagueId"
         :iso="round.iso"
       />
     </ClientOnly>
@@ -203,12 +205,12 @@ const getNetColor = (pid) => {
   const score = pStats.value[pid]?.totalNet || 0;
   if (score < 0) return 'text-red-500';
   if (score > 0) return 'text-blue-500';
-  return 'text-slate-800 dark:text-white';
+  return 'text-stone-900 dark:text-white';
 };
 
 const getScoreClass = (player, hole) => {
   const val = round.value.scores[player.id][hole - 1];
-  if (!val || val === 0) return 'bg-transparent border-slate-100 dark:border-slate-800 text-transparent'; 
+  if (!val || val === 0) return 'bg-transparent border-stone-400 dark:border-stone-600 text-transparent'; 
   
   let par = 4;
   const tees = round.value.courseSnapshot?.tees;
@@ -218,9 +220,10 @@ const getScoreClass = (player, hole) => {
     par = Number(tees[targetTeeId].pars[hole - 1]) || 4;
   }
 
-  if (val < par) return 'bg-red-50 dark:bg-red-950/40 text-red-600 border-red-500 shadow-sm';
-  if (val === par) return 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white border-slate-300 dark:border-slate-700 shadow-sm';
-  return 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 border-blue-500 shadow-sm';
+  // UPDATED HIGHER CONTRAST COLORS
+  if (val < par) return 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/50 shadow-sm';
+  if (val === par) return 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white border-stone-300 dark:border-stone-700 shadow-sm';
+  return 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/50 shadow-sm';
 };
 
 const formatDate = (iso) => {
@@ -238,30 +241,22 @@ const addPlayerToRound = async (p, teeId) => {
   const teeData = Array.isArray(tees) ? tees.find(t => t.id === teeId) : tees[teeId];
 
   let playingHcp = 0;
-  
-  // Capture original GHIN to save directly to the snapshot
   let finalIndex = p.ghin !== undefined ? p.ghin : 0; 
 
-  // 1. Check for Yearly League exact decimal FIRST
   if (isYearlyLeague.value && p.leagueHandicaps && p.leagueHandicaps[round.value.leagueId] !== undefined) {
     playingHcp = Number(p.leagueHandicaps[round.value.leagueId]);
-  } 
-  // 2. Fall back to GHIN calculation if missing league data or casual round
-  else if (teeData && p.ghin !== undefined && p.ghin !== null) {
+  } else if (teeData && p.ghin !== undefined && p.ghin !== null) {
     const ghinNum = Number(p.ghin);
     if (!isNaN(ghinNum)) {
       const teePar = teeData.pars?.reduce((sum, val) => sum + Number(val), 0) || teeData.par || 72;
       playingHcp = calcUSGACourseHandicap(ghinNum, Number(teeData.slope), Number(teeData.rating), Number(teePar));
     }
-  } 
-  // 3. Ultimate failsafe
-  else {
+  } else {
     playingHcp = Number(p.index) || 0;
   }
 
   if (isNaN(playingHcp)) playingHcp = 0;
 
-  // Push ONLY the necessary fields, exactly matching setup.vue
   updatedPlayers.push({
     id: p.id,
     fname: p.fname,
@@ -288,11 +283,9 @@ const handlePlayerToggle = async (p) => {
     delete updatedScores[p.id];
     await updateDoc(doc($db, "live_rounds", route.params.id), { players: updatedPlayers, scores: updatedScores });
   } else {
-    // Rely on document root for official tees
     if (round.value.leagueId && round.value.teesId && round.value.tees !== 'Mixed') {
       await addPlayerToRound(p, round.value.teesId);
     } else {
-      // Logic for opening Tee Selection Modal goes here if needed later
       await addPlayerToRound(p, round.value.teesId || Object.keys(round.value.courseSnapshot.tees)[0]);
     }
   }

@@ -234,84 +234,135 @@ export const runLeaguePass = (players, eventDetails) => {
       id: p.id,
       name: p.name,
       gross: p.scores?.[i] || 0,
-      // Use 'i' here to match the loop index
       net: (p.scores?.[i] || 0) - (p.games?.pops?.[i] || 0) 
     })).filter(s => s.gross > 0);
 
     if (holeScores.length < numPlayers || numPlayers === 0) continue;
 
-    const minGross = Math.min(...holeScores.map(s => s.gross));
-    const gWinners = holeScores.filter(s => s.gross === minGross);
-    if (gWinners.length === 1) winnersLog.grossSkins.push({ hole: holeNum, player: gWinners[0].name, score: gWinners[0].gross, id: gWinners[0].id });
-
-    const minNet = Math.min(...holeScores.map(s => s.net));
-    const nWinners = holeScores.filter(s => s.net === minNet);
-    if (nWinners.length === 1) winnersLog.netSkins.push({ hole: holeNum, player: nWinners[0].name, score: nWinners[0].net, id: nWinners[0].id });
-
-    holeScores.forEach(s => {
-      if (s.gross === 2) winnersLog.deuces.push({ hole: holeNum, player: s.name, score: 2, id: s.id });
-    });
-  }
-
-  // 2. Blind Best Ball (Team Logic with Tie Breaker)
-  if (numPlayers > 1) {
-    let pairings = [];
-    const officialPairings = eventDetails?.bbb_pairings || [];
-
-    const getPairingData = (p1, p2) => {
-      let teamTotalNet = 0;
-      let teamHoleScores = [];
-
-      for (let h = 0; h < totalHoles; h++) {
-        const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
-        const p2Net = p2.scores?.[h] > 0 ? p2.scores[h] - (p2.games?.pops?.[h] || 0) : 99;
-        const bestNet = Math.min(p1Net, p2Net);
-        
-        teamHoleScores.push(bestNet < 90 ? bestNet : 0);
-        if (bestNet < 90) teamTotalNet += bestNet; 
-      }
-
-      return {
-        player: `${p1.name} / ${p2.name}`,
-        score: teamTotalNet,
-        id: `${p1.id}-${p2.id}`,
-        hole: 'Team',
-        tieBreaker: getTieBreakerValue(teamHoleScores, false) // Net is lower-better
-      };
-    };
-
-    if (officialPairings.length > 0) {
-      officialPairings.forEach(pair => {
-        const p1 = players.find(p => p.id === pair.p1?.id);
-        const p2 = players.find(p => p.id === pair.p2?.id);
-        if (p1 && p2) pairings.push(getPairingData(p1, p2));
-      });
-    } else {
-      const getSeededValue = (str) => {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
-        return hash;
-      };
-
-      const shuffled = [...players].sort((a, b) => {
-        if (!isComplete) return Math.random() - 0.5; 
-        return getSeededValue(a.id + (eventDetails?.iso || '')) - getSeededValue(b.id + (eventDetails?.iso || ''));
-      });
-
-      for (let i = 0; i < shuffled.length; i += 2) {
-        if (shuffled[i + 1]) pairings.push(getPairingData(shuffled[i], shuffled[i+1]));
+    // ONLY CALCULATE GROSS SKINS IF IN GAME KEYS
+    if (gameKeys.includes('Gross Skins')) {
+      const minGross = Math.min(...holeScores.map(s => s.gross));
+      const gWinners = holeScores.filter(s => s.gross === minGross);
+      if (gWinners.length === 1) {
+        winnersLog.grossSkins.push({ hole: holeNum, player: gWinners[0].name, score: gWinners[0].gross, id: gWinners[0].id });
       }
     }
 
-    // Sort with Tie Breaker
-    winnersLog.blindBestBall = pairings.sort((a, b) => {
-      if (a.score !== b.score) return a.score - b.score;
-      for (let i = 0; i < a.tieBreaker.length; i++) {
-        if (a.tieBreaker[i] !== b.tieBreaker[i]) return b.tieBreaker[i] - a.tieBreaker[i];
+    // ONLY CALCULATE NET SKINS IF IN GAME KEYS
+    if (gameKeys.includes('Net Skins')) {
+      const minNet = Math.min(...holeScores.map(s => s.net));
+      const nWinners = holeScores.filter(s => s.net === minNet);
+      if (nWinners.length === 1) {
+        winnersLog.netSkins.push({ hole: holeNum, player: nWinners[0].name, score: nWinners[0].net, id: nWinners[0].id });
       }
-      return 0;
-    });
+    }
+
+    // ONLY CALCULATE DEUCES IF IN GAME KEYS
+    if (gameKeys.includes('Deuce Pot')) {
+      holeScores.forEach(s => {
+        if (s.gross === 2) {
+          winnersLog.deuces.push({ hole: holeNum, player: s.name, score: 2, id: s.id });
+        }
+      });
+    }
   }
+
+  // 2. Blind Best Ball (Team Logic with Tie Breaker)
+if (numPlayers > 1 && gameKeys.includes('Blind Best Ball')) {
+  let pairings = [];
+  const officialPairings = eventDetails?.bbb_pairings || [];
+
+  const getPairingData = (p1, p2) => {
+    let teamTotalNet = 0;
+    let teamHoleScores = [];
+
+    for (let h = 0; h < totalHoles; h++) {
+      const p1Net = p1.scores?.[h] > 0 ? p1.scores[h] - (p1.games?.pops?.[h] || 0) : 99;
+      const p2Net = p2.scores?.[h] > 0 ? p2.scores[h] - (p2.games?.pops?.[h] || 0) : 99;
+      const bestNet = Math.min(p1Net, p2Net);
+      
+      teamHoleScores.push(bestNet < 90 ? bestNet : 0);
+      if (bestNet < 90) teamTotalNet += bestNet; 
+    }
+
+    return {
+      player: `${p1.name} / ${p2.name}`,
+      score: teamTotalNet,
+      id: `${p1.id}|${p2.id}`,
+      p1Id: p1.id, // Explicitly passing these for your modal lookup
+      p2Id: p2.id,
+      hole: 'Team',
+      tieBreaker: getTieBreakerValue(teamHoleScores, false)
+    };
+  };
+
+  if (officialPairings.length > 0) {
+    officialPairings.forEach(pair => {
+      const p1 = players.find(p => p.id === pair.p1?.id);
+      const p2 = players.find(p => p.id === pair.p2?.id);
+      if (p1 && p2) pairings.push(getPairingData(p1, p2));
+    });
+  } else {
+    const getSeededValue = (str) => {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+      return hash;
+    };
+
+    // --- MIXED PAIRING LOGIC START ---
+    
+    // 1. Separate players by tee_type
+    // Note: Use lowercase comparison to be safe
+    const men = players.filter(p => (p.tee_type || 'mens').toLowerCase() === 'mens');
+    const women = players.filter(p => (p.tee_type || '').toLowerCase() === 'ladies');
+
+    // 2. Shuffle both groups independently using the same seeding logic
+    const shuffleGroup = (group) => [...group].sort((a, b) => {
+      if (!isComplete) return Math.random() - 0.5;
+      return getSeededValue(a.id + (eventDetails?.iso || '')) - getSeededValue(b.id + (eventDetails?.iso || ''));
+    });
+
+    const shuffledMen = shuffleGroup(men);
+    const shuffledWomen = shuffleGroup(women);
+
+    // 3. Pair them up 1-to-1
+    // We loop based on the count of the larger group to ensure everyone gets handled
+    const maxPairs = Math.max(shuffledMen.length, shuffledWomen.length);
+    const mixedPairs = [];
+    const leftovers = [];
+
+    for (let i = 0; i < maxPairs; i++) {
+      const man = shuffledMen[i];
+      const woman = shuffledWomen[i];
+
+      if (man && woman) {
+        // Perfect mixed pair
+        pairings.push(getPairingData(man, woman));
+      } else {
+        // Someone is left over because counts are uneven
+        leftovers.push(man || woman);
+      }
+    }
+
+    // 4. Handle leftovers (if 11 men and 9 women, pair the last 2 men together)
+    for (let i = 0; i < leftovers.length; i += 2) {
+      if (leftovers[i] && leftovers[i+1]) {
+        pairings.push(getPairingData(leftovers[i], leftovers[i+1]));
+      }
+    }
+    
+    // --- MIXED PAIRING LOGIC END ---
+  }
+
+  // Sort with Tie Breaker
+  winnersLog.blindBestBall = pairings.sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score;
+    for (let i = 0; i < a.tieBreaker.length; i++) {
+      if (a.tieBreaker[i] !== b.tieBreaker[i]) return b.tieBreaker[i] - a.tieBreaker[i];
+    }
+    return 0;
+  });
+}
 
   // 3. Apply Payouts
   const applyPayouts = (list) => {

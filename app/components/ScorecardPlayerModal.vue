@@ -23,14 +23,14 @@
           
           <div v-for="nine in ['Front', 'Back']" :key="nine" class="space-y-1.5">
             <div class="flex justify-between px-1 items-end">
-              <h4 class="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em]">{{ nine }} 9</h4>
-              <span class="text-[10px] font-black text-stone-800 dark:text-white uppercase">Tot: <span class="text-xs">{{ getNineTotal(nine) }}</span></span>
+              <h4 class="text-xs font-black text-stone-400 uppercase tracking-[0.2em]">{{ nine }} 9</h4>
+              <span class="text-xs font-black text-stone-800 dark:text-white uppercase">Tot: <span class="text-xs">{{ getNineTotal(nine) }}</span></span>
             </div>
 
             <div class="flex gap-1 px-1">
               <div v-for="h in getNineHoles(nine)" :key="h" class="flex-1 flex flex-col items-center gap-1">
                 <span 
-                  class="text-[9px] font-black uppercase transition-colors"
+                  class="text-xs font-black uppercase transition-colors"
                   :class="event?.ddHole?.includes(h) ? 'text-lime-500' : 'text-stone-400'"
                 >
                   #{{ h }}
@@ -38,7 +38,7 @@
                 
                 <div class="relative w-full aspect-square flex items-center justify-center">
                   <div v-if="showPrimaryBirds && player.games?.birds?.[h-1] > 0" class="absolute -top-1.5 -left-1 text-lime-600 flex items-start z-20 pointer-events-none drop-shadow-sm bg-white dark:bg-stone-900 rounded-full px-0.5 border border-stone-100 dark:border-stone-800">
-                    <span class="text-[10px] font-black leading-none">{{ Math.floor(player.games.birds[h-1]) || '' }}</span>
+                    <span class="text-xs font-black leading-none">{{ Math.floor(player.games.birds[h-1]) || '' }}</span>
                     <span v-if="player.games.birds[h-1] % 1 !== 0" class="text-[7px] font-black leading-none mt-[1px] ml-[0.5px]">½</span>
                   </div>
 
@@ -50,7 +50,7 @@
                   </div>
 
                   <div v-if="(isVegasType && player.games?.deuces?.[h-1] > 0) || (hasDeucePot && player.winStats?.deuceHoles?.includes(h))" class="absolute -bottom-1.5 -right-1 flex items-center justify-center text-blue-500 bg-blue-50 dark:bg-blue-950/80 rounded-full size-3.5 z-20 pointer-events-none drop-shadow-sm border border-blue-200 dark:border-blue-800">
-                    <span class="text-[8px] font-black leading-none mt-[1px]">2</span>
+                    <span class="text-xs font-black leading-none mt-[1px]">2</span>
                   </div>
 
                   <div 
@@ -65,7 +65,7 @@
                   </div>
                 </div>
 
-                <span class="text-[9px] font-black tabular-nums transition-colors" :class="showChicago ? 'text-blue-500' : 'text-stone-500'">
+                <span class="text-xs font-black tabular-nums transition-colors" :class="showChicago ? 'text-blue-500' : 'text-stone-500'">
                   {{ showChicago ? Math.floor(hasGame('Modified Chicago') ? (player.games?.modChicago?.[h-1] || 0) : (player.games?.chicago?.[h-1] || 0)) : formatHoleNet(player.games?.net?.[h-1]) }}
                 </span>
               </div>
@@ -75,17 +75,17 @@
           <div class="mt-2 pt-6 border-t border-stone-100 dark:border-stone-800 flex flex-col gap-8">
             <div class="flex items-center justify-around">
               <div class="flex flex-col items-center justify-center gap-1">
-                <span class="text-stone-400 dark:text-stone-500 text-[10px] uppercase font-black">Gross</span>
+                <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">Gross</span>
                 <span class="text-2xl font-black italic tracking-tighter leading-none text-stone-800 dark:text-stone-200 tabular-nums">{{ getRawGross }}</span>
               </div>
 
               <div class="flex flex-col items-center justify-center gap-1">
-                <span class="text-stone-400 dark:text-stone-500 text-[10px] uppercase font-black">Adjusted</span>
+                <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">Adjusted</span>
                 <span class="text-2xl font-black italic tracking-tighter leading-none text-stone-800 dark:text-stone-200 tabular-nums">{{ getAdjustedGross }}</span>
               </div>
 
               <div class="flex flex-col items-center justify-center gap-1">
-                <span class="text-stone-400 dark:text-stone-500 text-[10px] uppercase font-black">{{ showChicago ? 'Chicago' : 'Net' }}</span>
+                <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">{{ showChicago ? 'Chicago' : 'Net' }}</span>
                 <span :class="showChicago ? 'text-blue-500' : getNetColor(player.games.totalNet)" class="text-2xl font-black italic tracking-tighter tabular-nums leading-none">
                   {{ showChicago ? formatChicagoTotal(hasGame('Modified Chicago') ? player.games.totalModChicago : player.games.totalChicago) : (player.games.totalNet > 0 ? '+' : '') + formatNet(player.games.totalNet) }}
                 </span>
@@ -94,27 +94,27 @@
 
             <div v-if="showPrimaryBirds || showPrimaryDeuces" class="flex items-center justify-around">
               <div v-if="showPrimaryBirds" class="flex flex-col items-center">
-                <span class="text-stone-400 dark:text-stone-500 text-[10px] uppercase font-black">Birds</span>
+                <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">Birds</span>
                 <span class="text-2xl font-black italic tracking-tighter text-lime-600 tabular-nums leading-none">{{ player.games.totalBirds }}</span>
               </div>
               <div v-if="showPrimaryDeuces" class="flex flex-col items-center">
-                <span class="text-stone-400 dark:text-stone-500 text-[10px] uppercase font-black">{{ isVegasType ? 'Net 2s' : 'Season 2s' }}</span>
+                <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">{{ isVegasType ? 'Net 2s' : 'Season 2s' }}</span>
                 <span class="text-2xl font-black italic tracking-tighter text-amber-500 tabular-nums leading-none">{{ player.games.totalDeuces }}</span>
               </div>
             </div>
 
             <div v-if="showSideGames" class="pt-4 pb-1 border-t border-dashed border-stone-200 dark:border-stone-800 flex justify-center gap-8">
                <div v-if="hasGame('Gross Skins') && player.winStats?.grossSkinsCount > 0" class="flex flex-col items-center">
-                 <span class="text-stone-400 dark:text-stone-500 text-[8px] uppercase tracking-widest font-black">G Skins</span>
-                 <span class="text-base font-black text-amber-600 italic leading-none mt-1">{{ player.winStats.grossSkinsCount }}</span>
+                 <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">G Skins</span>
+                 <span class="text-2xl font-black text-amber-600 italic leading-none mt-1">{{ player.winStats.grossSkinsCount }}</span>
                </div>
                <div v-if="hasGame('Net Skins') && player.winStats?.netSkinsCount > 0" class="flex flex-col items-center">
-                 <span class="text-stone-400 dark:text-stone-500 text-[8px] uppercase tracking-widest font-black">N Skins</span>
-                 <span class="text-base font-black text-lime-600 italic leading-none mt-1">{{ player.winStats.netSkinsCount }}</span>
+                 <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">N Skins</span>
+                 <span class="text-2xl font-black text-lime-600 italic leading-none mt-1">{{ player.winStats.netSkinsCount }}</span>
                </div>
                <div v-if="hasDeucePot && player.winStats?.deucesCount > 0" class="flex flex-col items-center">
-                 <span class="text-stone-400 dark:text-stone-500 text-[8px] uppercase tracking-widest font-black">Deuce Pot</span>
-                 <span class="text-base font-black text-blue-500 italic leading-none mt-1">{{ player.winStats.deucesCount }}</span>
+                 <span class="text-stone-400 dark:text-stone-500 text-xs uppercase font-black">Deuce Pot</span>
+                 <span class="text-2xl font-black text-blue-500 italic leading-none mt-1">{{ player.winStats.deucesCount }}</span>
                </div>
             </div>
           </div>

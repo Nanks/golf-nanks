@@ -60,6 +60,27 @@
 
       <div class="px-3">
         <div class="relative">
+          
+          <div v-if="activeTab === 'Blind Best Ball' && activeDisplayList.length === 0" 
+               class="card-base p-8 flex flex-col items-center justify-center text-center gap-4 border-dashed border-2 mt-4">
+            <Icon name="mdi:poker-chip" class="size-12 text-stone-300 dark:text-stone-700" />
+            
+            <div class="space-y-1">
+              <h4 class="text-primary text-lg">Pairings Pending</h4>
+              <p class="text-secondary text-[10px] max-w-[200px] mx-auto leading-relaxed">
+                Random pairings will be revealed once the round is locked and complete.
+              </p>
+            </div>
+
+            <button 
+              v-if="isAdmin" 
+              @click="isPreviewingPairings = true"
+              class="mt-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+            >
+              Preview Pairings
+            </button>
+          </div>
+
           <TransitionGroup name="shuffle-list" tag="div" class="space-y-2">
             <div v-for="(row, index) in activeDisplayList" :key="row.id" class="active:scale-[0.98] transition-transform">
               
@@ -81,13 +102,13 @@
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2 flex-1 min-w-0">
                     <span class="text-primary text-md opacity-40 font-black w-6 text-center">{{ getRank(index) }}</span>
-                    <h3 class="text-lg text-primary font-black uppercase italic truncate">{{ row.name }}</h3>
+                    <h3 class="text-lg text-primary font-black uppercase italic">{{ row.name }}</h3>
                   </div>
                   <span :class="row.scoreColor" class="text-2xl font-black italic tabular-nums">{{ row.scoreDisplay }}</span>
                 </div>
                 
-                <div class="flex items-center justify-between pt-1 border-t border-stone-100 dark:border-stone-800/60">
-                  <div class="flex items-center gap-4 text-secondary text-[9px] font-black uppercase">
+                <div class="flex items-center justify-between border-t border-stone-100 dark:border-stone-800/60">
+                  <div class="flex items-center gap-4 text-secondary text-xs font-black uppercase">
                     <span>HCP: <span class="text-stone-900 dark:text-stone-100">{{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}</span></span>
                     <span>THRU: <span class="text-stone-900 dark:text-stone-100">{{ row.games.holesPlayed === (row.holes || 18) ? 'F' : row.games.holesPlayed }}</span></span>
                   </div>
@@ -106,6 +127,7 @@
                   </template>
                 </div>
               </div>
+
             </div>
           </TransitionGroup>
         </div>
@@ -187,12 +209,12 @@ const processedPlayers = computed(() => (roundsSource.value || []).map(p => ({
 
 const activeDisplayList = computed(() => {
   if (activeTab.value === 'Blind Best Ball') {
-    // FIX: Recognize 'mdi-check-bold' as a locked/complete state
     const currentStatus = eventDetails.value?.status?.toLowerCase() || '';
     const isLocked = ['complete', 'mdi-check-bold', 'mdi:check-bold'].includes(currentStatus);
     
     if (!isLocked && !isPreviewingPairings.value) return [];
-    return (winnersLog.value?.blindBestBall || []).map(win => ({ ...win, id: `team-${win.id}`, isWinnerRow: true }));
+    // FIX 1: Safely map index to ID if win.id is missing so Vue keys don't break
+    return (winnersLog.value?.blindBestBall || []).map((win, idx) => ({ ...win, id: `team-${win.id || idx}`, isWinnerRow: true }));
   }
 
   const isChicago = ['Chicago Points', 'Modified Chicago'].includes(activeTab.value);
@@ -259,12 +281,28 @@ const backText = computed(() => {
 
 // --- METHODS ---
 const shouldShowBadge = (label) => {
+  // 1. If no games are defined for the event, show nothing
   if (!eventDetails.value?.game) return false;
+  
   const games = eventDetails.value.game;
   const lowerLabel = label.toLowerCase();
-  if (lowerLabel.includes('gross skins')) return games.includes('Gross Skins');
-  if (lowerLabel.includes('net skins')) return games.includes('Net Skins');
-  if (lowerLabel.includes('deuce')) return games.includes('Deuce Pot');
+
+  // 2. Check for "Gross" badges (Gross Skins)
+  if (lowerLabel.startsWith('gross')) {
+    return games.includes('Gross Skins');
+  }
+
+  // 3. Check for "Net" badges (Net Skins)
+  if (lowerLabel.startsWith('net')) {
+    return games.includes('Net Skins');
+  }
+
+  // 4. Check for "Deuce" badges (Deuce Pot)
+  if (lowerLabel.startsWith('deuce')) {
+    return games.includes('Deuce Pot');
+  }
+
+  // 5. Default to true for any badges that don't match the side-game categories
   return true;
 };
 
@@ -273,15 +311,32 @@ const openPlayerModal = (row) => {
   isModalOpen.value = true; 
 };
 
+// FIX 2: Bulletproof team modal opener
 const openTeamModal = (pairing) => {
-  const rawId = pairing.id.replace('team-', '');
-  const [p1Id, p2Id] = rawId.split('-');
-  const p1 = processedPlayers.value.find(p => p.id === p1Id);
-  const p2 = processedPlayers.value.find(p => p.id === p2Id);
-  if (p1 && p2) {
-    selectedTeam.value = { p1, p2, totalNet: pairing.score };
-    isTeamModalOpen.value = true;
+  // 1. Try to grab the exact player objects if they are attached to the pairing
+  let p1 = pairing.p1 || pairing.team?.[0];
+  let p2 = pairing.p2 || pairing.team?.[1];
+
+  // 2. Fallback: If objects aren't attached, try splitting the ID to find them in processedPlayers
+  if (!p1 || !p2) {
+    const rawId = pairing.id?.replace('team-', '') || '';
+    const parts = rawId.split('|');
+    if (parts.length >= 2) {
+      p1 = p1 || processedPlayers.value.find(p => p.id === parts[0]);
+      p2 = p2 || processedPlayers.value.find(p => p.id === parts[1]);
+    }
   }
+
+  // 3. Ultimate Fallback: Force the modal open by creating mock objects with the parsed names
+  // This guarantees the modal opens even if the player lookup fails completely.
+  selectedTeam.value = { 
+    p1: p1 || { name: pairing.player?.split(' / ')[0] || 'Player 1' }, 
+    p2: p2 || { name: pairing.player?.split(' / ')[1] || 'Player 2' }, 
+    totalNet: pairing.score,
+    ...pairing
+  };
+  
+  isTeamModalOpen.value = true;
 };
 
 const completeEvent = async () => {
@@ -299,7 +354,6 @@ const completeEvent = async () => {
     eventDetails.value.status = 'complete';
     isPreviewingPairings.value = false;
     
-    // Re-trigger calculation with updated status
     if (mode === 'live') {
       const normalized = normalizeLiveRounds(dataStore.liveRounds);
       processLeaderboard(normalized);
@@ -396,14 +450,12 @@ onMounted(async () => {
     if (mode === 'live') {
       dataStore.startLiveListener({ leagueId });
       
-      // Watcher acts as the "Live Data Pipeline" trigger
       watch(() => dataStore.liveRounds, (newLiveRounds) => {
         const normalized = normalizeLiveRounds(newLiveRounds);
         processLeaderboard(normalized);
       }, { immediate: true, deep: true });
       
     } else {
-      // History Pipeline trigger
       await fetchHistoryRounds();
     }
   } finally {

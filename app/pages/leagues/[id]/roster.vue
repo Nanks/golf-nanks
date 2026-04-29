@@ -2,7 +2,8 @@
   <div class="max-w-2xl mx-auto select-none pb-32">
     
     <LeagueHeader 
-      title="Roster" 
+      :title="league?.shortName || league?.name || 'Loading...'"
+      subtitle="Roster" 
       :is-admin="isAdmin"
       :back-to="`/leagues/${route.params.id}/menu`"
       back-text="League Menu"
@@ -10,10 +11,12 @@
       <template #action v-if="isAdmin">
         <button 
           @click="isEditMode = !isEditMode"
-          :class="isEditMode ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'"
-          class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+          :class="isEditMode 
+            ? 'text-amber-600 dark:text-amber-400 bg-amber-500/20 border border-amber-500/50 shadow-[inset_0_0_8px_rgba(245,158,11,0.2)]' 
+            : 'text-amber-700 dark:text-amber-500 bg-amber-500/10 border border-amber-500/30'"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
         >
-          <Icon :name="isEditMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-5" />
+          <Icon :name="isEditMode ? 'mdi:lock-open-variant' : 'mdi:cog'" class="size-3.5" />
           <span>{{ isEditMode ? 'Finish' : 'Manage' }}</span>
         </button>
       </template>
@@ -23,56 +26,55 @@
       <div v-if="isEditMode" class="grid grid-cols-2 gap-2 mb-6 px-1">
         <button @click="isAddModalOpen = true" class="card-interactive p-4 border-2 border-dashed flex flex-col items-center gap-2">
           <Icon name="mdi:plus-circle-outline" class="size-5 text-emerald-500" /> 
-          <span class="text-[10px] font-black uppercase tracking-widest">Add Player</span>
+          <span class="text-secondary text-[10px]">Add Player</span>
         </button>
         <button @click="syncAllHandicaps" class="card-interactive p-4 border-2 border-dashed flex flex-col items-center gap-2">
           <Icon name="mdi:sync" class="size-5 text-amber-500" /> 
-          <span class="text-[10px] font-black uppercase tracking-widest">Sync All</span>
+          <span class="text-secondary text-[10px]">Sync All</span>
         </button>
       </div>
     </Transition>
 
     <div class="space-y-2 px-1">
-      <div v-for="player in roster" :key="player.id" 
-          class="card-base relative overflow-hidden group">
+      <div v-for="player in roster" :key="player.id" class="card-base relative overflow-hidden group">
         
         <div class="p-3 flex items-center justify-between gap-3">
-          <div class="flex flex-col min-w-0 flex-1">
+          <div class="flex flex-col min-w-0 flex-1 pl-1">
             
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-1.5">
               <Icon 
                 v-if="isPlayerAdmin(player)" 
                 name="mdi:shield-crown-outline" 
-                class="size-6 text-amber-500 shrink-0" 
+                class="size-5 text-amber-500 shrink-0" 
               />
-              <span class="text-xl text-primary">
+              <span class="text-primary text-lg mt-1">
                 {{ player.fname }} {{ player.lname }}
               </span>
             </div>
             
             <button v-if="league?.cadence === 'yearly'" @click="openAuditModal(player)" 
-                    class="flex items-center gap-1.5 mt-1 group/hcp active:opacity-60 transition-opacity">
-              <span class="text-secondary text-xs text-emerald-500">
-                League HCP: <span class="tabular-nums">{{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}</span>
+                    class="flex items-center gap-1 mt-1 group/hcp active:opacity-60 transition-opacity w-fit">
+              <span class="text-secondary text-[10px] text-emerald-600 dark:text-emerald-500">
+                League HCP: <span class="tabular-nums ml-0.5">{{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}</span>
               </span>
-              <Icon name="mdi:information-outline" class="size-3 text-emerald-500/50 group-active/hcp:text-emerald-500" />
+              <Icon name="mdi:information-outline" class="size-3 text-emerald-500/50 group-active/hcp:text-emerald-500 mb-0.5" />
             </button>
           </div>
 
           <div class="flex items-center gap-1 shrink-0">
-            <div class="relative bg-slate-50 dark:bg-slate-950 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 min-w-[75px] text-center">
-              <p class="text-secondary text-[8px]">GHIN</p>
-              <p class="text-primary text-lg tabular-nums leading-none">
+            <div class="relative bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-900 min-w-[75px] text-center shadow-inner">
+              <p class="text-secondary text-[8px] mb-0.5">GHIN</p>
+              <p class="text-primary text-lg tabular-nums">
                 {{ player.ghin?.toFixed(1) || 'NH' }}
               </p>
               
               <button v-if="canEditPlayer(player)" @click="openGhinModal(player)" 
-                      class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-md z-10 active:scale-95 transition-transform">
-                <Icon name="mdi:pencil" class="size-[10px]" />
+                      class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-md z-10 active:scale-95 transition-transform border border-emerald-400">
+                <Icon name="mdi:pencil" class="size-3" />
               </button>
             </div>
 
-            <button v-if="isEditMode" @click="handleRemoveClick(player)" class="p-2 text-slate-300 active:text-red-500 transition-colors">
+            <button v-if="isEditMode" @click="handleRemoveClick(player)" class="p-2 text-slate-400 hover:text-red-500 active:scale-90 transition-all">
               <Icon name="mdi:close-circle-outline" class="size-6" />
             </button>
           </div>
@@ -237,7 +239,7 @@ const handleRemoveClick = async (player) => {
   const confirmed = await confirm.ask(
     'Remove Player', 
     `Are you sure you want to remove <b>${player.fname} ${player.lname}</b> from the league?`,
-    { confirmText: 'Remove', variant: 'danger' }
+    { confirmText: 'Remove', variant: 'danger', icon: 'mdi:account-remove', iconBg: 'bg-red-50 dark:bg-red-900/30', iconColor: 'text-red-500' }
   );
 
   if (confirmed) {
@@ -251,7 +253,14 @@ const handleRemoveClick = async (player) => {
 };
 
 const syncAllHandicaps = async () => {
-  if (!confirm(`Re-calculate all ${roster.value.length} handicaps?`)) return;
+  const confirmed = await confirm.ask(
+    'Sync All Handicaps', 
+    `Re-calculate and sync handicaps for all ${roster.value.length} players?`,
+    { confirmText: 'Sync', icon: 'mdi:sync', iconBg: 'bg-amber-50 dark:bg-amber-900/30', iconColor: 'text-amber-500', confirmBtnClass: 'bg-amber-500' }
+  );
+
+  if (!confirmed) return;
+  
   ui.setLoading(true, "Global Re-Sync...");
   try {
     for (const player of roster.value) {

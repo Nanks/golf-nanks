@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-1 pb-32">
+  <div class="min-h-screen bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 px-1 pb-28">
     <div class="max-w-md mx-auto pt-2">
       
       <LeagueHeader 
@@ -10,12 +10,12 @@
         <template #title>
           <span class="block text-2xl">
             {{ isLeague ? 'League' : 'Casual' }}
-            <span class="text-slate-400 dark:text-slate-600 italic">Round</span>
+            <span class="text-stone-400 dark:text-stone-600 italic">Round</span>
           </span>
         </template>
       </LeagueHeader>
 
-      <p v-if="leagueName" class="px-2 -mt-2 mb-6 text-emerald-500 font-black uppercase text-[10px] tracking-[0.15em]">
+      <p v-if="leagueName" class="px-2 -mt-2 mb-4 text-emerald-500 font-black uppercase text-xs tracking-[0.15em]">
         {{ leagueName }}
       </p>
 
@@ -23,9 +23,9 @@
         <Icon name="svg-spinners:ring-resize" class="size-8 text-emerald-500 mb-2" />
       </div>
 
-      <div v-else class="space-y-4 px-2">
+      <div v-else class="space-y-3 px-2">
         
-        <section class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <section class="bg-stone-50 dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm">
           <BaseSelect 
             v-model="selectedCourseId"
             label="1. Select Course"
@@ -35,46 +35,46 @@
           />
         </section>
 
-        <section v-show="selectedCourseId" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <section v-show="selectedCourseId" class="bg-stone-50 dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm">
           
           <div class="flex justify-between items-center mb-4">
-            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">2. Players & Tees</label>
+            <label class="text-[11px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400">2. Players & Tees</label>
             <button 
               @click="showPlayerPicker = true" 
-              class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 active:scale-95 transition-all"
+              class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 active:scale-95 transition-all shadow-[inset_0_0_8px_rgba(16,185,129,0.1)]"
             >
               <Icon name="mdi:account-plus" class="size-4" /> Add
             </button>
           </div>
 
-          <div v-if="players.length === 0" class="py-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center gap-2">
-            <Icon name="mdi:golf-tee" class="size-6 text-slate-300 dark:text-slate-700" />
-            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">No players added</p>
+          <div v-if="players.length === 0" class="py-8 text-center border-2 border-dashed border-stone-300 dark:border-stone-800 rounded-2xl flex flex-col items-center gap-2">
+            <Icon name="mdi:golf-tee" class="size-6 text-stone-300 dark:text-stone-700" />
+            <p class="text-[9px] font-black uppercase tracking-widest text-stone-400">No players added</p>
           </div>
 
-          <div v-else class="space-y-3 mt-2">
+          <div v-else class="space-y-2.5 mt-2">
             <div v-for="(player, index) in players" :key="player.id" 
-                 class="p-2.5 bg-white dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative group">
+                 class="p-2.5 bg-white dark:bg-stone-950 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm relative group">
               
               <div class="grid grid-cols-12 gap-2 items-center">
                 <div class="col-span-7 flex flex-col justify-center min-w-0 pl-1.5">
-                  <h4 class="font-black uppercase italic tracking-tighter leading-none truncate text-sm text-slate-900 dark:text-white">
+                  <h4 class="font-black uppercase italic tracking-tighter leading-none truncate text-base text-stone-900 dark:text-white">
                     {{ player.fname }} {{ player.lname }}
                   </h4>
                   
                   <div class="mt-1.5 flex items-center gap-1.5">
                     
-                    <p v-if="isYearlyLeague" class="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                      League HCP: <span class="text-emerald-500">{{ getDisplayHandicap(player) }}</span>
+                    <p v-if="isYearlyLeague" class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
+                      League HCP: <span class="text-emerald-500 text-[10px]">{{ getDisplayHandicap(player) }}</span>
                     </p>
                     
                     <template v-else>
-                      <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                        Index: <span class="text-emerald-500">{{ (player.ghin ?? 0).toFixed(1) }}</span>
+                      <p class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
+                        Index: <span class="text-emerald-500 text-[10px]">{{ (player.ghin ?? 0).toFixed(1) }}</span>
                       </p>
-                      <span v-if="player.teeId" class="w-px h-2 bg-slate-300 dark:bg-slate-700 rounded-full"></span>
-                      <p v-if="player.teeId" class="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                        CH: <span class="text-emerald-500">{{ getDynamicCourseHandicap(player) }}</span>
+                      <span v-if="player.teeId" class="w-px h-2.5 bg-stone-200 dark:bg-stone-800 rounded-full"></span>
+                      <p v-if="player.teeId" class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
+                        CH: <span class="text-emerald-500 text-[10px]">{{ getDynamicCourseHandicap(player) }}</span>
                       </p>
                     </template>
 
@@ -94,9 +94,9 @@
 
               <button 
                 @click="removePlayer(index)" 
-                class="absolute -top-2.5 -left-2.5 bg-white dark:bg-slate-950 rounded-full p-0.5 active:scale-90 transition-transform z-10"
+                class="absolute -top-2.5 -left-2.5 bg-white dark:bg-stone-950 rounded-full p-0.5 active:scale-90 transition-transform z-10 shadow-sm border border-stone-100 dark:border-stone-800"
               >
-                <Icon name="mdi:close-circle" class="size-[22px] text-slate-300 dark:text-slate-700 active:text-red-500 transition-colors" />
+                <Icon name="mdi:close-circle" class="size-5 text-stone-300 dark:text-stone-700 active:text-red-500 transition-colors" />
               </button>
             </div>
           </div>
@@ -104,16 +104,18 @@
       </div>
     </div>
 
-    <div class="fixed bottom-0 left-0 right-0 pt-8 pb-4 px-4 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 z-40">
-      <div class="max-w-md mx-auto">
+    <div class="fixed bottom-0 left-0 right-0 pt-4 pb-4 px-3 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-stone-950 dark:via-stone-950/95 z-40 backdrop-blur-[2px]">
+      <div class="max-w-md mx-auto px-1">
         <button 
           @click="startRound" 
-          :disabled="!canStart" 
-          class="w-full py-4 rounded-2xl font-black uppercase tracking-widest text-sm text-white bg-emerald-600 disabled:opacity-30 disabled:bg-slate-400 dark:disabled:bg-slate-800 active:scale-[0.98] transition-all shadow-xl shadow-emerald-500/20 disabled:shadow-none"
+          :disabled="!canStart || uiStore.isGlobalLoading" 
+          class="w-full py-3.5 rounded-xl font-black uppercase tracking-widest text-sm active:scale-[0.98] transition-all
+                 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 shadow-[inset_0_0_12px_rgba(16,185,129,0.1)] backdrop-blur-md
+                 disabled:opacity-60 disabled:text-stone-500 disabled:bg-stone-500/10 disabled:border-stone-500/20 disabled:shadow-none"
         >
           <div class="flex items-center justify-center gap-2">
-            <Icon v-if="loading" name="svg-spinners:ring-resize" class="size-4" />
-            <span>{{ loading ? 'Setting up...' : 'Start Round' }}</span>
+            <Icon v-if="uiStore.isGlobalLoading" name="svg-spinners:ring-resize" class="size-5" />
+            <span>{{ uiStore.isGlobalLoading ? 'Setting up...' : 'Start Round' }}</span>
           </div>
         </button>
       </div>
@@ -123,6 +125,8 @@
       v-model:is-open="showPlayerPicker" 
       :selected-players="players" 
       mode="setup" 
+      :league-id="isLeague ? leagueId : null" 
+      :can-create="isAdmin"
       @toggle="togglePlayer" 
       @create-new="addManualPlayer" 
     />
@@ -133,12 +137,14 @@
 import { collection, addDoc } from 'firebase/firestore'
 import { useData } from '~/stores/data'
 import { useAuthStore } from '~/stores/auth'
+import { useUIStore } from '~/stores/ui'
 import { calcCourseHandicap } from '~/utils/gameLogic'
 import { getLocalIsoDate } from '~/utils/leagueActions'
 
 const { $db } = useNuxtApp()
 const dataStore = useData()
 const authStore = useAuthStore()
+const uiStore = useUIStore()
 const route = useRoute()
 
 const TEE_MAPPING = {
@@ -148,7 +154,6 @@ const TEE_MAPPING = {
 }
 
 // State
-const loading = ref(false)
 const showPlayerPicker = ref(false)
 const selectedCourseId = ref('')
 const players = ref([])
@@ -171,7 +176,7 @@ const backText = computed(() => {
 
 // Computed
 const scheduledEvent = computed(() => {
-  const today = getLocalIsoDate;
+  const today = getLocalIsoDate();
   if (!currentLeague.value?.nextRound) return null;
   return currentLeague.value.nextRound.iso === today ? currentLeague.value.nextRound : null;
 });
@@ -185,7 +190,7 @@ const sortedCourses = computed(() => {
 const selectedCourse = computed(() => dataStore.courses.find(c => c.id === selectedCourseId.value))
 
 const canStart = computed(() => {
-  return selectedCourseId.value && players.value.length > 0 && players.value.every(p => p.teeId) && !loading.value
+  return selectedCourseId.value && players.value.length > 0 && players.value.every(p => p.teeId) && !uiStore.isGlobalLoading
 })
 
 // ==========================================
@@ -309,10 +314,10 @@ const addManualPlayer = (formData) => {
 const removePlayer = (index) => players.value.splice(index, 1)
 
 const startRound = async () => {
-  if (!canStart.value) return
+  if (!canStart.value || uiStore.isGlobalLoading) return
   
   showPlayerPicker.value = false
-  loading.value = true
+  uiStore.setLoading(true, "Setting up...")
 
   try {
     const courseSnapshot = {
@@ -322,7 +327,6 @@ const startRound = async () => {
       tees: {}
     }
 
-    // IMPORTANT: Save the `types` array so the scorecard can filter tees later
     Object.entries(selectedCourse.value.tees).forEach(([id, tee]) => {
       courseSnapshot.tees[id] = { 
         name: tee.name,
@@ -332,7 +336,7 @@ const startRound = async () => {
         pars: tee.pars || [], 
         hnds: tee.hnds || [], 
         par: getTeePar(tee),
-        types: tee.types || [] // <-- MUST CARRY THIS OVER
+        types: tee.types || [] 
       }
     })
 
@@ -363,7 +367,6 @@ const startRound = async () => {
       }
     })
 
-    // Determine the officially designated event tees
     let eventTeeId = '';
     let eventTeeName = '';
     
@@ -387,7 +390,7 @@ const startRound = async () => {
       leagueId: leagueId.value,
       type: isLeague.value ? (currentLeague.value?.type || 'league') : 'casual',
       createdAt: new Date().toISOString(),
-      iso: new Date().toISOString().split('T')[0],
+      iso: getLocalIsoDate(),
       players: playerSnapshots,
       scores: {},
       currentHole: 1,
@@ -400,12 +403,11 @@ const startRound = async () => {
 
     const docRef = await addDoc(collection($db, 'live_rounds'), roundData)
     
-    loading.value = false
-    return navigateTo(`/rounds/${docRef.id}`)
+    await navigateTo(`/rounds/${docRef.id}`)
     
   } catch (e) {
     console.error("Setup failed:", e)
-    loading.value = false
+    uiStore.setLoading(false)
   }
 }
 </script>

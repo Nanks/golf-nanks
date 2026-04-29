@@ -1,19 +1,17 @@
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm">
-        <div @click.stop class="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl p-8 overflow-hidden relative">
-          
+      <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-6 pt-24 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">  <div @click.stop class="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-8 overflow-hidden relative">
           <div class="mb-8">
-            <p class="text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-1">Update Handicap</p>
-            <h2 class="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+            <p class="text-[10px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-[0.3em] mb-1">Update Handicap</p>
+            <h2 class="text-3xl font-black italic text-slate-900 dark:text-white uppercase tracking-tighter">
               {{ player.fname }} {{ player.lname }}
             </h2>
           </div>
 
           <div class="space-y-6">
-            <div class="relative">
-              <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest absolute -top-2 left-4 bg-white dark:bg-slate-900 px-2">
+            <div class="relative mt-2">
+              <label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest absolute -top-2 left-4 bg-white dark:bg-slate-900 px-2">
                 GHIN Index
               </label>
               <input 
@@ -21,21 +19,25 @@
                 type="number" 
                 step="0.1"
                 placeholder="e.g. 12.4"
-                class="w-full bg-transparent border-2 border-slate-100 dark:border-slate-800 rounded-2xl p-4 pt-5 text-2xl font-black focus:border-emerald-500 outline-none transition-all"
+                class="w-full bg-slate-50 dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 rounded-2xl p-4 pt-5 text-3xl font-black text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-all shadow-inner"
               />
             </div>
 
-            <div class="flex gap-3">
+            <div class="flex gap-3 pt-2">
               <button 
                 @click="close" 
-                class="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition"
+                class="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-2xl transition-all active:scale-95"
               >
                 Cancel
               </button>
+              
               <button 
                 @click="handleSave"
                 :disabled="loading"
-                class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
+                class="flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all active:scale-95
+                       text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 
+                       shadow-[inset_0_0_12px_rgba(16,185,129,0.15)] hover:bg-emerald-500/20 backdrop-blur-sm
+                       disabled:opacity-50 disabled:text-slate-500 disabled:bg-slate-500/10 disabled:border-slate-500/20 disabled:shadow-none"
               >
                 {{ loading ? 'Saving...' : 'Save Index' }}
               </button>
