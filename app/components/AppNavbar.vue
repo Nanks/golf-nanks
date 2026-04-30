@@ -19,7 +19,6 @@
           <div v-if="isMenuOpen" class="absolute top-16 right-0 w-80 bg-white dark:bg-slate-900 border-2 border-slate-900 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-[60] space-y-3">
             
             <div v-if="authStore.isLoggedIn && authStore.userProfile" class="space-y-3">
-              
               <div class="px-4 py-3 bg-slate-900 rounded-xl border-l-4 border-emerald-500 shadow-lg">
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">Authenticated As</p>
                 <p class="text-xl text-white truncate text-primary italic uppercase !leading-tight">
@@ -33,32 +32,49 @@
                 </div>
                 <span class="text-secondary group-hover:text-slate-900 dark:group-hover:text-white">Profile Settings</span>
               </button>
-              
-              <div class="p-1 bg-slate-100 dark:bg-slate-800 rounded-xl flex relative h-14 items-center border border-slate-200 dark:border-slate-700 my-4">
-                <div 
-                  class="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-slate-900 dark:bg-emerald-500 rounded-lg shadow-md transition-all duration-300 ease-out z-0"
-                  :class="isDark ? 'left-[calc(50%+2px)]' : 'left-1'"
-                ></div>
-                
-                <button @click="colorMode.preference = 'light'" class="pill-btn" :class="{ 'text-white font-black': !isDark, 'text-slate-500': isDark }">
-                  <Icon name="mdi:white-balance-sunny" class="size-5" />
-                  <span>Light</span>
-                </button>
-                <button @click="colorMode.preference = 'dark'" class="pill-btn" :class="{ 'text-white font-black': isDark, 'text-slate-500': !isDark }">
-                  <Icon name="mdi:weather-night" class="size-5" />
-                  <span>Dark</span>
-                </button>
-              </div>
 
-              <div class="divider"></div>
-
-              <button v-if="authStore.userProfile?.role === 'super'" @click="handleNav('/admin/create-league')" class="menu-btn group">
+              <button v-if="authStore.userProfile?.role === 'super' || authStore.isSuperAdmin" @click="handleNav('/admin/create-league')" class="menu-btn group">
                 <div class="icon-box bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20">
                   <Icon name="mdi:plus-thick" class="size-5" />
                 </div>
                 <span class="text-primary !text-[12px]">System Admin</span>
               </button>
+            </div>
 
+            <div v-else class="space-y-3">
+              <div class="px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl border-l-4 border-slate-400 dark:border-slate-600 shadow-sm">
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-1">Welcome</p>
+                <p class="text-xl text-slate-800 dark:text-white truncate text-primary italic uppercase !leading-tight">
+                  Guest User
+                </p>
+              </div>
+
+              <button @click="handleNav('/login')" class="menu-btn group">
+                <div class="icon-box bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20">
+                   <Icon name="mdi:login" class="size-6" />
+                </div>
+                <span class="text-primary text-slate-900 dark:text-white">Sign In</span>
+              </button>
+            </div>
+
+            <div class="p-1 bg-slate-100 dark:bg-slate-800 rounded-xl flex relative h-14 items-center border border-slate-200 dark:border-slate-700 my-4">
+              <div 
+                class="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-slate-900 dark:bg-emerald-500 rounded-lg shadow-md transition-all duration-300 ease-out z-0"
+                :class="isDark ? 'left-[calc(50%+2px)]' : 'left-1'"
+              ></div>
+              
+              <button @click="colorMode.preference = 'light'" class="pill-btn" :class="{ 'text-white font-black': !isDark, 'text-slate-500': isDark }">
+                <Icon name="mdi:white-balance-sunny" class="size-5" />
+                <span>Light</span>
+              </button>
+              <button @click="colorMode.preference = 'dark'" class="pill-btn" :class="{ 'text-white font-black': isDark, 'text-slate-500': !isDark }">
+                <Icon name="mdi:weather-night" class="size-5" />
+                <span>Dark</span>
+              </button>
+            </div>
+
+            <div v-if="authStore.isLoggedIn" class="space-y-3">
+              <div class="divider"></div>
               <button @click="handleLogout" class="menu-btn group hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black">
                 <div class="icon-box bg-slate-200 dark:bg-slate-800 group-hover:bg-transparent">
                   <Icon name="mdi:power" class="size-6" />
@@ -66,6 +82,7 @@
                 <span class="text-secondary font-black">Sign Out</span>
               </button>
             </div>
+
           </div>
         </Transition>
       </div>
