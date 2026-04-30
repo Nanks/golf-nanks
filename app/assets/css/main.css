@@ -44,6 +44,16 @@
     background-color: var(--color-slate-950);
     color: var(--color-slate-100);
   }
+
+  /* iOS PWA Fix: Disable double-tap to zoom on interactive elements */
+  button, 
+  a, 
+  input, 
+  select, 
+  textarea,
+  .card-interactive {
+    touch-action: manipulation;
+  }
 }
 
 /* 4. Global Components */

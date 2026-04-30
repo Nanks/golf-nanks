@@ -26,7 +26,12 @@
     <section>
       <div class="flex items-center justify-between mb-2 px-2">
         <h2 class="text-primary text-2xl text-emerald-500">Leagues</h2>
-        <button v-if="authStore.isLoggedIn" @click="navigateTo('/rounds/setup')" class="text-secondary text-[10px] text-emerald-500 flex items-center gap-1.5 active:opacity-70">
+        
+        <button 
+          v-if="authStore.isSuperAdmin" 
+          @click="navigateTo('/rounds/setup')" 
+          class="text-secondary text-[10px] text-emerald-500 flex items-center gap-1.5 active:opacity-70"
+        >
           <Icon name="mdi:plus-circle-outline" class="size-4" /> Casual Round
         </button>
       </div>
@@ -40,7 +45,8 @@
               :key="`${league.id}-${authStore.isInitialized}`" 
               :league="league" 
               :is-member="true"
-            /></div>
+            />
+          </div>
         </div>
       </div>
 

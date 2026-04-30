@@ -1,10 +1,10 @@
 <template>
   <Teleport to="body">
     <Transition name="slide-up">
-      <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-end justify-center px-4 pb-4">
+      <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-end justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div @click="$emit('update:isOpen', false)" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
         
-        <div class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh]">
+        <div class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85dvh]">
           
           <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
             <div>
@@ -82,11 +82,15 @@ const emit = defineEmits(['update:isOpen', 'save']);
 const localScores = ref({});
 const localActivePlayerId = ref(null);
 
-// Get the Par to display in the header
+// 1. Dynamic Par Calculation
+// Automatically adjusts the par based on the currently selected player's tees
 const currentPar = computed(() => {
   if (!props.round?.courseSnapshot || !props.round?.players?.length) return 4;
-  const firstTee = props.round.players[0]?.tees;
-  return props.round.courseSnapshot.tees?.[firstTee]?.pars?.[props.hole - 1] || 4;
+  
+  const activePlayer = props.round.players.find(p => p.id === localActivePlayerId.value) || props.round.players[0];
+  const tee = activePlayer.tees || props.round.players[0]?.tees;
+  
+  return props.round.courseSnapshot.tees?.[tee]?.pars?.[props.hole - 1] || 4;
 });
 
 // Calculate the quick entry numbers: [Par - 1, Par, Par + 1]
@@ -102,8 +106,14 @@ watch(() => props.isOpen, (newVal) => {
     
     const initScores = {};
     props.round.players.forEach(p => {
-      const currentScore = props.round.scores[p.id][props.hole - 1];
-      initScores[p.id] = (currentScore || currentPar.value).toString();
+      // Safely access the current score
+      const currentScore = props.round.scores?.[p.id]?.[props.hole - 1];
+      
+      // Calculate the specific par for THIS player
+      const playerTee = p.tees || props.round.players[0]?.tees;
+      const playerPar = props.round.courseSnapshot?.tees?.[playerTee]?.pars?.[props.hole - 1] || 4;
+      
+      initScores[p.id] = (currentScore || playerPar).toString();
     });
     
     localScores.value = initScores;
@@ -123,7 +133,9 @@ const setScore = (val) => {
 const adjustScore = (mod) => {
   const pid = localActivePlayerId.value;
   if (!pid) return;
-  const current = parseInt(localScores.value[pid]) || 4;
+  
+  // 2. Removed the hardcoded fallback of 4, replaced with currentPar
+  const current = parseInt(localScores.value[pid]) || currentPar.value;
   localScores.value[pid] = Math.min(Math.max(current + mod, 1), 15).toString();
   // Note: Fine adjustments do NOT auto-advance, giving the user time to adjust multiple strokes.
 };

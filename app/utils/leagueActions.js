@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, doc, writeBatch, updateDoc } from "firebase/firestore";
+import { writeBatch, query, collection, where, getDocs, doc } from 'firebase/firestore';
 
 export const getLocalIsoDate = () => {
   const date = new Date();
@@ -8,11 +8,18 @@ export const getLocalIsoDate = () => {
 };
 
 export const completeLeagueEvent = async (db, leagueId, iso) => {
-  const batch = writeBatch(db);
+  // 1. Query the Calendar Event by ISO to get the REAL document ID
+  const calQuery = query(
+    collection(db, 'leagues', leagueId, 'calendar'), 
+    where('iso', '==', iso)
+  );
+  const calSnap = await getDocs(calQuery);
 
-  // 1. Reference the Calendar Event to lock it
-  const calendarRef = doc(db, 'leagues', leagueId, 'calendar', iso);
-  batch.update(calendarRef, { status: 'complete' });
+  if (calSnap.empty) {
+    throw new Error(`Cannot lock event: No calendar event found for ${iso}.`);
+  }
+  
+  const calendarDocId = calSnap.docs[0].id;
 
   // 2. Fetch all live rounds for this specific event
   const liveRoundsQuery = query(
@@ -23,40 +30,55 @@ export const completeLeagueEvent = async (db, leagueId, iso) => {
   
   const liveSnap = await getDocs(liveRoundsQuery);
 
+  // 3. Setup safe batching (Limit 500)
+  let batch = writeBatch(db);
+  let batchCount = 0;
+
+  const commitBatch = async () => {
+    await batch.commit();
+    batch = writeBatch(db);
+    batchCount = 0;
+  };
+
+  // Lock the Calendar Event
+  batch.update(doc(db, 'leagues', leagueId, 'calendar', calendarDocId), { status: 'complete' });
+  batchCount++;
+
   if (liveSnap.empty) {
-    console.warn("No live rounds found to migrate.");
-    await batch.commit(); // Still lock the calendar even if no rounds were played
+    console.warn("No live rounds found to migrate. Just locking the calendar.");
+    await commitBatch();
     return;
   }
 
-  // 3. Migrate each round to the player's subcollection
-  liveSnap.docs.forEach((liveDoc) => {
+  // 4. Migrate each round to the player's subcollection
+  for (const liveDoc of liveSnap.docs) {
     const roundData = liveDoc.data();
     
-    // We assume each live_round document represents one group/scorecard 
-    // but we need to save the round record for each player in that group
-    roundData.players.forEach((player) => {
+    // Save the round record for each player in that group
+    for (const player of roundData.players) {
       const playerRoundRef = doc(collection(db, 'players', player.id, 'rounds'));
       
       batch.set(playerRoundRef, {
         ...roundData,
-        // Ensure we strip out live-only metadata if necessary
         isLive: false,
         completedAt: new Date().toISOString(),
-        playerId: player.id // Explicitly link the subcollection doc
+        playerKey: player.id // FIXED: Using playerKey to match your archive queries
       });
-    });
 
-    // 4. Queue the live_round for deletion
+      batchCount++;
+      if (batchCount >= 450) await commitBatch(); // Commit early to be safe
+    }
+
+    // Queue the live_round for deletion
     batch.delete(liveDoc.ref);
-  });
-
-  // 5. Commit the entire transaction
-  try {
-    await batch.commit();
-    console.log(`Successfully locked event ${iso} and migrated ${liveSnap.size} rounds.`);
-  } catch (error) {
-    console.error("Failed to complete league event:", error);
-    throw error;
+    batchCount++;
+    if (batchCount >= 450) await commitBatch();
   }
+
+  // 5. Commit any remaining writes in the final batch
+  if (batchCount > 0) {
+    await batch.commit();
+  }
+  
+  console.log(`Successfully locked event ${iso} and migrated ${liveSnap.size} rounds.`);
 };

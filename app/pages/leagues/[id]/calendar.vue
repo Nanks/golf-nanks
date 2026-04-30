@@ -151,7 +151,7 @@ const leagueData = computed(() => dataStore.leagues.find(l => l.id === leagueId)
 
 const isAdmin = computed(() => {
   if (!leagueData.value) return false
-  return authStore.isAdminForLeague(leagueData.value.id)
+  return authStore.isAdminForLeague(leagueData.value)
 })
 
 const isLeagueLive = computed(() => {

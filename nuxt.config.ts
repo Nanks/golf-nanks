@@ -60,28 +60,24 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   pwa: {
-    // 1. CHANGED: Use the prompt pattern so it doesn't break mid-round
     registerType: 'prompt',
     client: {
       installPrompt: true,
-      // Check for an update every hour in the background if they leave it open
       periodicSyncForUpdates: 3600, 
     },
     workbox: {
-      // 2. REMOVED: skipWaiting and clientsClaim. 
-      // We want the SW to wait in the background until the user clicks "Refresh Now"
       cleanupOutdatedCaches: true,
-      // Tell workbox exactly what to cache for offline use
       globPatterns: ['**/*.{js,css,html,png,svg,ico}'] 
     },
     manifest: {
-      name: 'Golf Nanks', // 3. MATCHED: Sync with your app.head title
+      name: 'Golf Nanks', 
       short_name: 'Nanks',
-      theme_color: '#020617', // 4. MATCHED: Sync with app.head theme-color
+      theme_color: '#020617', 
       background_color: '#020617',
       display: 'standalone',
+      start_url: '/', // <-- ADDED: Explicitly tell iOS where the app starts
+      scope: '/',     // <-- ADDED: Lock iOS inside this root scope
       icons: [
-        // 5. ADDED: Browsers expect both a 192x192 and 512x512 to consider it a "valid" PWA
         {
           src: '/icon.png',
           sizes: '192x192',

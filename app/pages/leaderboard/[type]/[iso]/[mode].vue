@@ -198,7 +198,7 @@ const eventStatusDisplay = computed(() => {
 
 const isAdmin = computed(() => {
   if (!leagueData.value) return false;
-  return authStore.isAdminForLeague(leagueData.value.id);
+  return authStore.isAdminForLeague(leagueData.value);
 });
 
 const processedPlayers = computed(() => (roundsSource.value || []).map(p => ({

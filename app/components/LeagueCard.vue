@@ -106,7 +106,7 @@ const hasLiveRounds = computed(() => {
   return dataStore.liveRounds.some(r => r.leagueId === props.league.id && r.iso === todayIso)
 })
 
-const isAdmin = computed(() => authStore.isAdminForLeague?.(props.league.id))
+const isAdmin = computed(() => authStore.isAdminForLeague?.(props.league))
 const isToday = (isoDate) => isoDate === todayIso
 
 // --- ACTIONS ---

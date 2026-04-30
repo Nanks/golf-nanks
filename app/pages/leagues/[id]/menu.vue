@@ -130,7 +130,7 @@ const leagueName = computed(() => leagueData.value?.shortName || 'League')
 // 2. Pull yearly games array from the league document
 const yearlyGames = computed(() => leagueData.value?.yearly_games || [])
 
-const isAdmin = computed(() => authStore.isAdminForLeague?.(leagueId))
+const isAdmin = computed(() => authStore.isAdminForLeague?.(leagueData.value))
 
 // --- NEW: Check if there is an event matching today's ISO ---
 const hasEventToday = computed(() => {
