@@ -26,7 +26,7 @@
     </div>
 
     <div 
-      v-if="activeRoundId || nextRoundData" 
+      v-if="isMember && (activeRoundId || nextRoundData)" 
       @click.stop="handleBadgeAction"
       :class="[
         'inline-flex items-center gap-2 border rounded-xl px-3 py-1.5 transition-all shadow-sm z-30',
@@ -56,11 +56,11 @@
 import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
-import { useToast } from '~/composables/useToast'
 import { getLocalIsoDate } from '~/utils/leagueActions'
 
 const props = defineProps({
-  league: { type: Object, required: true }
+  league: { type: Object, required: true },
+  isMember: { type: Boolean, default: true } // New prop to control action button
 })
 
 const authStore = useAuthStore()
