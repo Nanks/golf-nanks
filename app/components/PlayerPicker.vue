@@ -55,7 +55,7 @@
               <div class="grid gap-1 max-h-[35vh] overflow-y-auto no-scrollbar">
                 <button 
                   v-for="p in selectedPlayers" :key="p.id"
-                  @click="$emit('toggle', p)"
+                  @click="handleToggle(p)"
                   class="flex items-center justify-between px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg w-full active:scale-[0.98] transition-transform text-left"
                 >
                   <span class="font-black italic text-sm text-emerald-700 dark:text-emerald-400 uppercase tracking-tight truncate pr-4">
@@ -139,7 +139,7 @@
                 <div v-else class="grid gap-1">
                   <button 
                     v-for="p in availablePlayers" :key="p.id"
-                    @click="$emit('toggle', p)"
+                    @click="handleToggle(p)"
                     class="flex items-center justify-between px-3 py-2 bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700/50 rounded-lg w-full active:scale-[0.98] transition-transform text-left"
                   >
                     <span class="font-bold text-sm text-stone-700 dark:text-stone-200 uppercase tracking-tight truncate pr-4">
@@ -160,7 +160,7 @@
 <script setup>
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { ref, computed, watch } from 'vue';
-import { useConfirm } from '~/composables/useConfirm'; // <-- Added Import
+import { useConfirm } from '~/composables/useConfirm';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -168,16 +168,38 @@ const props = defineProps({
   canCreate: { type: Boolean, default: false },
   mode: { type: String, default: 'manage' },
   defaultTeeType: { type: String, default: 'mens' },
-  leagueId: { type: String, default: null } 
+  leagueId: { type: String, default: null },
+  roundTeesId: { type: String, default: null } // New prop to track the round's assigned tee
 });
 
 const emit = defineEmits(['update:isOpen', 'toggle', 'create-new']);
 
 const { $db } = useNuxtApp();
-const confirm = useConfirm(); // <-- Initialized Composable
+const confirm = useConfirm();
 
 const allPlayers = ref([]);
 const isLoading = ref(false);
+
+// --- TEE ASSIGNMENT LOGIC ---
+const handleToggle = (player) => {
+  // Clone to avoid mutating the original player object in the allPlayers list
+  const p = { ...player };
+
+  // Check if we are adding the player (they are not currently in the selected list)
+  const isAlreadySelected = props.selectedPlayers.some(sp => sp.id === p.id);
+
+  if (!isAlreadySelected) {
+    if (props.roundTeesId && props.roundTeesId !== 'mixed') {
+      // If the round has a specific tee, assign it
+      p.teesId = props.roundTeesId;
+    } else {
+      // Mixed tees: Use the player's saved default, or leave it as is
+      p.teesId = p.defaultTeesId || p.teesId || null;
+    }
+  }
+
+  emit('toggle', p);
+};
 
 // --- FORM STATE ---
 const isCreatingManual = ref(false);
@@ -208,7 +230,6 @@ const submitManual = async () => {
 
   isLoading.value = true;
   try {
-    // 1. Check if the player already exists
     const qRef = query(
       collection($db, "players"),
       where("fname", "==", fNameStr),
@@ -221,11 +242,10 @@ const submitManual = async () => {
       const existingDoc = snap.docs[0];
       const existingData = existingDoc.data();
 
-      // Check if they are already active
       if (existingData.active !== false) {
         alert(`${fNameStr} ${lNameStr} is already an active player.`);
       } else {
-        // Player is archived - Use Custom Confirm UI
+        // Player is archived - Reactivate
         const wantsToReactivate = await confirm.ask(
           'Reactivate Player?', 
           `<b>${fNameStr} ${lNameStr}</b> is currently archived in the database. Would you like to reactivate them instead of creating a duplicate?`,
@@ -251,14 +271,25 @@ const submitManual = async () => {
           
           allPlayers.value.push(reactivatedPlayer);
           allPlayers.value.sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
-          emit('toggle', reactivatedPlayer);
+          
+          // Use handleToggle to apply tee logic
+          handleToggle(reactivatedPlayer);
           
           isCreatingManual.value = false;
         }
       }
     } else {
-      // 2. Safe to create new
-      emit('create-new', { ...form.value, fname: fNameStr, lname: lNameStr, active: true });
+      // Safe to create new
+      const newPlayer = { ...form.value, fname: fNameStr, lname: lNameStr, active: true };
+      
+      // Apply tee logic for brand new players
+      if (props.roundTeesId && props.roundTeesId !== 'mixed') {
+        newPlayer.teesId = props.roundTeesId;
+      } else {
+        newPlayer.teesId = newPlayer.defaultTeesId || newPlayer.teesId || null;
+      }
+
+      emit('create-new', newPlayer);
       isCreatingManual.value = false;
     }
   } catch (err) {

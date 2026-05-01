@@ -12,7 +12,7 @@
           :endColor="league.theme?.endColor || '#10b981'"
           class="w-auto h-32 transition-colors duration-300" 
         />
-        <VegasLogo 
+        <TheVegasLogo 
           v-else-if="isVegas" 
           :startColor="league.theme?.startColor || '#F59E0B'"
           :endColor="league.theme?.endColor || '#EA580C'"
@@ -38,7 +38,7 @@
       </div>
     </div>
 
-    <div class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl pt-8 pb-3 px-3 flex flex-col items-center relative shadow-sm group-hover:shadow-md group-hover:border-emerald-500/50 transition-all duration-300">
+    <div class="w-full bg-slate-200 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-3xl pt-8 pb-3 px-3 flex flex-col items-center relative shadow-sm group-hover:shadow-md group-hover:border-emerald-500/50 transition-all duration-300">
       
       <div v-if="isAdmin" class="absolute top-4 left-3 text-amber-500 z-10">
         <Icon name="mdi:shield-crown-outline" class="size-4" />
@@ -48,9 +48,9 @@
         <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> Live
       </div>
 
-      <h3 class="text-lg font-black text-primary uppercase text-center tracking-tight mb-2 w-full truncate px-4">
+      <!-- <h3 class="text-lg font-black text-primary uppercase text-center tracking-tight mb-2 w-full truncate px-4">
         {{ league.shortName || league.name }}
-      </h3>
+      </h3> -->
 
       <div v-if="activeRoundId || nextRoundData" class="w-full">
         <div 
@@ -58,21 +58,21 @@
           :class="[
             'w-full flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-300 border shadow-sm',
             activeRoundId 
-              ? 'bg-amber-500 border-amber-400 text-amber-950 hover:scale-[1.02] active:scale-95 shadow-amber-500/20' 
+              ? 'bg-amber-500/20 border-amber-400 text-amber-400 hover:scale-[1.02] active:scale-95 shadow-amber-500/20' 
               : isToday(nextRoundData?.iso)
-                ? 'bg-emerald-500 border-emerald-400 text-slate-950 hover:scale-[1.02] active:scale-95 shadow-emerald-500/20'
-                : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95'
+                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400 hover:scale-[1.02] active:scale-95 shadow-emerald-500/20'
+                : 'bg-slate-50 dark:bg-slate-700/40 border-slate-100 dark:border-slate-600/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95'
           ]"
         >
           <div class="flex items-center gap-1.5 font-black uppercase tracking-[0.15em] text-[11px]">
-            <Icon :name="activeRoundId ? 'mdi:calculator' : isToday(nextRoundData?.iso) ? 'mdi:play-circle' : 'mdi:calendar-blank'" class="size-4" />
-            <span>{{ activeRoundId ? 'Resume' : isToday(nextRoundData?.iso) ? 'Start' : 'Next' }}</span>
+            <Icon :name="activeRoundId ? 'mdi:calculator' : isToday(nextRoundData?.iso) ? 'mdi:play-circle' : 'mdi:calendar-check'" class="size-4" />
+            <span>{{ activeRoundId ? 'Resume' : isToday(nextRoundData?.iso) ? 'Start' : 'Next Round' }}</span>
           </div>
 
           <div v-if="nextRoundData" class="flex flex-col items-center mt-0.5 leading-tight">
-             <span class="text-[10px] font-bold uppercase opacity-80">{{ readableDate }}</span>
-             <span v-if="nextRoundData.course" class="text-[9px] font-medium italic opacity-60 truncate max-w-[130px]">
-               {{ nextRoundData.course }}
+             <span class="text-sm font-bold uppercase opacity-80">{{ readableDate }}</span>
+             <span v-if="nextRoundData.course" class="text-xs font-medium italic opacity-60 truncate max-w-[130px]">
+               {{ nextRoundData.tees }} Tees
              </span>
           </div>
         </div>

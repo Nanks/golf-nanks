@@ -5,13 +5,6 @@
     class="w-full h-full overflow-visible"
   >
     <defs>
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pacifico&amp;display=swap');
-        .t4g-text {
-          font-family: 'Pacifico', cursive;
-        }
-      </style>
-
       <linearGradient :id="gradientId" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" :stop-color="startColor" />
         <stop offset="100%" :stop-color="endColor" />
@@ -75,12 +68,10 @@ import { useId } from 'vue'
 const props = defineProps({
   startColor: {
     type: String,
-    // Defaults to hot pink!
     default: 'var(--color-pink-500)' 
   },
   endColor: {
     type: String,
-    // Fades to purple!
     default: 'var(--color-purple-500)'
   }
 })
@@ -88,3 +79,11 @@ const props = defineProps({
 // Ensures unique gradient IDs
 const gradientId = `t4g-gradient-${useId()}`
 </script>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+
+.t4g-text {
+  font-family: 'Pacifico', cursive;
+}
+</style>

@@ -20,11 +20,11 @@
 
           <div class="p-3 overflow-y-auto space-y-1.5 no-scrollbar">
             <div v-for="p in round.players" :key="'key'+p.id" @click="localActivePlayerId = p.id" 
-              class="p-3.5 rounded-2xl border-2 flex justify-between items-center transition-all cursor-pointer"
+              class="px-3 py-1.5 rounded-xl border-2 flex justify-between items-center transition-all cursor-pointer"
               :class="localActivePlayerId === p.id ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'"
             >
               <div class="flex flex-col">
-                <div class="font-black text-xs uppercase transition-colors" :class="localActivePlayerId === p.id ? 'text-emerald-600' : 'text-slate-500'">
+                <div class="font-black text-lg uppercase transition-colors" :class="localActivePlayerId === p.id ? 'text-emerald-600' : 'text-slate-500'">
                   {{ p.fname }} {{ p.lname }}
                 </div>
                 <div v-if="Math.floor(pStats[p.id]?.pops?.[hole - 1] || 0) > 0" class="flex gap-1 mt-1">
@@ -82,13 +82,14 @@ const emit = defineEmits(['update:isOpen', 'save']);
 const localScores = ref({});
 const localActivePlayerId = ref(null);
 
-// 1. Dynamic Par Calculation
-// Automatically adjusts the par based on the currently selected player's tees
+// 1. Dynamic Par Calculation for the Header & Buttons
 const currentPar = computed(() => {
   if (!props.round?.courseSnapshot || !props.round?.players?.length) return 4;
   
   const activePlayer = props.round.players.find(p => p.id === localActivePlayerId.value) || props.round.players[0];
-  const tee = activePlayer.tees || props.round.players[0]?.tees;
+  
+  // FIXED: Using teesId
+  const tee = activePlayer.teesId || props.round.players[0]?.teesId;
   
   return props.round.courseSnapshot.tees?.[tee]?.pars?.[props.hole - 1] || 4;
 });
@@ -106,13 +107,14 @@ watch(() => props.isOpen, (newVal) => {
     
     const initScores = {};
     props.round.players.forEach(p => {
-      // Safely access the current score
+      // Safely access the current score if they already entered one
       const currentScore = props.round.scores?.[p.id]?.[props.hole - 1];
       
-      // Calculate the specific par for THIS player
-      const playerTee = p.tees || props.round.players[0]?.tees;
+      // FIXED: Using teesId to calculate the specific par for THIS player's starting score
+      const playerTee = p.teesId || props.round.players[0]?.teesId;
       const playerPar = props.round.courseSnapshot?.tees?.[playerTee]?.pars?.[props.hole - 1] || 4;
       
+      // Set to existing score, or default to their specific par
       initScores[p.id] = (currentScore || playerPar).toString();
     });
     
@@ -123,9 +125,7 @@ watch(() => props.isOpen, (newVal) => {
 // Controls
 const setScore = (val) => {
   if (localActivePlayerId.value) {
-    // Set the score
     localScores.value[localActivePlayerId.value] = val.toString();
-    // Auto-advance to the next player
     nextPlayer();
   }
 };
@@ -134,10 +134,9 @@ const adjustScore = (mod) => {
   const pid = localActivePlayerId.value;
   if (!pid) return;
   
-  // 2. Removed the hardcoded fallback of 4, replaced with currentPar
+  // Use currentPar so if they erase the number, it starts adjusting from Par instead of 4
   const current = parseInt(localScores.value[pid]) || currentPar.value;
   localScores.value[pid] = Math.min(Math.max(current + mod, 1), 15).toString();
-  // Note: Fine adjustments do NOT auto-advance, giving the user time to adjust multiple strokes.
 };
 
 const nextPlayer = () => {

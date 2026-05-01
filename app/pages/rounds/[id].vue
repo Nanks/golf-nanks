@@ -96,9 +96,15 @@
       </div>
     </div>
 
-    <PlayerPicker v-model:isOpen="showPlayerPicker" :selectedPlayers="round?.players || []" mode="setup" @toggle="handlePlayerToggle" />
-
     <ClientOnly>
+      <PlayerPicker 
+        v-model:isOpen="showPlayerPicker"
+        :selectedPlayers="round?.players || []" 
+        mode="setup" @toggle="handlePlayerToggle"
+        :leagueId="round?.leagueId"
+        :roundTeesId="round?.teesId"
+      />
+
       <ScoreKeypad 
         v-model:isOpen="keypad.isOpen" 
         :hole="keypad.hole" 

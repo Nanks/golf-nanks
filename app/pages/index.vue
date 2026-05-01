@@ -36,7 +36,7 @@
         </button>
       </div>
 
-      <div class="mb-12 relative">
+      <div v-if="myLeagues.length > 0" class="mb-12 relative">
         <h3 class="text-secondary text-[10px] mb-4 px-4 uppercase tracking-[0.2em] font-black opacity-50">My Active Leagues</h3>
         
         <div class="relative h-[320px] w-full overflow-visible">
