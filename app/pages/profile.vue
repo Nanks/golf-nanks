@@ -7,7 +7,7 @@
       <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2">Personalize your Experience</p>
     </header>
 
-    <div v-if="player" class="space-y-6">
+    <div v-if="authStore.userProfile" class="space-y-6">
       
       <section class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div class="flex items-center gap-2 mb-2">
@@ -17,60 +17,114 @@
 
         <div class="space-y-1.5">
           <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Favorite Course</label>
-          <div class="relative">
-            <select 
-              v-model="localPrefs.favCourse" 
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-slate-100 appearance-none focus:border-emerald-500 outline-none"
-            >
-              <option value="">None Selected</option>
-              <option v-for="c in courses" :key="c.id" :value="c.name">{{ c.name }}</option>
-            </select>
-            <Icon name="mdi:chevron-down" class="absolute right-4 bottom-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          <Listbox v-model="localPrefs.favCourseId">
+            <div class="relative">
+              <ListboxButton class="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-left text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors">
+                <span class="block truncate uppercase">{{ localPrefs.favCourse || 'None Selected' }}</span>
+                <Icon name="mdi:chevron-down" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none size-5" />
+              </ListboxButton>
+
+              <transition leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+                <ListboxOptions class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-xl bg-white dark:bg-slate-900 py-2 text-sm shadow-xl ring-1 ring-black/5 focus:outline-none border border-slate-200 dark:border-slate-800">
+                  <ListboxOption v-slot="{ active, selected }" value="">
+                    <li :class="[active ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300', 'relative cursor-pointer select-none py-2.5 pl-4 pr-10 transition-colors']">
+                      <span :class="[selected ? 'font-black' : 'font-bold', 'block truncate uppercase']">None Selected</span>
+                      <Icon v-if="selected" name="mdi:check-circle" class="absolute inset-y-0 right-4 top-1/2 -translate-y-1/2 size-5 text-emerald-500" />
+                    </li>
+                  </ListboxOption>
+                  <ListboxOption v-for="c in courses" :key="c.id" v-slot="{ active, selected }" :value="c.id">
+                    <li :class="[active ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300', 'relative cursor-pointer select-none py-2.5 pl-4 pr-10 transition-colors']">
+                      <span :class="[selected ? 'font-black' : 'font-bold', 'block truncate uppercase']">{{ c.name }}</span>
+                      <Icon v-if="selected" name="mdi:check-circle" class="absolute inset-y-0 right-4 top-1/2 -translate-y-1/2 size-5 text-emerald-500" />
+                    </li>
+                  </ListboxOption>
+                </ListboxOptions>
+              </transition>
+            </div>
+          </Listbox>
         </div>
 
         <div class="space-y-1.5">
-          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Default Tees</label>
-          <div class="relative">
-            <select 
-              v-model="localPrefs.favTees" 
-              :disabled="!currentCourseTees.length"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-slate-100 appearance-none focus:border-emerald-500 outline-none disabled:opacity-50"
-            >
-              <option value="">None Selected</option>
-              <option v-for="t in currentCourseTees" :key="t" :value="t">{{ t }}</option>
-            </select>
-            <Icon name="mdi:chevron-down" class="absolute right-4 bottom-3.5 text-slate-400 pointer-events-none" />
+          <div class="flex justify-between items-center ml-1">
+             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Default Tees</label>
+             <span v-if="authStore.userProfile?.tee_type" class="text-[9px] font-black text-emerald-500 uppercase tracking-widest">{{ authStore.userProfile.tee_type }} Only</span>
           </div>
+          <Listbox v-model="localPrefs.favTeesId" :disabled="!currentCourseTees.length">
+            <div class="relative">
+              <ListboxButton class="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-left text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors disabled:opacity-50">
+                <span class="block truncate uppercase">{{ localPrefs.favTees || (localPrefs.favCourseId ? 'None Selected' : 'Select a course first') }}</span>
+                <Icon name="mdi:chevron-down" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none size-5" />
+              </ListboxButton>
+
+              <transition leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+                <ListboxOptions class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-xl bg-white dark:bg-slate-900 py-2 text-sm shadow-xl ring-1 ring-black/5 focus:outline-none border border-slate-200 dark:border-slate-800">
+                  <ListboxOption v-slot="{ active, selected }" value="">
+                    <li :class="[active ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300', 'relative cursor-pointer select-none py-2.5 pl-4 pr-10 transition-colors']">
+                      <span :class="[selected ? 'font-black' : 'font-bold', 'block truncate uppercase']">None Selected</span>
+                      <Icon v-if="selected" name="mdi:check-circle" class="absolute inset-y-0 right-4 top-1/2 -translate-y-1/2 size-5 text-emerald-500" />
+                    </li>
+                  </ListboxOption>
+                  <ListboxOption v-for="t in currentCourseTees" :key="t.id" v-slot="{ active, selected }" :value="t.id">
+                    <li :class="[active ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300', 'relative cursor-pointer select-none py-2.5 pl-4 pr-10 transition-colors']">
+                      <span :class="[selected ? 'font-black' : 'font-bold', 'block truncate uppercase']">{{ t.name }}</span>
+                      <Icon v-if="selected" name="mdi:check-circle" class="absolute inset-y-0 right-4 top-1/2 -translate-y-1/2 size-5 text-emerald-500" />
+                    </li>
+                  </ListboxOption>
+                </ListboxOptions>
+              </transition>
+            </div>
+          </Listbox>
         </div>
       </section>
 
       <section class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div class="flex justify-between items-center mb-2">
-          <div class="flex items-center gap-2">
-            <Icon name="mdi:star" class="text-amber-500 size-5" />
-            <h2 class="font-black uppercase tracking-tight text-slate-800 dark:text-white">Playing Partners</h2>
+        
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <Icon name="mdi:star" class="text-amber-500 size-5" />
+              <h2 class="font-black uppercase tracking-tight text-slate-800 dark:text-white">Playing Partners</h2>
+            </div>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 ml-7">
+              {{ localPrefs.favPartners?.length || 0 }} Starred
+            </p>
           </div>
-          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            {{ localPrefs.favPartners?.length || 0 }} Starred
-          </span>
+          
+          <button 
+            @click="isPartnerModalOpen = true"
+            class="p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 hover:border-emerald-500 active:scale-90 transition-all shadow-sm"
+          >
+            <Icon name="mdi:pencil" class="size-4" />
+          </button>
         </div>
 
-        <button 
-          @click="isPartnerModalOpen = true"
-          class="w-full bg-slate-50 dark:bg-slate-800 border border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl py-4 flex flex-col items-center gap-1 group hover:border-emerald-500 transition-colors"
-        >
-          <Icon name="mdi:account-star-outline" class="size-6 text-slate-300 group-hover:text-emerald-500" />
-          <span class="text-[10px] font-black uppercase text-slate-400 group-hover:text-emerald-600">Manage Favorites</span>
-        </button>
-
-        <div class="flex flex-wrap gap-2">
-          <div v-for="pId in localPrefs.favPartners" :key="pId" class="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50 rounded-full text-[10px] font-black uppercase">
-            {{ getPlayerName(pId) }}
-            <button @click="togglePartner(pId)" class="hover:text-red-500">
-              <Icon name="mdi:close-circle" class="size-4" />
+        <div v-if="localPrefs.favPartners?.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <div 
+            v-for="pId in localPrefs.favPartners" :key="pId" 
+            class="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl"
+          >
+            <div class="flex items-center gap-3">
+              <div class="size-10 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center font-black text-emerald-600 dark:text-emerald-400 text-xs shadow-sm border border-slate-100 dark:border-slate-700">
+                {{ getPlayerInitials(pId) }}
+              </div>
+              <span class="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-tight">
+                {{ getPlayerFullName(pId) }}
+              </span>
+            </div>
+            <button @click="togglePartner(pId)" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors active:scale-90">
+              <Icon name="mdi:close-circle" class="size-5" />
             </button>
           </div>
+        </div>
+
+        <div v-else class="py-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+          <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">No favorites yet</p>
+          <button 
+            @click="isPartnerModalOpen = true"
+            class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 rounded-lg active:scale-95 transition-all shadow-sm"
+          >
+            Add Partners
+          </button>
         </div>
       </section>
 
@@ -78,7 +132,7 @@
         <button 
           @click="savePreferences"
           :disabled="isSaving"
-          class="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+          class="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:active:scale-100"
         >
           <Icon v-if="isSaving" name="mdi:loading" class="animate-spin size-5" />
           {{ isSaving ? 'Saving Changes...' : 'Update Profile' }}
@@ -86,80 +140,103 @@
       </div>
     </div>
 
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="translate-y-full"
-        enter-to-class="translate-y-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="translate-y-0"
-        leave-to-class="translate-y-full"
-      >
-        <div v-if="isPartnerModalOpen" class="fixed inset-0 z-[300] flex items-end justify-center px-4 pb-4">
-          <div @click="isPartnerModalOpen = false" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <div class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col h-[70vh]">
-            <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <h4 class="text-xs font-black uppercase tracking-widest text-slate-400">Star Favorites</h4>
-              <button @click="isPartnerModalOpen = false" class="text-emerald-600 font-black text-[10px] uppercase">Done</button>
-            </div>
-            
-            <div class="p-3 overflow-y-auto flex-1 space-y-2">
-              <button 
-                v-for="p in roster" :key="p.id"
-                @click="togglePartner(p.id)"
-                class="w-full flex items-center justify-between p-4 rounded-2xl transition-all active:scale-[0.98]"
-                :class="localPrefs.favPartners?.includes(p.id) ? 'bg-emerald-50 dark:bg-emerald-900/10' : 'bg-transparent'"
-              >
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-400 text-xs">
-                    {{ p.fname[0] }}{{ p.lname[0] }}
-                  </div>
-                  <p class="font-bold text-slate-800 dark:text-slate-200 text-sm">{{ p.fname }} {{ p.lname }}</p>
-                </div>
-                <Icon 
-                  :name="localPrefs.favPartners?.includes(p.id) ? 'mdi:star' : 'mdi:star-outline'" 
-                  :class="localPrefs.favPartners?.includes(p.id) ? 'text-amber-500' : 'text-slate-300'"
-                  class="size-6" 
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <PlayerPicker 
+      :is-open="isPartnerModalOpen"
+      :selected-players="favoritePlayerObjects"
+      :exclude-id="authStore.userProfile?.id"
+      mode="favorites"
+      @update:is-open="isPartnerModalOpen = $event"
+      @toggle="(p) => togglePartner(p.id)"
+    />
   </div>
 </template>
 
 <script setup>
+import { ref, computed, watch, onMounted } from 'vue';
 import { collection, query, getDocs, orderBy, doc, updateDoc } from "firebase/firestore";
+import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from '@headlessui/vue';
+import { useAuthStore } from '~/stores/auth';
+import { useData } from '~/stores/data';
+import { useConfirm } from '~/composables/useConfirm';
 
-const { player, updatePlayerLocal } = useAuth(); // Assuming your auth composable allows local state update
 const { $db } = useNuxtApp();
-const toast = useToast();
+const authStore = useAuthStore();
+const dataStore = useData();
+const confirm = useConfirm();
 
-const courses = ref([]);
 const roster = ref([]);
 const isSaving = ref(false);
 const isPartnerModalOpen = ref(false);
 
+// Initialize with Names AND IDs
 const localPrefs = ref({
-  favCourse: player.value?.prefs?.favCourse || '',
-  favTees: player.value?.prefs?.favTees || '',
-  favPartners: player.value?.prefs?.favPartners ? [...player.value.prefs.favPartners] : []
+  favCourse: authStore.userProfile?.prefs?.favCourse || '',
+  favCourseId: authStore.userProfile?.prefs?.favCourseId || '',
+  favTees: authStore.userProfile?.prefs?.favTees || '',
+  favTeesId: authStore.userProfile?.prefs?.favTeesId || '',
+  favPartners: authStore.userProfile?.prefs?.favPartners ? [...authStore.userProfile.prefs.favPartners] : []
 });
 
-// Logic to filter tees based on the selected favCourse
+const courses = computed(() => dataStore.courses);
+
 const currentCourseTees = computed(() => {
-  const match = courses.value.find(c => c.name === localPrefs.favCourse);
-  return match ? match.tees : [];
+  // Use Course ID instead of Name for exact matching
+  const match = courses.value.find(c => c.id === localPrefs.value.favCourseId);
+  if (!match || !match.tees) return [];
+  
+  const playerTeeType = authStore.userProfile?.tee_type;
+  
+  return Object.values(match.tees)
+    .filter(t => t.active !== false)
+    .filter(t => {
+      if (playerTeeType && t.types) {
+        return t.types.includes(playerTeeType);
+      }
+      return true; 
+    })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 });
 
-const getPlayerName = (id) => {
+// --- WATCHERS ---
+// Keep names perfectly in sync when the IDs change
+watch(() => localPrefs.value.favCourseId, (newId, oldId) => {
+  // If the user changed the course explicitly, clear the tees
+  if (oldId && newId !== oldId) {
+    localPrefs.value.favTeesId = '';
+    localPrefs.value.favTees = '';
+  }
+  const match = courses.value.find(c => c.id === newId);
+  localPrefs.value.favCourse = match ? match.name : '';
+});
+
+watch(() => localPrefs.value.favTeesId, (newId) => {
+  const match = currentCourseTees.value.find(t => t.id === newId);
+  localPrefs.value.favTees = match ? match.name : '';
+});
+
+
+// --- METHODS ---
+const favoritePlayerObjects = computed(() => {
+  if (!roster.value.length) return [];
+  return localPrefs.value.favPartners
+    .map(id => roster.value.find(r => r.id === id))
+    .filter(Boolean);
+});
+
+const getPlayerInitials = (id) => {
   const p = roster.value.find(r => r.id === id);
-  return p ? `${p.fname} ${p.lname[0]}.` : 'Unknown';
+  return p ? `${p.fname[0]}${p.lname[0]}`.toUpperCase() : '??';
+};
+
+const getPlayerFullName = (id) => {
+  const p = roster.value.find(r => r.id === id);
+  return p ? `${p.fname} ${p.lname}` : 'Unknown Player';
 };
 
 const togglePartner = (id) => {
+  if (!Array.isArray(localPrefs.value.favPartners)) {
+    localPrefs.value.favPartners = [];
+  }
   const index = localPrefs.value.favPartners.indexOf(id);
   if (index > -1) {
     localPrefs.value.favPartners.splice(index, 1);
@@ -169,42 +246,57 @@ const togglePartner = (id) => {
 };
 
 const savePreferences = async () => {
+  if (!authStore.userProfile?.id) return;
+  
   isSaving.value = true;
   try {
-    const userRef = doc($db, "players", player.value.uid);
-    await updateDoc(userRef, {
-      prefs: { ...localPrefs.value }
-    });
+    const userRef = doc($db, "players", authStore.userProfile.id);
+    await updateDoc(userRef, { prefs: { ...localPrefs.value } });
+    authStore.userProfile.prefs = { ...localPrefs.value };
     
-    // Sync local state so the home page updates instantly
-    player.value.prefs = { ...localPrefs.value };
-    toast.show("Preferences Updated!", "success");
+    await confirm.ask(
+      "Profile Updated", 
+      "Your default tees, course, and favorite partners have been saved successfully.", 
+      {
+        confirmText: "Got it",
+        icon: "mdi:check-circle",
+        iconBg: "bg-emerald-50 dark:bg-emerald-900/30",
+        iconColor: "text-emerald-500",
+        confirmBtnClass: "bg-emerald-600 hover:bg-emerald-700"
+      }
+    );
   } catch (e) {
-    console.error(e);
-    toast.show("Failed to save", "error");
+    console.error("Failed to save preferences:", e);
+    await confirm.ask("Error", "There was an error saving your preferences.", {
+        confirmText: "Close",
+        icon: "mdi:alert-circle",
+        iconBg: "bg-red-50 dark:bg-red-950/30",
+        iconColor: "text-red-500",
+        confirmBtnClass: "bg-red-600 hover:bg-red-700"
+    });
   } finally {
     isSaving.value = false;
   }
 };
 
 onMounted(async () => {
-  // 1. Fetch Courses & Tees
-  const cSnap = await getDocs(query(collection($db, 'courses'), orderBy('name')));
-  const cData = [];
-  for (const d of cSnap.docs) {
-    const tSnap = await getDocs(collection($db, `courses/${d.id}/tees`));
-    cData.push({ 
-      id: d.id, 
-      name: d.data().name, 
-      tees: tSnap.docs.map(t => t.data().name) 
-    });
+  // SILENT MIGRATION: Auto-fill IDs if the user only has legacy string names saved
+  if (localPrefs.value.favCourse && !localPrefs.value.favCourseId) {
+    const cMatch = courses.value.find(c => c.name === localPrefs.value.favCourse);
+    if (cMatch) {
+      localPrefs.value.favCourseId = cMatch.id;
+      if (localPrefs.value.favTees) {
+        const tMatch = Object.values(cMatch.tees).find(t => t.name === localPrefs.value.favTees);
+        if (tMatch) localPrefs.value.favTeesId = tMatch.id;
+      }
+    }
   }
-  courses.value = cData;
 
-  // 2. Fetch Full Roster for Partner Picking
-  const pSnap = await getDocs(query(collection($db, 'players'), orderBy('fname')));
-  roster.value = pSnap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(u => u.id !== player.value.uid);
+  try {
+    const pSnap = await getDocs(query(collection($db, 'players'), orderBy('fname')));
+    roster.value = pSnap.docs.map(d => ({ id: d.id, ...d.data() })); 
+  } catch (err) {
+    console.error("Error fetching roster for profile:", err);
+  }
 });
 </script>

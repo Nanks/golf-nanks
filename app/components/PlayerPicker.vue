@@ -182,24 +182,24 @@ const isLoading = ref(false);
 
 // --- TEE ASSIGNMENT LOGIC ---
 const handleToggle = (player) => {
-  // Clone to avoid mutating the original player object in the allPlayers list
+  // 1. Clone the object to 'p'
   const p = { ...player };
-
-  // Check if we are adding the player (they are not currently in the selected list)
   const isAlreadySelected = props.selectedPlayers.some(sp => sp.id === p.id);
 
-  if (!isAlreadySelected) {
+  // 2. Assign the proper teesId to 'p'
+  if (!isAlreadySelected && props.mode !== 'favorites') {
     if (props.roundTeesId && props.roundTeesId !== 'mixed') {
-      // If the round has a specific tee, assign it
       p.teesId = props.roundTeesId;
     } else {
-      // Mixed tees: Use the player's saved default, or leave it as is
       p.teesId = p.defaultTeesId || p.teesId || null;
     }
   }
-  console.log('Round Tees ID:', props.roundTeesId);
-  console.log('New Player Tees ID:', p.teesId);
       
+  // Optional: If you kept your console logs, make sure they use 'p' and not 'newPlayer'
+  // console.log('Round Tees ID:', props.roundTeesId);
+  // console.log('New Player Tees ID:', p.teesId); 
+
+  // 3. Emit 'p'
   emit('toggle', p);
 };
 
