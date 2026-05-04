@@ -161,7 +161,6 @@ import { useUIStore } from '~/stores/ui';
 import { useAuthStore } from '~/stores/auth';
 import { useConfirm } from '~/composables/useConfirm';
 import { calcRounds, runLeaguePass, getTieBreakerValue } from '~/utils/gameLogic';
-import { completeLeagueEvent } from '~/utils/leagueActions';
 
 const route = useRoute();
 const dataStore = useData();
@@ -350,7 +349,6 @@ const completeEvent = async () => {
   if (!confirmed) return;
   try {
     uiStore.setLoading(true, "Locking Event...");
-    await completeLeagueEvent($db, leagueId, iso);
     eventDetails.value.status = 'complete';
     isPreviewingPairings.value = false;
     

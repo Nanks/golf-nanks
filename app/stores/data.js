@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { collection, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy, limit, collectionGroup } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy, limit } from 'firebase/firestore'
 import { ref, computed } from 'vue'
+import { getLocalIsoDate } from '~/utils/leagueActions' // <-- 1. Imported your utility
 
 export const useData = defineStore('data', () => {
   const { $db } = useNuxtApp()
@@ -12,12 +13,12 @@ export const useData = defineStore('data', () => {
   const isHydrated = ref(false)
   const loading = ref(false)
   
+  // Cache for upcoming events
+  const upcomingEvents = ref({}) 
+  
   const activeListenerType = ref(null)
 
-  const getTodayISO = () => {
-    const d = new Date();
-    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
-  };
+  // 2. REMOVED getTodayISO()
 
   const hydrateStore = async () => {
     if (isHydrated.value || loading.value) return
@@ -29,7 +30,7 @@ export const useData = defineStore('data', () => {
         getDocs(collection($db, 'courses'))
       ])
 
-      const today = getTodayISO()
+      const today = getLocalIsoDate() // <-- 3. Using getLocalIsoDate()
       
       const leaguePromises = leaguesSnap.docs.map(async (lDoc) => {
         const league = { id: lDoc.id, ...lDoc.data() }
@@ -64,10 +65,39 @@ export const useData = defineStore('data', () => {
     }
   }
 
-  // --- NEW: Targeted refresh for when a calendar is updated ---
+  const fetchUpcomingEvents = async (leagueId, forceRefresh = false) => {
+    if (upcomingEvents.value[leagueId] && !forceRefresh) return
+
+    try {
+      const today = getLocalIsoDate() // <-- Using getLocalIsoDate()
+      const qRef = query(
+        collection($db, "leagues", leagueId, "calendar"),
+        where("iso", ">=", today),
+        orderBy("iso", "asc"),
+        limit(3)
+      )
+      
+      const snap = await getDocs(qRef)
+      upcomingEvents.value[leagueId] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    } catch (error) {
+      console.error(`Failed to fetch upcoming events for league ${leagueId}:`, error)
+    }
+  }
+
+  const getNextActiveEvent = computed(() => {
+    return (leagueId) => {
+      const events = upcomingEvents.value[leagueId]
+      if (!events || !events.length) return null
+      
+      return events.find(e => e.status !== 'complete') || null
+    }
+  })
+
   const refreshLeagueCalendar = async (leagueId) => {
     try {
-      const today = getTodayISO();
+      await fetchUpcomingEvents(leagueId, true)
+
+      const today = getLocalIsoDate(); // <-- Using getLocalIsoDate()
       const calQ = query(
         collection($db, 'leagues', leagueId, 'calendar'),
         where('iso', '>=', today),
@@ -87,7 +117,7 @@ export const useData = defineStore('data', () => {
   };
 
   const isLeagueLiveToday = computed(() => (leagueId) => {
-    const today = getTodayISO();
+    const today = getLocalIsoDate(); // <-- Using getLocalIsoDate()
     return liveRounds.value.some(r => r.leagueId === leagueId && r.iso === today);
   });
 
@@ -133,8 +163,8 @@ export const useData = defineStore('data', () => {
   }
 
   return { 
-    liveRounds, leagues, courses, isHydrated, loading,
+    liveRounds, leagues, courses, isHydrated, loading, upcomingEvents,
     hydrateStore, startLiveListener, stopLiveListener, resumeListener,
-    deleteLiveRound, refreshLeagueCalendar // <-- Don't forget to export it
+    deleteLiveRound, refreshLeagueCalendar, fetchUpcomingEvents, getNextActiveEvent
   }
 })

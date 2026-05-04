@@ -197,7 +197,9 @@ const handleToggle = (player) => {
       p.teesId = p.defaultTeesId || p.teesId || null;
     }
   }
-
+  console.log('Round Tees ID:', props.roundTeesId);
+  console.log('New Player Tees ID:', p.teesId);
+      
   emit('toggle', p);
 };
 

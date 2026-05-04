@@ -90,27 +90,30 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
 import { getLocalIsoDate } from '~/utils/leagueActions'
 
 const props = defineProps({
-  league: { type: Object, required: true }
+  league: { type: Object, required: true },
+  showAction: { type: Boolean, default: false }
 })
 
 const authStore = useAuthStore()
 const dataStore = useData()
 const todayIso = getLocalIsoDate()
 
+// --- LOGO DETECTION ---
 const lId = props.league.id || ''
 const isSmss = computed(() => lId === 'KqyvWn81FCGEhsRx4tfI')
 const isVegas = computed(() => lId === 'I7LCsEb1va49YU1lkRmu')
 const isSsc = computed(() => lId === 'vcx75B9fY6uqgAuNo0rL')
-const isT4g = computed(() => lId === 'XFPsVFZpDcEovzod5oJ0')
 
+// --- STATE ---
 const activeRoundId = ref(null)
 
+// --- ACTIVE ROUND WATCHER ---
 watch(
   [() => dataStore.liveRounds, () => authStore.isInitialized],
   ([rounds, ready]) => {
@@ -130,10 +133,26 @@ watch(
   { immediate: true, deep: true }
 )
 
+// --- FETCH ON MOUNT ---
+onMounted(async () => {
+  // Tell Pinia to fetch and cache the next few events for this league.
+  // Because we built the cache check into the store, this costs 0 reads 
+  // if the data is already loaded!
+  await dataStore.fetchUpcomingEvents(props.league.id)
+})
+
+// --- COMPUTED ---
 const nextRoundData = computed(() => {
-  if (!props.league.calendar?.length) return props.league.nextRound || null
-  const events = [...props.league.calendar].sort((a, b) => a.iso.localeCompare(b.iso))
-  return events.find(e => e.iso === todayIso) || events.find(e => e.iso > todayIso) || null
+  // 1. Grab the central truth from Pinia (finds the next event NOT marked 'complete')
+  const storeEvent = dataStore.getNextActiveEvent(props.league.id)
+  if (storeEvent) return storeEvent
+  
+  // 2. Fallback to static league data if the store hasn't populated yet
+  if (props.league.nextRound && props.league.nextRound.status !== 'complete') {
+    return props.league.nextRound
+  }
+  
+  return null
 })
 
 const readableDate = computed(() => {
@@ -143,23 +162,23 @@ const readableDate = computed(() => {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 })
 
-const hasLiveRounds = computed(() => dataStore.liveRounds.some(r => r.leagueId === props.league.id && r.iso === todayIso))
+const hasLiveRounds = computed(() => {
+  return dataStore.liveRounds.some(r => r.leagueId === props.league.id && r.iso === todayIso)
+})
+
 const isAdmin = computed(() => authStore.isAdminForLeague?.(props.league))
 const isToday = (isoDate) => isoDate === todayIso
 
-// --- UPDATED ACTION LOGIC ---
+// --- ACTIONS ---
 const handleBadgeAction = () => {
   if (activeRoundId.value) {
-    // 1. Resume active round
     navigateTo(`/rounds/${activeRoundId.value}`)
   } else if (nextRoundData.value && isToday(nextRoundData.value.iso)) {
-    // 2. Start today's round
     navigateTo({
       path: '/rounds/setup',
       query: { leagueId: props.league.id, isLeague: 'true' }
     })
   } else {
-    // 3. Next mode: Navigate to league menu
     navigateTo(`/leagues/${props.league.id}/menu`)
   }
 }

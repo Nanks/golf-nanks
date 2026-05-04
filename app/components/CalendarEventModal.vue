@@ -32,7 +32,19 @@
               <div>
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Course & Group Tees</p>
                 <p class="font-black dark:text-white uppercase italic text-sm tracking-tighter">
-                  {{ localEvent.course || 'TBD' }} <span class="text-slate-300 dark:text-slate-700 mx-1">/</span> {{ localEvent.tees || 'TBD' }}
+                  {{ localEvent.course || 'TBD' }} 
+                  <span class="text-slate-300 dark:text-slate-700 mx-1">/</span> 
+                  
+                  <template v-if="localEvent.teesId === 'mixed'">
+                     <span class="text-xs">
+                       M: <span class="text-emerald-600 dark:text-emerald-400">{{ localEvent.mensTees || 'TBD' }}</span> 
+                       <span class="text-slate-300 dark:text-slate-700 mx-0.5">•</span> 
+                       L: <span class="text-emerald-600 dark:text-emerald-400">{{ localEvent.ladiesTees || 'TBD' }}</span>
+                     </span>
+                  </template>
+                  <template v-else>
+                    {{ localEvent.tees || 'TBD' }}
+                  </template>
                 </p>
               </div>
               <button @click="isPickerOpen = true" class="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm active:scale-90 transition-all">
@@ -114,7 +126,7 @@
           </div>
 
           <div v-if="isEditing && localEvent.game?.includes('Blind Best Ball')" class="bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border-2 border-slate-100 dark:border-slate-800">
-             </div>
+          </div>
         </div>
 
         <button @click="handleSave" :disabled="!localEvent.course || !localEvent.iso" class="w-full mt-6 py-3.5 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-widest text-sm shadow-lg shadow-emerald-900/20 active:scale-95 transition-all disabled:opacity-50">
@@ -126,8 +138,9 @@
         :is-open="isPickerOpen"
         :selected-course="localEvent.course"
         :selected-tee="localEvent.tees"
+        :league-tees-type="league?.tees_type"
         @close="isPickerOpen = false"
-        @pick="(val) => { localEvent.course = val.course; localEvent.tees = val.tees }"
+        @pick="handleTeePick"
       />
     </div>
   </Teleport>
@@ -135,6 +148,9 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { useConfirm } from '~/composables/useConfirm';
+
+const confirm = useConfirm();
 
 const props = defineProps({
   isOpen: Boolean,
@@ -147,7 +163,20 @@ const emit = defineEmits(['close', 'save']);
 // --- STATE ---
 const isPickerOpen = ref(false);
 const localEvent = ref({
-  iso: '', course: '', tees: '', game: [], status: null, money: 1, holes: 18, per: 20, bbb_pairings: []
+  iso: '', 
+  course: '', 
+  tees: '', 
+  teesId: '', // Added teesId
+  mensTees: '',
+  mensTeesId: '',
+  ladiesTees: '',
+  ladiesTeesId: '',
+  game: [], 
+  status: null, 
+  money: 1, 
+  holes: 18, 
+  per: 20, 
+  bbb_pairings: []
 });
 
 const statusOptions = [
@@ -173,7 +202,47 @@ const toggleGame = (g) => {
   idx > -1 ? localEvent.value.game.splice(idx, 1) : localEvent.value.game.push(g);
 };
 
-const handleSave = () => {
+// Handle payload from CourseTeesModal
+const handleTeePick = (val) => {
+  localEvent.value.course = val.course;
+  localEvent.value.tees = val.tees;
+  localEvent.value.teesId = val.teesId;
+  
+  if (val.teesId === 'mixed') {
+    localEvent.value.mensTees = val.mensTees;
+    localEvent.value.mensTeesId = val.mensTeesId;
+    localEvent.value.ladiesTees = val.ladiesTees;
+    localEvent.value.ladiesTeesId = val.ladiesTeesId;
+  } else {
+    // Clear mixed specific data if standard tee selected
+    localEvent.value.mensTees = null;
+    localEvent.value.mensTeesId = null;
+    localEvent.value.ladiesTees = null;
+    localEvent.value.ladiesTeesId = null;
+  }
+};
+
+const handleSave = async () => {
+  // Check if they are trying to change an active event to 'complete'
+  if (localEvent.value.status === 'complete' && props.event?.status !== 'complete') {
+    
+    const confirmed = await confirm.ask(
+      "Complete Event & Archive Rounds?", 
+      "This will close the event and permanently archive all player scores from the active live rounds. This action cannot be undone.",
+      { 
+        confirmText: 'Complete & Archive', 
+        icon: 'mdi:archive-arrow-down', 
+        iconBg: 'bg-emerald-50 dark:bg-emerald-900/30', 
+        iconColor: 'text-emerald-500',
+        confirmBtnClass: 'bg-emerald-600 hover:bg-emerald-700'
+      }
+    );
+    
+    // If they cancel, stop the save process entirely
+    if (!confirmed) return;
+  }
+
+  // If confirmed (or if just a standard edit), emit the save normally
   emit('save', { ...localEvent.value });
 };
 
@@ -186,7 +255,6 @@ watch(() => props.isOpen, (opened) => {
       ...props.event, 
       game: Array.isArray(props.event.game) ? props.event.game : [],
       bbb_pairings: props.event.bbb_pairings || [],
-      // Use existing values, fallback to league defaults, ultimate fallback to static numbers
       holes: props.event.holes || props.league?.holes || 18,
       per: props.event.per || props.league?.per || 20
     };
@@ -195,10 +263,14 @@ watch(() => props.isOpen, (opened) => {
       iso: new Date().toISOString().split('T')[0],
       course: props.league?.course || 'Elks', 
       tees: props.league?.tees || 'Blue',
+      teesId: props.league?.teesId || null,
+      mensTees: props.league?.mensTees || null,
+      mensTeesId: props.league?.mensTeesId || null,
+      ladiesTees: props.league?.ladiesTees || null,
+      ladiesTeesId: props.league?.ladiesTeesId || null,
       game: ['Gross Skins', 'Net Skins', 'Deuce Pot', 'Blind Best Ball'],
       status: null, 
       money: 1, 
-      // Populate defaults from the league document
       holes: props.league?.holes || 18, 
       per: props.league?.per || 20,
       bbb_pairings: []

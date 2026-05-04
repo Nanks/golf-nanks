@@ -38,8 +38,14 @@
           </div>
           <div class="flex flex-col">
             <h3 class="font-black text-xl italic uppercase text-emerald-700 dark:text-emerald-400 leading-none mb-1">Start Round</h3>
-            <p class="text-[9px] font-black uppercase tracking-widest text-emerald-600/70 dark:text-emerald-400/70">
-              {{ leagueData?.nextRound?.course || 'Course TBD' }} • {{ leagueData?.nextRound?.tees || 'Tees TBD' }}
+            <p class="text-[9px] font-black uppercase tracking-widest text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
+              {{ nextActiveEvent?.course || 'Course TBD' }} • 
+              <template v-if="nextActiveEvent?.teesId === 'mixed'">
+                M: {{ nextActiveEvent?.mensTees }} / L: {{ nextActiveEvent?.ladiesTees }}
+              </template>
+              <template v-else>
+                {{ nextActiveEvent?.tees || 'Tees TBD' }}
+              </template>
             </p>
           </div>
         </div>
@@ -107,7 +113,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
@@ -120,21 +126,40 @@ const dataStore = useData()
 const leagueId = route.params.id 
 const todayIso = getLocalIsoDate()
 
+// --- FETCH ON MOUNT ---
+onMounted(async () => {
+  // Pull the latest 3 events into the Pinia cache
+  await dataStore.fetchUpcomingEvents(leagueId)
+})
+
 // 1. Find the current league object
 const leagueData = computed(() => {
   return dataStore.leagues.find(l => l.id === leagueId)
 })
 
 const leagueName = computed(() => leagueData.value?.shortName || 'League')
+const isAdmin = computed(() => authStore.isAdminForLeague?.(leagueData.value))
 
 // 2. Pull yearly games array from the league document
 const yearlyGames = computed(() => leagueData.value?.yearly_games || [])
 
-const isAdmin = computed(() => authStore.isAdminForLeague?.(leagueData.value))
+// --- NEXT ACTIVE EVENT LOGIC ---
+const nextActiveEvent = computed(() => {
+  // Grab the central truth from Pinia
+  const storeEvent = dataStore.getNextActiveEvent(leagueId)
+  if (storeEvent) return storeEvent
+  
+  // Fallback to static league data
+  if (leagueData.value?.nextRound && leagueData.value.nextRound.status !== 'complete') {
+    return leagueData.value.nextRound
+  }
+  
+  return null
+})
 
-// --- NEW: Check if there is an event matching today's ISO ---
+// --- START / RESUME CHECKS ---
 const hasEventToday = computed(() => {
-  return leagueData.value?.nextRound?.iso === todayIso
+  return nextActiveEvent.value?.iso === todayIso
 })
 
 const isLive = computed(() => {
