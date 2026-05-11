@@ -64,7 +64,7 @@
                   
                   <div class="mt-1.5 flex items-center gap-1.5">
                     
-                    <p v-if="isYearlyLeague" class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
+                    <p v-if="isAppManaged" class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
                       League HCP: <span class="text-emerald-500 text-[10px]">{{ getDisplayHandicap(player) }}</span>
                     </p>
                     
@@ -164,7 +164,9 @@ const leagueId = computed(() => route.query.leagueId || '')
 const currentLeague = computed(() => dataStore.leagues.find(l => l.id === leagueId.value))
 const leagueName = computed(() => currentLeague.value?.name || '')
 const isAdmin = computed(() => authStore.isAdminForLeague(currentLeague.value))
-const isYearlyLeague = computed(() => currentLeague.value?.cadence === 'yearly')
+
+// NEW: Use the dynamic appHandicap boolean directly from the league document
+const isAppManaged = computed(() => isLeague.value && currentLeague.value?.appHandicap === true)
 
 const backRoute = computed(() => {
   return route.query.from === 'menu' ? `/leagues/${leagueId.value}/menu` : '/';
@@ -201,13 +203,14 @@ const getTeePar = (teeData) => {
   return teeData?.pars?.reduce((sum, val) => sum + Number(val), 0) || 72
 }
 
-// UI: Display exact decimal for Yearly Leagues
+// UI: Display exact decimal for App Managed Leagues, fallback to GHIN if they are new
 const getDisplayHandicap = (player) => {
-  const hcp = player.leagueHandicaps?.[leagueId.value] ?? 0
+  // If they don't have a league handicap yet, use (GHIN - 3)
+  const hcp = player.leagueHandicaps?.[leagueId.value] ?? ((player.ghin ?? 0) - 3)
   return parseFloat(hcp).toFixed(3)
 }
 
-// UI: Display dynamic integer for Casual / Non-Yearly
+// UI: Display dynamic integer for GHIN / Casual rounds
 const getDynamicCourseHandicap = (player) => {
   if (!selectedCourse.value || !player.teeId) return '-'
   
@@ -346,8 +349,10 @@ const startRound = async () => {
       
       let finalIndex, finalCourseHcp;
 
-      if (isYearlyLeague.value) {
-        const rawLeagueHcp = p.leagueHandicaps?.[leagueId.value] ?? 0;
+      // NEW: Check isAppManaged instead of isYearlyLeague
+      if (isAppManaged.value) {
+        // Fallback to GHIN if it's their very first round in this league
+        const rawLeagueHcp = p.leagueHandicaps?.[leagueId.value] ?? ((p.ghin ?? 0) - 3);
         finalIndex = parseFloat(rawLeagueHcp);
         finalCourseHcp = parseFloat(finalIndex.toFixed(3)); 
       } else {
