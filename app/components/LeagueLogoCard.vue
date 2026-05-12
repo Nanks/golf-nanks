@@ -109,6 +109,7 @@ const lId = props.league.id || ''
 const isSmss = computed(() => lId === 'KqyvWn81FCGEhsRx4tfI')
 const isVegas = computed(() => lId === 'I7LCsEb1va49YU1lkRmu')
 const isSsc = computed(() => lId === 'vcx75B9fY6uqgAuNo0rL')
+const isT4g = computed(() => lId === 'XFPsVFZpDcEovzod5oJ0')
 
 // --- STATE ---
 const activeRoundId = ref(null)
