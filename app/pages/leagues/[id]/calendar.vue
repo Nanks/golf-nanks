@@ -121,10 +121,8 @@
                 </div>
                 
                 <Icon v-else-if="isClickable(event)"
-                  :name="(event.iso === todayIso && !isFinished(event)) 
-                    ? (myActiveRoundId ? 'mdi:golf-cart' : 'mdi:play-circle-outline') 
-                    : 'mdi:chevron-right'" 
-                  :class="(event.iso === todayIso && !isFinished(event)) ? 'text-emerald-500 animate-pulse' : 'text-slate-300 dark:text-slate-600'"
+                  :name="getEventIcon(event)" 
+                  :class="getEventIconClass(event)"
                   class="size-6 transition-colors group-hover:text-emerald-500" 
                 />
               </ClientOnly>
@@ -181,6 +179,12 @@ const isAdmin = computed(() => {
   return authStore.isAdminForLeague(leagueData.value)
 })
 
+// NEW: Check if the current user has this league ID in their profile's leagues array
+const isPlayerInLeague = computed(() => {
+  const userLeagues = authStore.userProfile?.leagues || []
+  return userLeagues.includes(leagueId)
+})
+
 const isLeagueLive = computed(() => {
   return dataStore.liveRounds.some(r => r.leagueId === leagueId && r.iso === todayIso)
 })
@@ -213,10 +217,34 @@ const loadEventsForYear = (year) => {
   })
 }
 
+// --- Dynamic Event Icons ---
+// Abstracted logic for the right-side action icon
+const getEventIcon = (event) => {
+  if (event.iso === todayIso && !isFinished(event)) {
+    if (myActiveRoundId.value) return 'mdi:golf-cart'
+    if (isPlayerInLeague.value) return 'mdi:play-circle-outline'
+  }
+  return 'mdi:chevron-right'
+}
+
+const getEventIconClass = (event) => {
+  if (event.iso === todayIso && !isFinished(event) && (myActiveRoundId.value || isPlayerInLeague.value)) {
+    return 'text-emerald-500 animate-pulse'
+  }
+  return 'text-slate-300 dark:text-slate-600'
+}
+
 // --- Update isClickable ---
 const isClickable = (event) => {
   if (isAdminMode.value) return true // Make the entire card clickable to edit in Manage Mode!
-  return isFinished(event) || event.iso <= todayIso
+  
+  // They can click to view history of past events
+  if (isFinished(event) || event.iso < todayIso) return true
+  
+  // They can click today's event ONLY if they are in the league or already have a round going
+  if (event.iso === todayIso && (isPlayerInLeague.value || myActiveRoundId.value)) return true
+  
+  return false
 }
 
 // --- Update handleCardClick ---
@@ -240,7 +268,7 @@ const handleCardClick = (event) => {
     if (myActiveRoundId.value) {
       // RESUME: Take them straight to their active scorecard
       router.push(`/rounds/${myActiveRoundId.value}`)
-    } else {
+    } else if (isPlayerInLeague.value) {
       // START: Take them to setup to join/create a foursome
       router.push({
         path: '/rounds/setup',

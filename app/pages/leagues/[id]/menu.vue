@@ -28,7 +28,7 @@
       </div>
 
       <div 
-        v-else-if="hasEventToday" 
+        v-else-if="hasEventToday && isPlayerInLeague" 
         @click="startRound"
         class="card-interactive flex items-center justify-between p-5 !border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10"
       >
@@ -139,6 +139,12 @@ const leagueData = computed(() => {
 
 const leagueName = computed(() => leagueData.value?.shortName || 'League')
 const isAdmin = computed(() => authStore.isAdminForLeague?.(leagueData.value))
+
+// NEW: Check if the current user has this league ID in their profile's leagues array
+const isPlayerInLeague = computed(() => {
+  const userLeagues = authStore.userProfile?.leagues || []
+  return userLeagues.includes(leagueId)
+})
 
 // 2. Pull yearly games array from the league document
 const yearlyGames = computed(() => leagueData.value?.yearly_games || [])
