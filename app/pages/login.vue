@@ -1,30 +1,30 @@
 <template>
-  <div class="min-h-screen bg-slate-950 flex flex-col items-center pt-4 sm:justify-center sm:pt-0 p-6 select-none">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center pt-4 sm:justify-center sm:pt-0 p-6 select-none">
     <div class="max-w-md w-full">
       
       <header class="mb-8 text-center">
-        <h1 class="text-5xl font-black tracking-[0.15em] text-emerald-500 uppercase italic">
+        <h1 class="text-5xl font-black tracking-[0.15em] text-emerald-600 dark:text-emerald-500 uppercase italic">
           Golf Nanks
         </h1>
         <div class="flex items-center justify-center gap-3 mt-2">
-          <span class="h-[1px] w-8 bg-slate-800"></span>
-          <p class="text-slate-500 font-bold text-[10px] uppercase tracking-[0.3em]">
+          <span class="h-[1px] w-8 bg-slate-300 dark:bg-slate-800"></span>
+          <p class="text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
             League Management
           </p>
-          <span class="h-[1px] w-8 bg-slate-800"></span>
+          <span class="h-[1px] w-8 bg-slate-300 dark:bg-slate-800"></span>
         </div>
       </header>
 
-      <div class="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-2xl shadow-emerald-950/20">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] shadow-2xl shadow-emerald-500/10 dark:shadow-emerald-950/20">
         
         <div v-if="!otpSent" class="space-y-6">
           <div>
-            <h2 class="text-2xl font-black text-white uppercase tracking-tight italic">Welcome</h2>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">Welcome</h2>
           </div>
           
           <div class="space-y-5">
             <div>
-              <label class="block text-[10px] font-black uppercase text-slate-500 mb-2 tracking-[0.2em] ml-1">
+              <label class="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-2 tracking-[0.2em] ml-1">
                 Mobile Number
               </label>
               <input 
@@ -32,7 +32,7 @@
                 type="tel" 
                 @input="formatDisplay"
                 placeholder="(555) 555-5555" 
-                class="w-full p-4 bg-slate-950 border border-slate-800 text-white rounded-2xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all font-mono text-lg text-center"
+                class="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all font-mono text-lg text-center placeholder:text-slate-400 dark:placeholder:text-slate-600"
                 :disabled="isLoading"
               />
             </div>
@@ -41,7 +41,7 @@
               @click="handleSendOtp" 
               id="login-button"
               :disabled="isLoading || phoneNumber.length < 14"
-              class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-black py-4 rounded-2xl transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-900/20"
+              class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-600 text-white font-black py-4 rounded-2xl transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-900/10 dark:shadow-emerald-900/20"
             >
               <span v-if="isLoading" class="flex items-center justify-center gap-2">
                 <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -54,9 +54,9 @@
         
         <div v-else class="space-y-6">
           <div>
-            <h2 class="text-2xl font-black text-white uppercase tracking-tight italic">Security Code</h2>
-            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">
-              Sent to <span class="text-emerald-500">{{ phoneNumber }}</span>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">Security Code</h2>
+            <p class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">
+              Sent to <span class="text-emerald-600 dark:text-emerald-500">{{ phoneNumber }}</span>
             </p>
           </div>
 
@@ -70,7 +70,7 @@
                 autocomplete="one-time-code"
                 maxlength="6"
                 placeholder="••••••"
-                class="w-full p-4 bg-slate-950 border border-slate-800 text-emerald-500 rounded-2xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all font-mono text-lg text-center placeholder:text-slate-700"
+                class="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-500 rounded-2xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all font-mono text-lg text-center placeholder:text-slate-400 dark:placeholder:text-slate-700"
                 @input="handleOtpInput"
                 :disabled="isLoading"
               />
@@ -79,7 +79,7 @@
             <button 
               @click="handleVerifyOtp" 
               :disabled="isLoading || otpCode.length < 6"
-              class="w-full bg-white text-slate-950 font-black py-4 rounded-2xl hover:bg-slate-100 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs disabled:opacity-50"
+              class="w-full bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 font-black py-4 rounded-2xl dark:hover:bg-slate-100 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-xs disabled:opacity-50"
             >
               <span v-if="isLoading">Finalizing...</span>
               <span v-else>Confirm Identity</span>
@@ -87,7 +87,7 @@
             
             <button 
               @click="resetOtp" 
-              class="w-full text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] hover:text-emerald-500 transition-colors pt-2"
+              class="w-full text-[10px] font-black text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] hover:text-emerald-600 dark:hover:text-emerald-500 transition-colors pt-2"
             >
               Try different number
             </button>
@@ -95,7 +95,17 @@
         </div>
       </div>
       
-      <p class="text-center mt-8 text-[9px] font-black text-slate-700 uppercase tracking-[0.3em]">
+      <div class="mt-6 flex justify-center">
+        <button 
+          @click="continueAsGuest"
+          class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-500 transition-colors flex items-center gap-2 active:scale-95"
+        >
+          <span>Continue as Guest</span>
+          <Icon name="mdi:arrow-right" class="size-4" />
+        </button>
+      </div>
+
+      <p class="text-center mt-8 text-[9px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.3em]">
         &copy; {{ new Date().getFullYear() }} DB Nanks Industries
       </p>
     </div>
@@ -260,5 +270,14 @@ const handleVerifyOtp = async () => {
   } finally {
     ui.setLoading(false);
   }
+};
+
+// NEW: Guest Login Handler
+const continueAsGuest = () => {
+  // Sets a cookie so the middleware knows to let them view public pages
+  const guestCookie = useCookie('golf_nanks_guest', { maxAge: 60 * 60 * 24 }); // Expires in 24 hours
+  guestCookie.value = 'true';
+  
+  navigateTo('/');
 };
 </script>

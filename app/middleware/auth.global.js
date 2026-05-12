@@ -1,31 +1,45 @@
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  // 1. SSR BYPASS (The Magic Fix)
-  // The server has no idea who the user is. If we let the server continue, 
-  // it will aggressively redirect logged-in users to the login page on a hard refresh.
   if (import.meta.server) return;
 
   const authStore = useAuthStore();
   
-  // 2. Wait for Firebase (Now guaranteed to only run in the browser)
   if (!authStore.isInitialized) {
     console.log('⏳ Middleware: Waiting for Firebase Auth...');
     await authStore.waitForAuth();
   }
 
-  // 3. Security Logic
-  const isLoginPath = to.path === '/login';
-  const protectedRoutes = ['/admin', '/profile/edit'];
-  const isRoundRoute = to.path.startsWith('/rounds/');
+  const publicRoutes = ['/login', '/register', '/forgot-password'];
+  const isPublicRoute = publicRoutes.includes(to.path);
+  
+  // NEW: Hard-protected routes that even guests cannot see
+  const strictProtectedRoutes = ['/admin', '/profile/edit'];
+  const isStrictProtected = strictProtectedRoutes.includes(to.path) || to.path.startsWith('/rounds/setup');
 
-  // Redirect if logged in and trying to access login page
-  if (authStore.isLoggedIn && isLoginPath) {
-    return navigateTo('/');
+  // Check for the guest cookie
+  const isGuest = useCookie('golf_nanks_guest').value === 'true';
+
+  // 1. User is NOT logged in
+  if (!authStore.isLoggedIn) {
+    
+    // If they are a guest trying to access a strictly protected route -> send to login
+    if (isGuest && isStrictProtected) {
+      console.warn('🚫 Middleware: Guest trying to access protected route.');
+      return navigateTo('/login');
+    }
+
+    // If they are NOT a guest, and trying to access a non-public route -> send to login
+    if (!isGuest && !isPublicRoute) {
+      console.warn('🚫 Middleware: Unauthorized access, redirecting to login');
+      return navigateTo('/login');
+    }
   }
 
-  // Redirect to login if accessing a protected route without a profile
-  if (!authStore.isLoggedIn && (protectedRoutes.includes(to.path) || isRoundRoute)) {
-    console.warn('🚫 Middleware: Unauthorized access, redirecting to login');
-    return navigateTo('/login');
+  // 2. User IS logged in, but trying to access the login/register page
+  if (authStore.isLoggedIn && isPublicRoute) {
+    console.log('🔄 Middleware: Already logged in, redirecting to home');
+    // Optional: Clear the guest cookie if they log in
+    useCookie('golf_nanks_guest').value = null; 
+    return navigateTo('/');
   }
 
   console.log('✅ Middleware: Authorized for', to.path);

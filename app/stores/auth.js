@@ -132,6 +132,11 @@ export const useAuthStore = defineStore('auth', {
         this.userProfile = null;
         this.isInitialized = true; 
 
+        const guestCookie = useCookie('golf_nanks_guest');
+        guestCookie.value = null;
+
+        return navigateTo('/login');
+
       } catch (error) {
         console.error("Logout failed:", error);
       }
