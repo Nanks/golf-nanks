@@ -7,8 +7,8 @@
           to="/" 
           class="flex-1 flex flex-col items-center justify-center py-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 active:text-emerald-500 active:scale-95 transition-all rounded-xl"
         >
-          <Icon name="mdi:home-variant-outline" class="size-6 mb-1" />
-          <span class="text-[9px] font-black uppercase tracking-widest">Home</span>
+          <Icon name="mdi:home-variant-outline" class="size-8 mb-1" />
+          <span class="text-xs font-black uppercase tracking-widest">Home</span>
         </NuxtLink>
         
         <NuxtLink 
@@ -16,12 +16,12 @@
           :to="`/rounds/${roundId}`" 
           class="flex-1 flex flex-col items-center justify-center py-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 active:text-emerald-500 active:scale-95 transition-all rounded-xl"
         >
-          <Icon name="mdi:clipboard-text-outline" class="size-6 mb-1" />
-          <span class="text-[9px] font-black uppercase tracking-widest">Scorecard</span>
+          <Icon name="mdi:clipboard-text-outline" class="size-8 mb-1" />
+          <span class="text-xs font-black uppercase tracking-widest">Scorecard</span>
         </NuxtLink>
         <div v-else class="flex-1 flex flex-col items-center justify-center py-2 text-emerald-500 bg-emerald-500/10 rounded-xl cursor-default">
-          <Icon name="mdi:clipboard-text-outline" class="size-6 mb-1" />
-          <span class="text-[9px] font-black uppercase tracking-widest">Scorecard</span>
+          <Icon name="mdi:clipboard-text-outline" class="size-8 mb-1" />
+          <span class="text-xs font-black uppercase tracking-widest">Scorecard</span>
         </div>
 
         <NuxtLink 
@@ -29,12 +29,12 @@
           :to="`/leaderboard/${leagueType}/${iso}/live?from=scorecard`" 
           class="flex-1 flex flex-col items-center justify-center py-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 active:text-emerald-500 active:scale-95 transition-all rounded-xl"
         >
-          <Icon name="mdi:trophy" class="size-6 mb-1" />
-          <span class="text-[9px] font-black uppercase tracking-widest">Leaderboard</span>
+          <Icon name="mdi:trophy" class="size-8 mb-1" />
+          <span class="text-xs font-black uppercase tracking-widest">Leaders</span>
         </NuxtLink>
         <div v-else class="flex-1 flex flex-col items-center justify-center py-2 text-emerald-500 bg-emerald-500/10 rounded-xl cursor-default">
-          <Icon name="mdi:trophy" class="size-6 mb-1" />
-          <span class="text-[9px] font-black uppercase tracking-widest">Leaderboard</span>
+          <Icon name="mdi:trophy" class="size-8 mb-1" />
+          <span class="text-xs font-black uppercase tracking-widest">Leaders</span>
         </div>
 
       </div>

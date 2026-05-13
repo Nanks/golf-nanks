@@ -31,14 +31,14 @@
         </template>
       </LeagueHeader>
 
-      <div class="px-4 mb-4 flex items-center gap-2 text-secondary text-[10px] font-black uppercase tracking-widest">
-        <span>{{ eventDetails?.course || 'Course TBD' }}</span>
-        <span class="opacity-30">•</span>
-        <span>{{ getShortDate(iso) }}</span>
-        <span class="opacity-30">•</span>
-        <span :class="eventStatusDisplay.color">
-          {{ eventStatusDisplay.text }}
-        </span>
+      <div class="text-center border-b border-stone-200 dark:border-stone-800 mb-1">
+        <p class="text-sm font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2">
+          <span class="text-stone-800 dark:text-stone-100">{{eventDetails?.type}}</span>
+          <span class="text-stone-300 dark:text-stone-700">•</span>
+          <span class="text-emerald-600 dark:text-emerald-500">{{eventDetails?.course}}</span>
+          <span class="text-stone-300 dark:text-stone-700">•</span>
+          <span class="text-stone-800 dark:text-stone-100">{{ getShortDate(iso) }}</span>
+        </p>
       </div>
 
       <div class="sticky top-20 z-40 bg-white/90 dark:bg-stone-950/90 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 py-2 mb-3">
@@ -48,9 +48,9 @@
             @click="activeTab = tab"
             :class="[
               activeTab === tab 
-                ? 'bg-white dark:bg-stone-800 text-emerald-600 shadow-sm' 
-                : 'text-stone-500 active:text-stone-800 dark:active:text-stone-200',
-              'flex-1 px-1 py-2 rounded-lg text-[11px] font-black uppercase tracking-tighter transition-all text-center min-w-[22%] active:scale-[0.98]'
+                ? 'bg-white dark:bg-stone-800 text-emerald-500 shadow-sm' 
+                : 'text-stone-600 dark:text-stone-300',
+              'flex-1 px-1 py-2 rounded-lg text-sm font-black uppercase tracking-tighter transition-all text-center min-w-[22%] active:scale-[0.98]'
             ]"
           >
             {{ tab.replace('Score', '').replace('Points', '') }}
@@ -111,6 +111,7 @@
                   <div class="flex items-center gap-4 text-secondary text-xs font-black uppercase">
                     <span>HCP: <span class="text-stone-900 dark:text-stone-100">{{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}</span></span>
                     <span>THRU: <span class="text-stone-900 dark:text-stone-100">{{ row.games.holesPlayed === (row.holes || 18) ? 'F' : row.games.holesPlayed }}</span></span>
+                    <span>GROSS: <span class="text-stone-900 dark:text-stone-100">{{ row.games.totalGrossUnder === 0 ? 'E' : (row.games.totalGrossUnder > 0 ? `+${row.games.totalGrossUnder}` : row.games.totalGrossUnder) }}</span></span>
                   </div>
                   <span v-if="row.winStats?.totalMoney > 0" class="text-primary text-sm text-emerald-600 font-black italic">${{ row.winStats.totalMoney.toFixed(2) }}</span>
                 </div>
@@ -207,45 +208,90 @@ const processedPlayers = computed(() => (roundsSource.value || []).map(p => ({
 })));
 
 const activeDisplayList = computed(() => {
+  // 1. Handle Blind Best Ball (Team Game)
   if (activeTab.value === 'Blind Best Ball') {
     const currentStatus = eventDetails.value?.status?.toLowerCase() || '';
     const isLocked = ['complete', 'mdi-check-bold', 'mdi:check-bold'].includes(currentStatus);
-    
     if (!isLocked && !isPreviewingPairings.value) return [];
-    // FIX 1: Safely map index to ID if win.id is missing so Vue keys don't break
-    return (winnersLog.value?.blindBestBall || []).map((win, idx) => ({ ...win, id: `team-${win.id || idx}`, isWinnerRow: true }));
+    return (winnersLog.value?.blindBestBall || []).map((win, idx) => ({ 
+      ...win, 
+      id: `team-${win.id || idx}`, 
+      isWinnerRow: true 
+    }));
   }
 
+  // 2. Identify Game Type
   const isChicago = ['Chicago Points', 'Modified Chicago'].includes(activeTab.value);
+  const isBirdies = activeTab.value === 'birds';
+  const isDeuces = activeTab.value === 'deuces';
+
+  // 3. Process Players for the Leaderboard
   const players = [...processedPlayers.value].map(p => {
-    let scoreVal = 0, display = '', color = 'text-stone-900 dark:text-white';
+    let scoreVal = 0;
+    let display = '';
+    let color = 'text-stone-900 dark:text-white';
+    
     if (activeTab.value === 'Net Score') {
-      scoreVal = p.netRel;
-      const fmt = isYearlyLeague.value ? p.netRel.toFixed(3) : Math.round(p.netRel);
-      display = p.netRel === 0 ? 'E' : (p.netRel > 0 ? `+${fmt}` : fmt);
-      if (p.netRel < 0) color = 'text-emerald-500'; 
-    } else if (isChicago) {
+      // Use the pre-calculated totalNet from your utility
+      scoreVal = p.games?.totalNet ?? 0;
+      
+      const fmt = isYearlyLeague.value ? scoreVal.toFixed(3) : Math.round(scoreVal);
+      display = scoreVal === 0 ? 'E' : (scoreVal > 0 ? `+${fmt}` : fmt);
+      
+      if (scoreVal < 0) color = 'text-emerald-500'; 
+    } 
+    else if (isChicago) {
       const key = activeTab.value === 'Chicago Points' ? 'totalChicago' : 'totalModChicago';
       scoreVal = p.games?.[key] || 0;
-      display = (isYearlyLeague.value ? scoreVal.toFixed(3) : Math.round(scoreVal)).toString();
+      display = isYearlyLeague.value ? scoreVal.toFixed(3) : Math.round(scoreVal).toString();
     }
-    const tieScores = isChicago ? (p.games?.chicago || []) : (p.games?.net || []);
-    return { ...p, scoreVal, scoreDisplay: display, scoreColor: color, tieBreaker: getTieBreakerValue(tieScores, isChicago), isWinnerRow: false };
+    else if (isBirdies) {
+      // Map to your new totalBirds property
+      scoreVal = p.games?.totalBirds || 0;
+      display = scoreVal.toString();
+      if (scoreVal > 0) color = 'text-emerald-500';
+    }
+    else if (isDeuces) {
+      // Map to your new totalDeuces property
+      scoreVal = p.games?.totalDeuces || 0;
+      display = scoreVal.toString();
+      if (scoreVal > 0) color = 'text-emerald-500';
+    }
+
+    // Determine tie-breaker array based on active game
+    let tieScores = p.games?.net || [];
+    if (isChicago) tieScores = p.games?.chicago || [];
+    if (isBirdies) tieScores = p.games?.birds || [];
+    if (isDeuces) tieScores = p.games?.deuces || [];
+
+    return { 
+      ...p, 
+      scoreVal, 
+      scoreDisplay: display, 
+      scoreColor: color, 
+      tieBreaker: getTieBreakerValue(tieScores, !isChicago), // true if lower is better (Net), false if higher is better (Points/Birds)
+      isWinnerRow: false 
+    };
   });
 
+  // 4. Sort the List
   return players.sort((a, b) => {
+    // Net Score: Ascending (Lower is better)
     if (activeTab.value === 'Net Score') {
       if (a.scoreVal !== b.scoreVal) return a.scoreVal - b.scoreVal;
-    } else if (a.scoreVal !== b.scoreVal) return b.scoreVal - a.scoreVal;
+    } 
+    // Points, Birdies, Deuces: Descending (Higher is better)
+    else {
+      if (a.scoreVal !== b.scoreVal) return b.scoreVal - a.scoreVal;
+    }
 
+    // Secondary Tie Breaker (Back 9, Back 6, etc.)
     for (let i = 0; i < a.tieBreaker.length; i++) {
       if (a.tieBreaker[i] !== b.tieBreaker[i]) return b.tieBreaker[i] - a.tieBreaker[i];
     }
 
-    const aHoles = a.games?.holesPlayed ?? a.holes ?? 0;
-    const bHoles = b.games?.holesPlayed ?? b.holes ?? 0;
-    
-    return bHoles - aHoles;
+    // Tertiary: Most holes played wins ties
+    return (b.games?.holesPlayed ?? 0) - (a.games?.holesPlayed ?? 0);
   });
 });
 
@@ -375,7 +421,6 @@ const processLeaderboard = (flatPlayersArray) => {
   
   const calculatedRounds = calcRounds(flatPlayersArray, simulationEvent);
   const res = runLeaguePass(calculatedRounds, simulationEvent);
-  
   winnersLog.value = res.winnersLog || { blindBestBall: [] };
   roundsSource.value = res.players || [];
 };
@@ -440,10 +485,17 @@ onMounted(async () => {
     const q = query(collection($db, "leagues", leagueId, "calendar"), where("iso", "==", iso));
     const snap = await getDocs(q);
     eventDetails.value = snap.empty ? { iso, status: 'active', game: [] } : snap.docs[0].data();
-    
-    availableTabs.value = ['Net Score', ...(eventDetails.value.game || []).filter(g => 
-      ['Modified Chicago', 'Chicago Points', 'Blind Best Ball'].includes(g)
-    )];
+
+    const leagueGames = leagueData.value?.yearly_games || [];
+    const eventGames = eventDetails.value.game || [];
+    const allPossibleGames = [...new Set([...leagueGames, ...eventGames])];
+
+    availableTabs.value = [
+      'Net Score', 
+      ...allPossibleGames.filter(g => 
+        ['Modified Chicago', 'Chicago Points', 'Blind Best Ball', 'birds', 'deuces'].includes(g)
+      )
+    ];
 
     if (mode === 'live') {
       dataStore.startLiveListener({ leagueId });

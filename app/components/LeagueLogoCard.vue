@@ -4,6 +4,9 @@
     class="snap-start shrink-0 w-48 flex flex-col items-center cursor-pointer group select-none mt-2"
   >
     <div class="w-40 h-40 relative z-30 flex items-center justify-center mb-[-2.5rem] transition-transform duration-300 group-hover:-translate-y-2 group-hover:scale-105">
+      <div v-if="hasLiveRounds" class="absolute top-3 right-2 flex items-center gap-1 border border-emerald-500 bg-emerald-500/80 text-stone-500 px-2 py-0.5 rounded-full text-[10px] font-black uppercase shadow-sm z-20">
+        <div class="w-1.5 h-1.5 bg-stone-500 rounded-full animate-pulse"></div> Live
+      </div>
       <div class="absolute inset-0 bg-emerald-500/10 blur-xl rounded-full scale-125 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
       <div class="relative flex items-center justify-center overflow-visible drop-shadow-2xl">
         <TheSmssLogo 
@@ -42,10 +45,6 @@
       
       <div v-if="isAdmin" class="absolute top-4 left-3 text-amber-500 z-10">
         <Icon name="mdi:shield-crown-outline" class="size-4" />
-      </div>
-
-      <div v-if="hasLiveRounds" class="absolute top-3 right-2 flex items-center gap-1 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase shadow-sm z-20">
-        <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> Live
       </div>
 
       <!-- <h3 class="text-lg font-black text-primary uppercase text-center tracking-tight mb-2 w-full truncate px-4">
@@ -172,15 +171,15 @@ const isToday = (isoDate) => isoDate === todayIso
 
 // --- ACTIONS ---
 const handleBadgeAction = () => {
-  if (activeRoundId.value) {
-    navigateTo(`/rounds/${activeRoundId.value}`)
-  } else if (nextRoundData.value && isToday(nextRoundData.value.iso)) {
-    navigateTo({
-      path: '/rounds/setup',
-      query: { leagueId: props.league.id, isLeague: 'true' }
-    })
-  } else {
+  // if (activeRoundId.value) {
+  //   navigateTo(`/rounds/${activeRoundId.value}`)
+  // } else if (nextRoundData.value && isToday(nextRoundData.value.iso)) {
+  //   navigateTo({
+  //     path: '/rounds/setup',
+  //     query: { leagueId: props.league.id, isLeague: 'true' }
+  //   })
+  // } else {
     navigateTo(`/leagues/${props.league.id}/menu`)
-  }
+  // }
 }
 </script>

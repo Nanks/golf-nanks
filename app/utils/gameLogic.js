@@ -9,6 +9,11 @@ export const calcGames = (round, cal, teeData, pops) => {
 
   const ddHoles = (cal?.type === 'vegas' && cal?.ddHole) ? cal.ddHole : [];
 
+  const pars = teeData.pars;
+  const hnds = teeData.hnds;
+  const roundType = cal.type;
+  const leagueId = cal.leagueID || cal.leagueId;
+
   const birds =  round.scores.map((score, i) => {
     if (score <= 0) return 0;
     const isDoubleDown = ddHoles.includes(i + 1) ? 2 : 1;
@@ -46,7 +51,7 @@ export const calcGames = (round, cal, teeData, pops) => {
   const totalModChicago = (round.index - 36) + modChicago.reduce((sum, val) => sum + val, 0);
 
   const net = round.scores.map((score, i) => {
-    if (round.type === 'vegas' || round.type === 'mbWed') {
+    if (cal.type === 'vegas' || cal.type === 'mbWed') {
         return (score > 0) ? score - teeData.pars[i] - (round.index / 18) : 0
     } else {
         return (score > 0) ? score - teeData.pars[i] - pops[i] : 0
@@ -65,7 +70,23 @@ export const calcGames = (round, cal, teeData, pops) => {
 
   const totalGross = round.scores.reduce((a, b) => a + (Number(b) || 0), 0);
 
-  return { pops, birds, totalBirds, deuces, totalDeuces, chicago, totalChicago, modChicago, totalModChicago, net, totalNet, holesPlayed, grossUnder, totalGrossUnder, totalGross }
+  const adjusted = round.scores.map((score, i) => {
+    const maxScore = (score > 0) ? pars[i] + 2 + pops[i] : 0;
+    return Math.min(score, maxScore);
+  });
+
+  const totalAdjusted = adjusted.reduce((sum, val) => sum + val, 0);
+
+  return { pops, pars, hnds, roundType, leagueId,
+    birds, totalBirds, 
+    deuces, totalDeuces, 
+    chicago, totalChicago, 
+    modChicago, totalModChicago, 
+    net, totalNet, 
+    holesPlayed, 
+    grossUnder, totalGrossUnder,
+    adjusted, totalAdjusted, 
+    totalGross }
 };
 
 export const getTotals = (values) => {

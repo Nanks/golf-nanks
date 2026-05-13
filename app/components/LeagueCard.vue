@@ -9,7 +9,6 @@
 
     <div 
       v-if="hasLiveRounds" 
-      @click.stop="navigateTo(`/leaderboard/${league.id}/${todayIso}/live?from=home`)"
       class="absolute top-3 right-10 flex items-center gap-1.5 border border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full text-xs font-black uppercase shadow-sm z-20 cursor-pointer active:scale-95 transition-all"
     >
       <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> 
@@ -25,7 +24,7 @@
       </p>
     </div>
 
-    <div 
+    <!-- <div 
       v-if="isMember && (activeRoundId || nextRoundData)" 
       @click.stop="handleBadgeAction"
       :class="[
@@ -44,7 +43,7 @@
       <span class="text-xs font-black uppercase tracking-widest">
         {{ activeRoundId ? 'Resume Round' : isToday(nextRoundData.iso) ? 'Start Round' : `Next: ${nextRoundData.iso}` }}
       </span>
-    </div>
+    </div> -->
 
     <div class="absolute right-4 top-1/2 -translate-y-1/2 text-stone-700 dark:text-stone-300">
       <Icon name="mdi:chevron-right" class="size-6" />
@@ -53,7 +52,6 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
 import { getLocalIsoDate } from '~/utils/leagueActions'
@@ -110,14 +108,14 @@ const isAdmin = computed(() => authStore.isAdminForLeague?.(props.league))
 const isToday = (isoDate) => isoDate === todayIso
 
 // --- ACTIONS ---
-const handleBadgeAction = () => {
-  if (activeRoundId.value) {
-    navigateTo(`/rounds/${activeRoundId.value}`)
-  } else if (nextRoundData.value && isToday(nextRoundData.value.iso)) {
-    navigateTo({
-      path: '/rounds/setup',
-      query: { leagueId: props.league.id, isLeague: 'true' }
-    })
-  }
-}
+// const handleBadgeAction = () => {
+//   if (activeRoundId.value) {
+//     navigateTo(`/rounds/${activeRoundId.value}`)
+//   } else if (nextRoundData.value && isToday(nextRoundData.value.iso)) {
+//     navigateTo({
+//       path: '/rounds/setup',
+//       query: { leagueId: props.league.id, isLeague: 'true' }
+//     })
+//   }
+// }
 </script>
