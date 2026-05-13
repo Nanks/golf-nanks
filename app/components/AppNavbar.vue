@@ -26,12 +26,12 @@
                 </p>
               </div>
 
-              <button @click="handleNav('/profile')" class="menu-btn group">
+              <!-- <button @click="handleNav('/profile')" class="menu-btn group">
                 <div class="icon-box bg-emerald-500/10 text-emerald-600">
                    <Icon name="mdi:account-outline" class="size-6" />
                 </div>
                 <span class="text-secondary group-hover:text-slate-900 dark:group-hover:text-white">Profile Settings</span>
-              </button>
+              </button> -->
 
               <button v-if="authStore.userProfile?.role === 'super' || authStore.isSuperAdmin" @click="handleNav('/admin/create-league')" class="menu-btn group">
                 <div class="icon-box bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20">

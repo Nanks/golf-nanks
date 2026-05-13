@@ -209,19 +209,35 @@ const handleCreateAndAdd = async (formData) => {
 };
 
 const finalizePlayerCreation = async (data) => {
-  ui.setLoading(true, "Saving Player...");
+  ui.setLoading(true, "Resolving Tee Assignments...");
   try {
+    let assignedTeesId = league.value?.teesId || 'fallback';
+
+    // Logic for Mixed Tee Leagues
+    if (league.value?.tees === 'Mixed' && league.value?.courseId) {
+      const courseDoc = await getDoc(doc($db, "courses", league.value.courseId));
+      
+      if (courseDoc.exists()) {
+        const courseData = courseDoc.data();
+        assignedTeesId = courseData.tee_types?.[data.tee_type] || assignedTeesId;
+      }
+    }
+
     const newPlayer = {
       ...data,
-      ghin: Number(data.ghin) || 0,
+      // Ensure GHIN is a double (float)
+      ghin: data.ghin ? parseFloat(data.ghin) : 0.0,
+      // Use the resolved teesId from the course map
+      teesId: assignedTeesId,
       leagues: [route.params.id],
-      active: true, // EXPLICITLY SET ACTIVE: TRUE
+      active: true,
       createdAt: serverTimestamp(),
       admin: false,
       leagueHandicaps: {},
       leagueAudits: {}
     };
 
+    // Initialize yearly league data if necessary
     if (league.value?.cadence === 'yearly') {
       const { hcp, audit } = await getYearlyInitData("temp-id", newPlayer.ghin);
       newPlayer.leagueHandicaps[route.params.id] = hcp;
@@ -232,7 +248,10 @@ const finalizePlayerCreation = async (data) => {
     await fetchRoster();
     
     isAddModalOpen.value = false;
-    toast.add("Player created successfully", 'success');
+    toast.add("Player created with tee assignment", 'success');
+  } catch (err) {
+    console.error("Creation Error:", err);
+    toast.add("Failed to resolve tee type", 'error');
   } finally {
     ui.setLoading(false);
   }
