@@ -26,12 +26,30 @@
                 </p>
               </div>
 
-              <!-- <button @click="handleNav('/profile')" class="menu-btn group">
-                <div class="icon-box bg-emerald-500/10 text-emerald-600">
-                   <Icon name="mdi:account-outline" class="size-6" />
+              <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div :class="hasNotificationsEnabled ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'" class="p-2 rounded-lg shadow-sm transition-colors">
+                    <Icon :name="hasNotificationsEnabled ? 'mdi:bell-ring' : 'mdi:bell-off-outline'" class="size-5" />
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-sm font-black uppercase tracking-widest text-primary leading-none mb-1">Push Alerts</span>
+                    <span class="text-[9px] font-bold uppercase tracking-widest text-secondary">
+                      {{ hasNotificationsEnabled ? 'Receiving updates' : 'Tap to enable' }}
+                    </span>
+                  </div>
                 </div>
-                <span class="text-secondary group-hover:text-slate-900 dark:group-hover:text-white">Profile Settings</span>
-              </button> -->
+
+                <button 
+                  @click="toggleNotifications"
+                  :class="hasNotificationsEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'"
+                  class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                >
+                  <span 
+                    :class="hasNotificationsEnabled ? 'translate-x-5' : 'translate-x-0'"
+                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                  ></span>
+                </button>
+              </div>
 
               <button v-if="authStore.userProfile?.role === 'super' || authStore.isSuperAdmin" @click="handleNav('/admin/create-league')" class="menu-btn group">
                 <div class="icon-box bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20">
@@ -91,12 +109,21 @@
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from 'vue' // Explicitly included to prevent cache issues
 import { useAuthStore } from '~/stores/auth'
+import { useUIStore } from '~/stores/ui'
+import { useToast } from '~/composables/useToast'
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore'
 
+const { $fcm, $db } = useNuxtApp()
 const authStore = useAuthStore()
-const isMenuOpen = ref(false)
+const ui = useUIStore()
+const toast = useToast()
 const colorMode = useColorMode()
+
+const isMenuOpen = ref(false)
 const isMounted = ref(false)
+const hasNotificationsEnabled = ref(false)
 
 const isDark = computed(() => colorMode.value === 'dark')
 
@@ -111,7 +138,65 @@ const handleLogout = async () => {
   navigateTo('/')
 }
 
-onMounted(() => { isMounted.value = true })
+const toggleNotifications = async () => {
+  if (!authStore.userProfile?.id) return
+
+  ui.setLoading(true, hasNotificationsEnabled.value ? "Disabling..." : "Enabling...")
+  
+  try {
+    const playerRef = doc($db, 'players', authStore.userProfile.id)
+
+    if (hasNotificationsEnabled.value) {
+      // --- OPT OUT ---
+      if (Notification.permission === 'granted') {
+        const token = await $fcm.requestToken() 
+        if (token) {
+          // Remove this specific device's token from the database
+          await updateDoc(playerRef, {
+            fcmTokens: arrayRemove(token)
+          })
+        }
+      }
+      hasNotificationsEnabled.value = false
+      toast.add("Push alerts disabled for this device", "info")
+
+    } else {
+      // --- OPT IN ---
+      const token = await $fcm.requestToken()
+      if (token) {
+        await updateDoc(playerRef, {
+          fcmTokens: arrayUnion(token)
+        })
+        hasNotificationsEnabled.value = true
+        toast.add("Push alerts enabled!", "success")
+      } else {
+        toast.add("Permission denied in browser settings", "error")
+      }
+    }
+  } catch (error) {
+    console.error("FCM Toggle Error:", error)
+    toast.add("Could not update notification settings", "error")
+  } finally {
+    ui.setLoading(false)
+  }
+}
+
+onMounted(async () => { 
+  isMounted.value = true 
+  
+  // Safe check for the Notification API (prevents SSR crash)
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      // Silently verify if the token exists in the user profile
+      const token = await $fcm.requestToken()
+      if (token && authStore.userProfile?.fcmTokens?.includes(token)) {
+        hasNotificationsEnabled.value = true
+      }
+    } catch (error) {
+      console.log("Could not verify token state silently.")
+    }
+  }
+})
 </script>
 
 <style scoped>

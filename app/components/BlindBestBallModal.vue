@@ -1,6 +1,6 @@
 <template>
   <Transition name="fade">
-    <div v-if="isOpen && team?.p1 && team?.p2" class="fixed inset-0 z-[100] flex items-center justify-center p-2 bg-stone-900/60 backdrop-blur-sm">
+    <div v-if="isReady" class="fixed inset-0 z-[100] flex items-center justify-center p-2 bg-stone-900/60 backdrop-blur-sm">
       <div @click.self="$emit('close')" class="absolute inset-0"></div>
       
       <div class="relative w-full max-w-xl bg-white dark:bg-stone-900 rounded-2xl shadow-2xl overflow-hidden border border-stone-200 dark:border-stone-800 flex flex-col max-h-[95vh]">
@@ -12,14 +12,14 @@
               <h3 class="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight leading-none truncate">
                 {{ team.p1.name }}
               </h3>
-              <span class="text-xs font-black text-stone-400 uppercase">HCP: {{ formatHcp(team.p1.index) }}</span>
+              <span class="text-xs font-black text-stone-400 uppercase">HCP: {{ isReady ? formatHcp(team.p1.index) : '0' }}</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="size-2 rounded-full bg-amber-500"></span>
               <h3 class="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight leading-none truncate">
                 {{ team.p2.name }}
               </h3>
-              <span class="text-xs font-black text-stone-400 uppercase">HCP: {{ formatHcp(team.p2.index) }}</span>
+              <span class="text-xs font-black text-stone-400 uppercase">HCP: {{ isReady ? formatHcp(team.p2.index) : '0' }}</span>
             </div>
           </div>
           <button @click="$emit('close')" class="text-stone-400 dark:text-stone-500 active:text-stone-300">
@@ -28,12 +28,11 @@
         </div>
 
         <div class="p-2 overflow-y-auto no-scrollbar flex flex-col gap-4 pb-4">
-          
           <div v-for="nine in ['Front', 'Back']" :key="nine" class="space-y-1.5">
             <div class="flex justify-between px-1 items-end">
               <h4 class="text-xs font-black text-stone-400 uppercase tracking-[0.2em]">{{ nine }} 9</h4>
               <span class="text-xs font-black text-stone-800 dark:text-white uppercase">
-                Net: <span class="text-xs ml-0.5" :class="getRelativeColor(getNineTeamNet(nine) - getNinePar(nine))">{{ formatNet(getNineTeamNet(nine)) }}</span>
+                Net: <span class="text-xs ml-0.5" :class="getRelativeColor(getNineTeamNet(nine))">{{ formatNet(getNineTeamNet(nine)) }}</span>
               </span>
             </div>
 
@@ -42,11 +41,8 @@
                 <span class="text-[10px] font-black uppercase text-stone-400">#{{ h }}</span>
                 
                 <div class="flex flex-col items-center w-full transition-opacity duration-300" :class="isP1Used(h) ? 'opacity-100' : 'opacity-30 grayscale'">
-                  <div :class="getScoreClass(team.p1, h)" class="w-full aspect-square rounded font-black text-sm flex flex-col items-center justify-center border-2 relative pb-1 shadow-sm">
-                    <span class="mt-0.5 leading-none">{{ team.p1.scores?.[h-1] || '-' }}</span>
-                    <div v-if="team.p1.games?.pops?.[h-1] > 0" class="absolute bottom-0.5 w-full flex justify-center items-end gap-[1px]">
-                      <div v-for="dot in Math.floor(team.p1.games.pops[h-1])" :key="'p1'+dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                    </div>
+                  <div :class="getScoreClass(team.p1, h)" class="w-full aspect-square rounded font-black text-sm flex flex-col items-center justify-center border-2 shadow-sm">
+                    <span class="leading-none">{{ team.p1.scores?.[h-1] || '-' }}</span>
                   </div>
                   <span class="text-xs font-black mt-0.5 tabular-nums" :class="isP1Used(h) ? 'text-blue-500' : 'text-stone-400'">
                     {{ formatHoleNet(getP1Net(h)) }}
@@ -54,19 +50,16 @@
                 </div>
 
                 <div class="flex flex-col items-center w-full transition-opacity duration-300" :class="isP2Used(h) ? 'opacity-100' : 'opacity-30 grayscale'">
-                  <div :class="getScoreClass(team.p2, h)" class="w-full aspect-square rounded font-black text-sm flex flex-col items-center justify-center border-2 relative pb-1 shadow-sm">
-                    <span class="mt-0.5 leading-none">{{ team.p2.scores?.[h-1] || '-' }}</span>
-                    <div v-if="team.p2.games?.pops?.[h-1] > 0" class="absolute bottom-0.5 w-full flex justify-center items-end gap-[1px]">
-                      <div v-for="dot in Math.floor(team.p2.games.pops[h-1])" :key="'p2'+dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                    </div>
+                  <div :class="getScoreClass(team.p2, h)" class="w-full aspect-square rounded font-black text-sm flex flex-col items-center justify-center border-2 shadow-sm">
+                    <span class="leading-none">{{ team.p2.scores?.[h-1] || '-' }}</span>
                   </div>
                   <span class="text-xs font-black mt-0.5 tabular-nums" :class="isP2Used(h) ? 'text-amber-500' : 'text-stone-400'">
                     {{ formatHoleNet(getP2Net(h)) }}
                   </span>
                 </div>
 
-                <div class="w-full py-0.5 mt-0.5 rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 flex justify-center items-center">
-                  <span class="text-xs font-black tabular-nums" :class="getNetColorClass(getTeamBestNet(h), h)">
+                <div class="w-full py-0.5 mt-0.5 rounded bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 flex justify-center items-center">
+                  <span class="text-xs font-black tabular-nums" :class="getRelativeColor(getTeamBestNet(h))">
                     {{ formatHoleNet(getTeamBestNet(h)) }}
                   </span>
                 </div>
@@ -74,24 +67,14 @@
             </div>
           </div>
 
-          <div class="mt-2 py-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-center gap-4">
-             <div class="flex flex-col items-end">
-               <span class="text-stone-400 text-xs uppercase font-black tracking-widest leading-none">Team Net</span>
-               <span class="text-3xl font-black italic tracking-tighter leading-none text-stone-900 dark:text-white tabular-nums">
+          <div class="mt-2 py-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-center gap-8">
+             <div class="flex flex-col items-center">
+               <span class="text-stone-400 text-[10px] uppercase font-black tracking-widest leading-none mb-2">Team Net vs Par</span>
+               <span class="text-4xl font-black italic tracking-tighter leading-none tabular-nums" :class="getRelativeColor(getTeamTotalNet())">
                  {{ formatNet(getTeamTotalNet()) }}
                </span>
              </div>
-             
-             <div class="w-px h-8 bg-stone-200 dark:bg-stone-800"></div>
-
-             <div class="flex flex-col items-start">
-               <span class="text-stone-400 text-xs uppercase font-black tracking-widest leading-none">To Par</span>
-               <span class="text-3xl font-black italic tracking-tighter leading-none tabular-nums" :class="getRelativeColor(getRelativeNetValue())">
-                 {{ getRelativeNet() }}
-               </span>
-             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -99,52 +82,22 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
-const props = defineProps(['isOpen', 'team', 'event']);
+import { computed, watchEffect, onMounted } from 'vue'; // Ensure these are imported
+const props = defineProps(['isOpen', 'team', 'event', 'isAppManaged']);
 defineEmits(['close']);
 
-const isYearlyLeague = computed(() => props.event?.cadence === 'yearly');
+const isReady = computed(() => !!(props.isOpen && props.team && props.event));
 
-// --- Par Lookups ---
-const getPlayerHolePar = (player, hole) => {
-  let par = 4;
-  const tees = player?.courseSnapshot?.tees;
-  const targetTeeId = player?.teesId;
-  const tMatch = Array.isArray(tees) ? (tees.find(t => t.id === targetTeeId) || tees[targetTeeId]) : (tees?.[targetTeeId]);
-  if (tMatch && tMatch.pars) par = Number(tMatch.pars[hole - 1]) || 4;
-  return par;
-};
-
-const getHolePar = (hole) => getPlayerHolePar(props.team?.p1, hole);
-
-const getNinePar = (nine) => getNineHoles(nine).reduce((acc, h) => acc + getHolePar(h), 0);
-
-const getTotalPar = () => {
-  let total = 0;
-  for (let i = 1; i <= 18; i++) total += getHolePar(i);
-  return total;
-};
-
-// --- Net Score Calculations ---
-const getP1Net = (h) => {
-  const score = props.team?.p1?.scores?.[h-1];
-  if (!score || score === 0) return null;
-  return score - (props.team.p1.games?.pops?.[h-1] || 0);
-};
-
-const getP2Net = (h) => {
-  const score = props.team?.p2?.scores?.[h-1];
-  if (!score || score === 0) return null;
-  return score - (props.team.p2.games?.pops?.[h-1] || 0);
-};
+// Helper to pull the PRE-CALCULATED net from par from your gameLogic utility
+const getP1Net = (h) => props.team.p1?.games?.net?.[h - 1] ?? null;
+const getP2Net = (h) => props.team.p2?.games?.net?.[h - 1] ?? null;
 
 const getTeamBestNet = (h) => {
   const n1 = getP1Net(h);
   const n2 = getP2Net(h);
   if (n1 === null && n2 === null) return null;
-  if (n1 === null) return n2;
-  if (n2 === null) return n1;
-  return Math.min(n1, n2);
+  // Since these are net vs par (e.g. -0.5 is better than 0.2), we still just want the minimum value
+  return Math.min(n1 ?? 99, n2 ?? 99);
 };
 
 const isP1Used = (h) => {
@@ -168,52 +121,63 @@ const getNineTeamNet = (nine) => {
 
 const getTeamTotalNet = () => getNineTeamNet('Front') + getNineTeamNet('Back');
 
-const getRelativeNetValue = () => getTeamTotalNet() - getTotalPar();
-
-const getRelativeNet = () => {
-  const rel = getRelativeNetValue();
-  if (rel === 0) return 'E';
-  return rel > 0 ? `+${rel}` : rel;
+// Formatting
+const formatHcp = (hcp) => {
+  if (!isReady.value) return props.isAppManaged ? '0.000' : '0';
+  
+  const val = parseFloat(hcp);
+  if (isNaN(val)) return props.isAppManaged ? '0.000' : '0';
+  
+  return props.isAppManaged ? val.toFixed(3) : Math.round(val).toString();
 };
-
-// --- Formatting ---
-const formatHcp = (hcp) => (hcp !== undefined && hcp !== null && !isNaN(hcp)) ? Number(hcp).toFixed(3) : '0';
-const formatHoleNet = (val) => val === null || val === undefined ? '-' : (val % 1 !== 0 ? val.toFixed(1) : val);
+const formatHoleNet = (val) => {
+  if (!isReady.value || val === null || val === undefined) return '-';
+  const num = parseFloat(val);
+  if (val === null || val === undefined || isNaN(num)) return '-';
+  
+  if (Math.abs(num) < 0.0001) return 'E';
+  
+  if (props.isAppManaged) {
+    return num > 0 ? `+${num.toFixed(3)}` : num.toFixed(3);
+  } else {
+    const rounded = Math.round(num);
+    if (rounded === 0) return 'E';
+    return rounded > 0 ? `+${rounded}` : rounded.toString();
+  }
+};
 const formatNet = (val) => {
-  if (val === undefined || val === null || val === 0) return 'E';
-  if (isYearlyLeague.value) return val.toFixed(3);
-  return val % 1 !== 0 ? val.toFixed(1) : Math.round(val);
+  const num = parseFloat(val);
+  if (val === null || val === undefined || isNaN(num) || Math.abs(num) < 0.0001) return 'E';
+  
+  if (props.isAppManaged) {
+    return num > 0 ? `+${num.toFixed(3)}` : num.toFixed(3);
+  } else {
+    const rounded = Math.round(num);
+    if (rounded === 0) return 'E';
+    return rounded > 0 ? `+${rounded}` : rounded.toString();
+  }
 };
 
-// --- Styling ---
+// Styling
 const getScoreClass = (player, hole) => {
   const val = player?.scores?.[hole-1];
-  if (!val || val === 0 || val === '0') return 'bg-transparent border-stone-200 dark:border-stone-700 text-transparent'; 
-  const numVal = Number(val);
-  const par = getPlayerHolePar(player, hole);
+  if (!val || val <= 0) return 'bg-transparent border-stone-200 text-transparent'; 
   
-  if (numVal < par) return 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-500';
-  if (numVal === par) return 'bg-white dark:bg-stone-900 text-stone-800 dark:text-white border-stone-300 dark:border-stone-600';
-  return 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-500';
-};
+  // Get par from the snapshot you already have in the player object
+  const tees = player?.courseSnapshot?.tees;
+  const teeData = Array.isArray(tees) ? (tees.find(t => t.id === player.teesId)) : tees?.[player.teesId];
+  const par = teeData?.pars?.[hole - 1] || 4;
 
-const getNetColorClass = (netVal, hole) => {
-  if (netVal === null || netVal === undefined) return 'text-stone-800 dark:text-white';
-  const par = getHolePar(hole);
-  if (netVal < par) return 'text-red-600 dark:text-red-400';
-  if (netVal === par) return 'text-stone-800 dark:text-white';
-  return 'text-blue-600 dark:text-blue-400';
+  if (val < par) return 'bg-red-50 dark:bg-red-950/30 text-red-600 border-red-500';
+  if (val === par) return 'bg-white dark:bg-stone-900 text-stone-800 border-stone-300';
+  return 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 border-blue-500';
 };
 
 const getRelativeColor = (val) => {
-  if (val < 0) return 'text-red-600 dark:text-red-400';
-  if (val > 0) return 'text-blue-600 dark:text-blue-400';
+  if (val === null) return 'text-stone-800 dark:text-white';
+  if (val < -0.01) return 'text-red-600 dark:text-red-400';
+  if (val > 0.01) return 'text-blue-600 dark:text-blue-400';
   return 'text-stone-900 dark:text-white';
 };
-</script>
 
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-</style>
+</script>

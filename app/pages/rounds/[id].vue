@@ -40,7 +40,7 @@
                   {{ p.fname }} {{ p.lname }}
                 </span>
                 <span class="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase bg-emerald-50 dark:bg-emerald-500/10 px-1 py-0.5 rounded border border-emerald-500/20 shadow-sm leading-none mt-[1px]">
-                  {{ isYearlyLeague ? 'HCP' : 'CH' }}: {{ formatPlayerHcp(p.index) }}
+                  {{ isAppManaged ? 'HCP' : 'CH' }}: {{ formatPlayerHcp(p.index) }}
                 </span>
               </div>
             </div>
@@ -117,12 +117,6 @@
           @save="saveHoleScores" 
         />
         
-        <LiveRoundFooter 
-          activeTab="scorecard"
-          :roundId="round.id"
-          :leagueType="round.leagueId"
-          :iso="round.iso"
-        />
       </ClientOnly>
   
     </template>
@@ -140,15 +134,16 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { doc, onSnapshot, updateDoc, writeBatch, collection, serverTimestamp } from "firebase/firestore";
 import { calcPops, calcGames } from '~/utils/gameLogic';
-import { calcUSGACourseHandicap } from '~/utils/handicap';
-import { useData, useAuthStore, useUIStore } from '#imports'; // Implemented useUIStore
+// import { calcUSGACourseHandicap } from '~/utils/handicap';
+import { useData, useAuthStore, useUIStore } from '#imports';
 
 const { $db } = useNuxtApp();
 const route = useRoute();
 const router = useRouter();
 const dataStore = useData();
-const ui = useUIStore(); // Initialize UI Store
+const ui = useUIStore();
 
+// --- STATE VARIABLES (This is what went missing!) ---
 const round = ref(null);
 const activeNine = ref('front');
 const keypad = ref({ isOpen: false, hole: 1, activePlayerId: null });
@@ -160,9 +155,8 @@ const currentLeague = computed(() => {
   return dataStore.leagues?.find(l => l.id === round.value.leagueId) || null;
 });
 
-// --- TYPE-BASED UI LOGIC ---
-const isYearlyLeague = computed(() => {
-  return currentLeague.value?.cadence === 'yearly';
+const isAppManaged = computed(() => {
+  return currentLeague.value?.appHandicap === true;
 });
 
 const showBirds = computed(() => {
@@ -183,32 +177,25 @@ const displayedHoles = computed(() => {
   return activeNine.value === 'front' ? [1,2,3,4,5,6,7,8,9] : [10,11,12,13,14,15,16,17,18];
 });
 
-
 const pStats = computed(() => {
-  if (!round.value?.courseSnapshot || !round.value?.scores) return {};
+  if (!round.value || !round.value?.courseSnapshot || !round.value?.scores) return {};
   const stats = {};
   
   round.value.players.forEach(p => {
     const playerTeeData = round.value.courseSnapshot.tees?.[p.teesId] || round.value.courseSnapshot.tees?.[p.tees];
     const scores = round.value.scores[p.id];
 
-    // 1. Guard against missing data
     if (!playerTeeData || !scores) return;
 
-    // 2. Calculate pops first (needed for your calcGames signature)
-    // Ensure calcPops uses the high-precision p.index
     const pops = calcPops({ index: p.index }, playerTeeData);
 
-    // 3. Call calcGames with all 4 arguments
-    // We pass p directly as the 'round' object because it has .scores and .index
     const games = calcGames(
       { scores, index: p.index }, 
-      { type: round.value.type, leagueId: round.value.leagueId }, 
+      { type: round.value.type, leagueId: round.value.leagueId, appHandicap: round.value.appHandicap }, 
       playerTeeData, 
       pops
     );
     
-    // 4. Calculate Totals
     const totalGross = scores.reduce((a, b) => a + (parseInt(b) || 0), 0);
     const range = activeNine.value === 'front' ? [0, 9] : [9, 18];
     const activeNineTotal = scores.slice(range[0], range[1]).reduce((a, b) => a + (parseInt(b) || 0), 0);
@@ -221,20 +208,16 @@ const pStats = computed(() => {
 // --- HELPERS ---
 const formatPlayerHcp = (index) => {
   if (index === undefined || index === null || isNaN(index)) return '0';
-  return isYearlyLeague.value ? Number(index).toFixed(3) : Math.round(index).toString();
+  return isAppManaged.value ? Number(index).toFixed(3) : Math.round(index).toString();
 };
 
 const getGameStat = (pid, hole, key) => pStats.value[pid]?.[key]?.[hole - 1] || 0;
 
 const getNetDisplay = (pid) => {
   const score = pStats.value[pid]?.totalNet || 0;
-  
-  // Handle Even
   if (score === 0 || isNaN(score)) return 'E';
 
-  // Determine precision based on league type
-  // Use toFixed(3) for Yearly, otherwise round to whole number
-  const formatted = isYearlyLeague.value 
+  const formatted = isAppManaged.value 
     ? Math.abs(score).toFixed(3) 
     : Math.round(Math.abs(score));
 
@@ -284,13 +267,13 @@ const addPlayerToRound = async (p, teeId) => {
     let playingHcp = 0;
     let finalIndex = p.ghin !== undefined ? p.ghin : 0; 
 
-    if (isYearlyLeague.value && p.leagueHandicaps && p.leagueHandicaps[round.value.leagueId] !== undefined) {
+    if (isAppManaged.value && p.leagueHandicaps && p.leagueHandicaps[round.value.leagueId] !== undefined) {
       playingHcp = Number(p.leagueHandicaps[round.value.leagueId]);
     } else if (teeData && p.ghin !== undefined && p.ghin !== null) {
       const ghinNum = Number(p.ghin);
       if (!isNaN(ghinNum)) {
         const teePar = teeData.pars?.reduce((sum, val) => sum + Number(val), 0) || teeData.par || 72;
-        playingHcp = calcUSGACourseHandicap(ghinNum, Number(teeData.slope), Number(teeData.rating), Number(teePar));
+        // playingHcp = calcUSGACourseHandicap(ghinNum, Number(teeData.slope), Number(teeData.rating), Number(teePar));
       }
     } else {
       playingHcp = Number(p.index) || 0;
@@ -310,8 +293,15 @@ const addPlayerToRound = async (p, teeId) => {
     });
     
     updatedScores[p.id] = new Array(round.value.holes || 18).fill(0);
+    
+    // NEW: Sync the optimized array
+    const flatPlayerIds = updatedPlayers.map(player => player.id);
 
-    await updateDoc(doc($db, "live_rounds", route.params.id), { players: updatedPlayers, scores: updatedScores });
+    await updateDoc(doc($db, "live_rounds", route.params.id), { 
+      players: updatedPlayers, 
+      playerIds: flatPlayerIds,
+      scores: updatedScores 
+    });
   } finally {
     ui.setLoading(false);
   }
@@ -327,7 +317,15 @@ const handlePlayerToggle = async (p) => {
       const updatedPlayers = round.value.players.filter(x => x.id !== p.id);
       const updatedScores = { ...round.value.scores };
       delete updatedScores[p.id];
-      await updateDoc(doc($db, "live_rounds", route.params.id), { players: updatedPlayers, scores: updatedScores });
+      
+      // NEW: Sync the optimized array when someone leaves
+      const flatPlayerIds = updatedPlayers.map(player => player.id);
+
+      await updateDoc(doc($db, "live_rounds", route.params.id), { 
+        players: updatedPlayers, 
+        playerIds: flatPlayerIds,
+        scores: updatedScores 
+      });
     } finally {
       ui.setLoading(false);
     }
@@ -340,7 +338,6 @@ const handlePlayerToggle = async (p) => {
   }
 };
 
-// Keypad Actions
 const openKeypad = (hole, pid) => {
   keypad.value.hole = hole;
   keypad.value.activePlayerId = pid;
@@ -348,8 +345,6 @@ const openKeypad = (hole, pid) => {
 };
 
 const saveHoleScores = async (newScores) => {
-  // We can use global loading here too, but for fast keypad entry, 
-  // you might prefer not to interrupt the UI. Adding it just in case:
   ui.setLoading(true, "Saving Score...");
   try {
     const updatedScores = { ...round.value.scores };
@@ -392,7 +387,6 @@ const finishCasualRound = async () => {
 
 // --- LIFECYCLE ---
 onMounted(() => {
-  // Trigger global loading store on page load
   ui.setLoading(true, 'Syncing Scorecard...');
   
   const unsub = onSnapshot(doc($db, "live_rounds", route.params.id), (snap) => {
@@ -401,7 +395,6 @@ onMounted(() => {
     } else {
       router.push('/');
     }
-    // Turn off global loading as soon as the first Firebase payload resolves
     ui.setLoading(false);
   }, (error) => {
     console.error("Error syncing scorecard:", error);
@@ -411,6 +404,10 @@ onMounted(() => {
   onUnmounted(() => unsub());
 });
 </script>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+</style>
 
 <style scoped>
 .no-scrollbar::-webkit-scrollbar { display: none; }

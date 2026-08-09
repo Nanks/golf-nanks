@@ -3,7 +3,7 @@
     viewBox="0 0 225 200"
     version="1.1"
     xmlns="http://www.w3.org/2000/svg"
-    class="w-full h-full"
+    class="w-full h-full overflow-visible"
   >
     <defs>
       <rect x="986.01664" y="412.41344" width="137.9552" height="92.93824" />
@@ -66,18 +66,17 @@
   </svg>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useId } from 'vue'
 
-const props = defineProps({
-  startColor: {
-    type: String,
-    default: 'var(--color-blue-600)'
-  },
-  endColor: {
-    type: String,
-    default: 'var(--color-emerald-400)'
-  }
+interface Props {
+  startColor?: string
+  endColor?:   string
+}
+
+withDefaults(defineProps<Props>(), {
+  startColor: 'var(--color-blue-600)',
+  endColor:   'var(--color-emerald-400)',
 })
 
 // Ensures uniqueness if multiple logos are rendered on the same page

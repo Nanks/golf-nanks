@@ -16,7 +16,12 @@
       </header>
 
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] shadow-2xl shadow-emerald-500/10 dark:shadow-emerald-950/20">
-        
+        <div v-if="authStore.authError" class="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 flex items-start gap-3">
+          <Icon name="mdi:alert-circle" class="size-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
+          <p class="text-xs text-red-800 dark:text-red-200 font-medium leading-relaxed">
+            {{ authStore.authError }}
+          </p>
+        </div>
         <div v-if="!otpSent" class="space-y-6">
           <div>
             <h2 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">Welcome</h2>

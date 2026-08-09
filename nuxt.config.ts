@@ -4,9 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-04-18', 
-  future: {
-    compatibilityVersion: 4,
-  },
+  future: { compatibilityVersion: 4 },
 
   runtimeConfig: {
     public: {
@@ -16,7 +14,8 @@ export default defineNuxtConfig({
       firebaseStorageBucket: process.env.NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
       firebaseMessagingSenderId: process.env.NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       firebaseAppId: process.env.NUXT_PUBLIC_FIREBASE_APP_ID,
-      firebaseMeasurementId: process.env.NUXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+      firebaseMeasurementId: process.env.NUXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+      firebaseVapidKey: process.env.NUXT_PUBLIC_FIREBASE_VAPID_KEY
     }
   },
 
@@ -55,19 +54,34 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    define: {
+      'process.env.FIREBASE_API_KEY': JSON.stringify(process.env.NUXT_PUBLIC_FIREBASE_API_KEY),
+      'process.env.FIREBASE_AUTH_DOMAIN': JSON.stringify(process.env.NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN),
+      'process.env.FIREBASE_PROJECT_ID': JSON.stringify(process.env.NUXT_PUBLIC_FIREBASE_PROJECT_ID),
+      'process.env.FIREBASE_STORAGE_BUCKET': JSON.stringify(process.env.NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
+      'process.env.FIREBASE_SENDER_ID': JSON.stringify(process.env.NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
+      'process.env.FIREBASE_APP_ID': JSON.stringify(process.env.NUXT_PUBLIC_FIREBASE_APP_ID),
+    }
   },
 
   css: ['~/assets/css/main.css'],
 
   pwa: {
+    strategies: 'injectManifest',
+    srcDir: './',
+    filename: 'sw.ts',
+    devOptions: {
+      enabled: true,
+      type: 'module',
+      navigateFallback: '/'
+    },
     registerType: 'prompt',
+    injectManifest: {
+      globPatterns: ['**/*.{js,css,html,png,svg,ico}']
+    },
     client: {
       installPrompt: true,
       periodicSyncForUpdates: 3600, 
-    },
-    workbox: {
-      cleanupOutdatedCaches: true,
-      globPatterns: ['**/*.{js,css,html,png,svg,ico}'] 
     },
     manifest: {
       name: 'Golf Nanks', 
@@ -75,8 +89,8 @@ export default defineNuxtConfig({
       theme_color: '#020617', 
       background_color: '#020617',
       display: 'standalone',
-      start_url: '/', // <-- ADDED: Explicitly tell iOS where the app starts
-      scope: '/',     // <-- ADDED: Lock iOS inside this root scope
+      start_url: '/', 
+      scope: '/',     
       icons: [
         {
           src: '/icon.png',
@@ -95,8 +109,8 @@ export default defineNuxtConfig({
 
   colorMode: {
     classSuffix: '', 
-    preference: 'dark', 
-    fallback: 'dark'
+    preference: 'light', 
+    fallback: 'light'
   },
 
   nitro: {

@@ -132,7 +132,6 @@ import { calcAdjustedGross } from '~/utils/gameLogic';
 const props = defineProps(['isOpen', 'player', 'event']);
 defineEmits(['close']);
 const route = useRoute();
-console.log('ScorecardPlayerModal player:', props.player);
 
 const roundType = computed(() => route.params.type || '');
 const gameArray = computed(() => props.event?.game || []);

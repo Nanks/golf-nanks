@@ -50,9 +50,17 @@
               <span class="text-primary text-lg mt-1">
                 {{ player.fname }} {{ player.lname }}
               </span>
+              
+              <button 
+                v-if="isEditMode" 
+                @click="openEditModal(player)" 
+                class="ml-1 text-slate-300 hover:text-emerald-500 dark:text-slate-600 dark:hover:text-emerald-400 active:scale-90 transition-colors"
+              >
+                <Icon name="mdi:pencil-circle" class="size-5" />
+              </button>
             </div>
             
-            <button v-if="league?.cadence === 'yearly'" @click="openAuditModal(player)" 
+            <button v-if="league?.appHandicap" @click="openAuditModal(player)" 
                     class="flex items-center gap-1 mt-1 group/hcp active:opacity-60 transition-opacity w-fit">
               <span class="text-secondary text-[10px] text-emerald-600 dark:text-emerald-500">
                 League HCP: <span class="tabular-nums ml-0.5">{{ formatHcp(player.leagueHandicaps?.[route.params.id]) }}</span>
@@ -69,7 +77,7 @@
               </p>
               
               <button v-if="canEditPlayer(player)" @click="openGhinModal(player)" 
-                      class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-md z-10 active:scale-95 transition-transform border border-emerald-400">
+                      class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500/80 rounded-md flex items-center justify-center text-emerald-800 shadow-md z-10 active:scale-95 transition-transform border border-emerald-400">
                 <Icon name="mdi:pencil" class="size-3" />
               </button>
             </div>
@@ -83,23 +91,49 @@
     </div>
 
     <HandicapAuditModal :is-open="isAuditModalOpen" :player="selectedPlayerForAudit" :league-id="route.params.id" @close="isAuditModalOpen = false" />
+    
     <GhinModal v-if="selectedPlayer" :is-open="isGhinModalOpen" :player="selectedPlayer" @close="isGhinModalOpen = false" @updated="fetchRoster" />
-    <PlayerPicker v-model:is-open="isAddModalOpen" :selected-players="roster" :can-create="isAdmin" :default-tee-type="league?.tee_type || 'mens'" @toggle="handleTogglePlayer" @create-new="handleCreateAndAdd" />
+    
+    <PlayerPicker v-model:is-open="isAddModalOpen" 
+      :selected-players="roster" 
+      :can-create="isAdmin" 
+      :default-tee-type="league?.tee_type || 'mens'" 
+      :course="leagueCourse"
+      @toggle="handleTogglePlayer" 
+      @create-new="handleCreateAndAdd" 
+    />
+
+    <ClientOnly>
+      <PlayerCreateModal 
+        v-if="isEditModalOpen && selectedPlayerForEdit"
+        :player="selectedPlayerForEdit" 
+        :course="leagueCourse"
+        :default-tee-type="league?.tee_type"
+        @close="isEditModalOpen = false"
+        @saved="onPlayerEdited"
+      />
+    </ClientOnly>
+
   </div>
 </template>
 
 <script setup>
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, computed, onMounted } from 'vue';
+import { doc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { useNuxtApp } from '#app';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from "~/stores/auth";
 import { useUIStore } from "~/stores/ui";
+import { useData } from "~/stores/data";
 import { useToast } from "~/composables/useToast";
 import { useConfirm } from "~/composables/useConfirm";
-import { calculateLeagueHandicap } from "~/utils/handicap";
+import { getDefaultTeeId } from "~/utils/gameLogic";
 
 // Route & Stores
 const route = useRoute();
 const { $db } = useNuxtApp();
 const authStore = useAuthStore();
+const dataStore = useData();
 const ui = useUIStore();
 const toast = useToast();
 const confirm = useConfirm();
@@ -113,29 +147,34 @@ const isEditMode = ref(false);
 const isGhinModalOpen = ref(false);
 const isAuditModalOpen = ref(false);
 const isAddModalOpen = ref(false);
+const isEditModalOpen = ref(false);
 
 const selectedPlayer = ref(null);
 const selectedPlayerForAudit = ref(null);
+const selectedPlayerForEdit = ref(null);
 
-// Computed Admin Check
+// --- Computed ---
 const isAdmin = computed(() => {
   if (!league.value) return false;
   return authStore.isAdminForLeague(league.value); 
+});
+
+const leagueCourse = computed(() => {
+  if (!league.value?.courseId) return null;
+  return dataStore.courses.find(c => c.id === league.value.courseId);
 });
 
 // --- Data Fetching ---
 const fetchRoster = async () => {
   ui.setLoading(true, "Syncing Roster...");
   try {
-    const leagueDoc = await getDoc(doc($db, "leagues", route.params.id));
-    if (leagueDoc.exists()) league.value = leagueDoc.data();
+    league.value = dataStore.leagues.find(l => l.id === route.params.id);
     
     const q = query(collection($db, "players"), where("leagues", "array-contains", route.params.id));
     const snap = await getDocs(q);
     
     roster.value = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      // ADDED ACTIVE CHECK: Filter out archived players
       .filter(p => p.active !== false)
       .sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
   } catch (e) {
@@ -171,20 +210,18 @@ const handleTogglePlayer = async (player) => {
 };
 
 const handleCreateAndAdd = async (formData) => {
-  // 1. Phone Validation
   const digits = formData.phone?.replace(/\D/g, '') || '';
   if (digits && digits.length !== 10) {
-    toast.add("Phone must be exactly 10 digits.", 'error');
+    toast.add({ title: 'Validation Error', description: 'Phone must be exactly 10 digits.', color: 'red' });
     return;
   }
 
-  // 2. Normalization
   const normalize = (val) => val.trim().charAt(0).toUpperCase() + val.trim().slice(1).toLowerCase();
   const cleanData = {
     ...formData,
     fname: normalize(formData.fname),
     lname: normalize(formData.lname),
-    phone: digits ? `+1${digits}` : '' // Optional phone formatting
+    phone: digits ? `+1${digits}` : ''
   };
 
   ui.setLoading(true, "Checking duplicates...");
@@ -211,23 +248,16 @@ const handleCreateAndAdd = async (formData) => {
 const finalizePlayerCreation = async (data) => {
   ui.setLoading(true, "Resolving Tee Assignments...");
   try {
-    let assignedTeesId = league.value?.teesId || 'fallback';
-
-    // Logic for Mixed Tee Leagues
-    if (league.value?.tees === 'Mixed' && league.value?.courseId) {
-      const courseDoc = await getDoc(doc($db, "courses", league.value.courseId));
-      
-      if (courseDoc.exists()) {
-        const courseData = courseDoc.data();
-        assignedTeesId = courseData.tee_types?.[data.tee_type] || assignedTeesId;
-      }
-    }
+    const assignedTeesId = getDefaultTeeId(
+        data, 
+        dataStore.courses.find(c => c.id === league.value.courseId),
+        true, 
+        league.value
+    );
 
     const newPlayer = {
       ...data,
-      // Ensure GHIN is a double (float)
       ghin: data.ghin ? parseFloat(data.ghin) : 0.0,
-      // Use the resolved teesId from the course map
       teesId: assignedTeesId,
       leagues: [route.params.id],
       active: true,
@@ -237,7 +267,6 @@ const finalizePlayerCreation = async (data) => {
       leagueAudits: {}
     };
 
-    // Initialize yearly league data if necessary
     if (league.value?.cadence === 'yearly') {
       const { hcp, audit } = await getYearlyInitData("temp-id", newPlayer.ghin);
       newPlayer.leagueHandicaps[route.params.id] = hcp;
@@ -246,12 +275,11 @@ const finalizePlayerCreation = async (data) => {
 
     await addDoc(collection($db, "players"), newPlayer);
     await fetchRoster();
-    
     isAddModalOpen.value = false;
-    toast.add("Player created with tee assignment", 'success');
+    toast.add({ title: 'Success', description: 'Player created and added to roster.', color: 'green' });
   } catch (err) {
     console.error("Creation Error:", err);
-    toast.add("Failed to resolve tee type", 'error');
+    toast.add({ title: 'Error', description: 'Failed to create player.', color: 'red' });
   } finally {
     ui.setLoading(false);
   }
@@ -261,7 +289,7 @@ const handleRemoveClick = async (player) => {
   const confirmed = await confirm.ask(
     'Remove Player', 
     `Are you sure you want to remove <b>${player.fname} ${player.lname}</b> from the league?`,
-    { confirmText: 'Remove', variant: 'danger', icon: 'mdi:account-remove', iconBg: 'bg-red-50 dark:bg-red-900/30', iconColor: 'text-red-500' }
+    { confirmText: 'Remove', variant: 'danger', icon: 'mdi:account-remove' }
   );
 
   if (confirmed) {
@@ -269,7 +297,7 @@ const handleRemoveClick = async (player) => {
     try {
       await updateDoc(doc($db, "players", player.id), { leagues: arrayRemove(route.params.id) });
       await fetchRoster();
-      toast.add("Player removed", 'info');
+      toast.add({ title: 'Removed', description: 'Player removed from league.', color: 'info' });
     } finally { ui.setLoading(false); }
   }
 };
@@ -278,29 +306,62 @@ const syncAllHandicaps = async () => {
   const confirmed = await confirm.ask(
     'Sync All Handicaps', 
     `Re-calculate and sync handicaps for all ${roster.value.length} players?`,
-    { confirmText: 'Sync', icon: 'mdi:sync', iconBg: 'bg-amber-50 dark:bg-amber-900/30', iconColor: 'text-amber-500', confirmBtnClass: 'bg-amber-500' }
+    { confirmText: 'Sync', icon: 'mdi:sync', confirmBtnClass: 'bg-amber-500' }
   );
 
   if (!confirmed) return;
   
   ui.setLoading(true, "Global Re-Sync...");
+  const batch = writeBatch($db);
+
   try {
     for (const player of roster.value) {
       const { hcp, audit } = await getYearlyInitData(player.id, player.ghin || 0);
-      await updateDoc(doc($db, "players", player.id), {
+      const playerRef = doc($db, "players", player.id);
+      
+      batch.update(playerRef, {
         [`leagueHandicaps.${route.params.id}`]: hcp,
         [`leagueAudits.${route.params.id}`]: audit
       });
+
+      if (!player.leagueHandicaps) {
+        player.leagueHandicaps = {};
+      }
+      player.leagueHandicaps[route.params.id] = hcp;
     }
-    await fetchRoster();
-    toast.add("All handicaps synced", 'success');
-  } finally { ui.setLoading(false); }
+
+    await batch.commit();
+    toast.add({ title: 'Success', description: 'All handicaps synced.', color: 'green' });
+  } catch (e) {
+    console.error("Batch sync failed:", e);
+    toast.add({ title: 'Error', description: 'Sync failed.', color: 'red' });
+  } finally {
+    ui.setLoading(false);
+  }
 };
 
-// --- Utilities ---
+// --- Edit Player Hook ---
+const openEditModal = (p) => { 
+  selectedPlayerForEdit.value = p; 
+  isEditModalOpen.value = true; 
+};
+
+const onPlayerEdited = async () => {
+  isEditModalOpen.value = false;
+  await fetchRoster();
+};
+
+// --- Local Utilities ---
 const getYearlyInitData = async (playerId, ghin) => {
-  const result = await calculateLeagueHandicap($db, playerId, route.params.id, Number(ghin), new Map());
-  return { hcp: result.hcp, audit: result.audit };
+  const initialHcp = (Number(ghin) - 3).toFixed(3);
+  const initialAudit = [{
+    iso: 'INIT',
+    diff: Number(initialHcp),
+    score: 0,
+    isPlaceholder: true,
+    isBest: true
+  }];
+  return { hcp: initialHcp, audit: initialAudit };
 };
 
 const isPlayerAdmin = (p) => p.admin === 'super' || p.admin === league.value?.type;

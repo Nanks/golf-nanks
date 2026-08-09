@@ -1,0 +1,12 @@
+version: v1
+runConfig:
+  runCommand: node .output/server/index.mjs
+metadata:
+  framework: nuxt
+  frameworkVersion: 4.4.2
+  adapterPackageName: nitropack
+  adapterVersion: 2.13.2
+outputFiles:
+  serverApp:
+    include:
+      - .output

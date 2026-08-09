@@ -1,16 +1,31 @@
-import { ref } from 'vue'
-
 const toastData = ref({
   title: '',
   description: '',
-  color: 'emerald' // Mapping 'color' to your style
+  color: 'emerald' 
 })
 const isVisible = ref(false)
 
 export const useToast = () => {
-  // Destructure the object coming from login.vue
-  const add = ({ title, description, color = 'emerald' }) => {
-    toastData.value = { title, description, color }
+  
+  // Updated to handle both an object OR two strings
+  const add = (payload, colorFallback = 'emerald') => {
+    
+    if (typeof payload === 'string') {
+      // Handle the two-string format: toast.add("Message here", "success")
+      toastData.value = { 
+        title: payload, 
+        description: '', 
+        color: colorFallback 
+      }
+    } else {
+      // Handle the original object format: toast.add({ title: "...", color: "..." })
+      toastData.value = { 
+        title: payload.title || '', 
+        description: payload.description || '', 
+        color: payload.color || 'emerald' 
+      }
+    }
+    
     isVisible.value = true
     
     setTimeout(() => {

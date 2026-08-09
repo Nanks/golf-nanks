@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import { collection, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy, limit } from 'firebase/firestore'
 import { ref, computed } from 'vue'
-import { getLocalIsoDate } from '~/utils/leagueActions' // <-- 1. Imported your utility
+import { getLocalIsoDate } from '~/utils/leagueActions' 
+import { useAuthStore } from '~/stores/auth' // <-- ADDED IMPORT
 
 export const useData = defineStore('data', () => {
   const { $db } = useNuxtApp()
+  const authStore = useAuthStore() // <-- ADDED INITIALIZATION
   
   const liveRounds = ref([])
   const liveRoundsUnsub = ref(null)
@@ -13,12 +15,8 @@ export const useData = defineStore('data', () => {
   const isHydrated = ref(false)
   const loading = ref(false)
   
-  // Cache for upcoming events
   const upcomingEvents = ref({}) 
-  
   const activeListenerType = ref(null)
-
-  // 2. REMOVED getTodayISO()
 
   const hydrateStore = async () => {
     if (isHydrated.value || loading.value) return
@@ -30,7 +28,7 @@ export const useData = defineStore('data', () => {
         getDocs(collection($db, 'courses'))
       ])
 
-      const today = getLocalIsoDate() // <-- 3. Using getLocalIsoDate()
+      const today = getLocalIsoDate()
       
       const leaguePromises = leaguesSnap.docs.map(async (lDoc) => {
         const league = { id: lDoc.id, ...lDoc.data() }
@@ -69,7 +67,7 @@ export const useData = defineStore('data', () => {
     if (upcomingEvents.value[leagueId] && !forceRefresh) return
 
     try {
-      const today = getLocalIsoDate() // <-- Using getLocalIsoDate()
+      const today = getLocalIsoDate()
       const qRef = query(
         collection($db, "leagues", leagueId, "calendar"),
         where("iso", ">=", today),
@@ -97,7 +95,7 @@ export const useData = defineStore('data', () => {
     try {
       await fetchUpcomingEvents(leagueId, true)
 
-      const today = getLocalIsoDate(); // <-- Using getLocalIsoDate()
+      const today = getLocalIsoDate();
       const calQ = query(
         collection($db, 'leagues', leagueId, 'calendar'),
         where('iso', '>=', today),
@@ -117,7 +115,7 @@ export const useData = defineStore('data', () => {
   };
 
   const isLeagueLiveToday = computed(() => (leagueId) => {
-    const today = getLocalIsoDate(); // <-- Using getLocalIsoDate()
+    const today = getLocalIsoDate(); 
     return liveRounds.value.some(r => r.leagueId === leagueId && r.iso === today);
   });
 
@@ -162,8 +160,26 @@ export const useData = defineStore('data', () => {
     }
   }
 
+  const activeLiveRound = computed(() => {
+    // This will now work perfectly because authStore is defined!
+    if (!authStore.userProfile?.id) return null
+    
+    const round = liveRounds.value.find(r => 
+      r.players.some(p => p.id === authStore.userProfile.id)
+    )
+
+    if (!round) return null
+
+    return {
+      id: round.id,
+      leagueId: round.leagueId,
+      iso: round.iso,
+      type: round.type
+    }
+  })
+
   return { 
-    liveRounds, leagues, courses, isHydrated, loading, upcomingEvents,
+    liveRounds, leagues, courses, isHydrated, loading, upcomingEvents, activeLiveRound,
     hydrateStore, startLiveListener, stopLiveListener, resumeListener,
     deleteLiveRound, refreshLeagueCalendar, fetchUpcomingEvents, getNextActiveEvent
   }

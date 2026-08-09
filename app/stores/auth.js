@@ -9,7 +9,8 @@ export const useAuthStore = defineStore('auth', {
     loading: import.meta.client ? true : false,
     isInitialized: false, // NEW: Tracks if the first Auth check is complete
     unsubscribeProfile: null,
-    pendingPlayerId: null
+    pendingPlayerId: null,
+    authError: ''
   }),
 
   getters: {

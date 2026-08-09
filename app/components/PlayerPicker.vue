@@ -68,7 +68,7 @@
 
             <div class="flex-1 overflow-y-auto p-4 no-scrollbar">
               
-              <div v-if="isCreatingManual" class="space-y-4 pt-2 pb-6">
+              <div v-if="isCreatingManual" class="space-y-4 pt-2 pb-[40vh] sm:pb-6">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1">
                     <label class="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">First Name</label>
@@ -85,31 +85,25 @@
                   <input v-model="form.phone" type="tel" placeholder="(555) 000-0000" class="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3.5 text-sm dark:text-white outline-none focus:border-emerald-500 transition-colors" />
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-3">
                   <div class="space-y-1">
-                    <label class="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">GHIN Index</label>
-                    <input v-model="form.ghin" type="number" step="0.1" class="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3.5 text-sm dark:text-white outline-none focus:border-emerald-500 transition-colors" />
-                  </div>
-                  <div class="space-y-1">
-                    <label class="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Tee Type</label>
+                    <label class="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Player Type</label>
                     <div class="flex gap-1 p-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl h-[52px]">
                       <button 
+                        v-for="type in ['mens', 'senior', 'ladies']" :key="type"
                         type="button"
-                        @click="form.tee_type = 'mens'"
+                        @click="setTeeType(type)"
                         :class="[
                           'flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all',
-                          form.tee_type === 'mens' ? 'bg-white dark:bg-stone-800 text-emerald-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'
+                          form.tee_type === type ? 'bg-white dark:bg-stone-800 text-emerald-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'
                         ]"
-                      >Mens</button>
-                      <button 
-                        type="button"
-                        @click="form.tee_type = 'ladies'"
-                        :class="[
-                          'flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all',
-                          form.tee_type === 'ladies' ? 'bg-white dark:bg-stone-800 text-emerald-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'
-                        ]"
-                      >Ladies</button>
+                      >{{ type }}</button>
                     </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">GHIN Index</label>
+                    <input v-model.number="form.ghin" type="number" step="0.1" class="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3.5 text-sm dark:text-white outline-none focus:border-emerald-500 transition-colors" />
                   </div>
                 </div>
 
@@ -169,7 +163,8 @@ const props = defineProps({
   mode: { type: String, default: 'manage' },
   defaultTeeType: { type: String, default: 'mens' },
   leagueId: { type: String, default: null },
-  roundTeesId: { type: String, default: null } // New prop to track the round's assigned tee
+  roundTeesId: { type: String, default: null },
+  course: { type: Object, default: () => null }
 });
 
 const emit = defineEmits(['update:isOpen', 'toggle', 'create-new']);
@@ -180,13 +175,26 @@ const confirm = useConfirm();
 const allPlayers = ref([]);
 const isLoading = ref(false);
 
-// --- TEE ASSIGNMENT LOGIC ---
+const forceDouble = (val) => {
+  let num = parseFloat(val) || 0.0;
+  return num % 1 === 0 ? num + 0.00000000000001 : num;
+};
+
+const setTeeType = (type) => {
+  form.value.tee_type = type;
+  if (props.course?.tee_types && props.course.tee_types[type]) {
+    form.value.teesId = props.course.tee_types[type];
+  } else {
+    const tees = props.course?.tees || {};
+    const firstId = Array.isArray(tees) ? tees[0]?.id : Object.keys(tees)[0];
+    form.value.teesId = firstId || '';
+  }
+};
+
 const handleToggle = (player) => {
-  // 1. Clone the object to 'p'
   const p = { ...player };
   const isAlreadySelected = props.selectedPlayers.some(sp => sp.id === p.id);
 
-  // 2. Assign the proper teesId to 'p'
   if (!isAlreadySelected && props.mode !== 'favorites') {
     if (props.roundTeesId && props.roundTeesId !== 'mixed') {
       p.teesId = props.roundTeesId;
@@ -195,108 +203,56 @@ const handleToggle = (player) => {
     }
   }
       
-  // Optional: If you kept your console logs, make sure they use 'p' and not 'newPlayer'
-  // console.log('Round Tees ID:', props.roundTeesId);
-  // console.log('New Player Tees ID:', p.teesId); 
-
-  // 3. Emit 'p'
   emit('toggle', p);
 };
 
-// --- FORM STATE ---
-const isCreatingManual = ref(false);
-const form = ref({ 
-  fname: '', 
-  lname: '', 
-  phone: '', 
-  ghin: 0.0, 
-  tee_type: props.defaultTeeType === 'ladies' ? 'ladies' : 'mens' 
-});
+const form = ref({ fname: '', lname: '', phone: '', ghin: 0.0, tee_type: 'mens', teesId: '' });
 
 const startManualCreate = () => {
-  form.value = { 
-    fname: '', 
-    lname: '', 
-    phone: '', 
-    ghin: 0.0,
-    tee_type: props.defaultTeeType === 'ladies' ? 'ladies' : 'mens'
-  };
+  const initType = props.defaultTeeType || 'mens';
+  let initialTeesId = props.course?.tee_types?.[initType] || '';
+  if (!initialTeesId) {
+     const tees = props.course?.tees || {};
+     initialTeesId = Array.isArray(tees) ? tees[0]?.id : Object.keys(tees)[0] || '';
+  }
+  form.value = { fname: '', lname: '', phone: '', ghin: 0.0, tee_type: initType, teesId: initialTeesId };
   isCreatingManual.value = true;
 };
+
+const isCreatingManual = ref(false);
 
 const submitManual = async () => {
   const fNameStr = form.value.fname.trim();
   const lNameStr = form.value.lname.trim();
-
   if (!fNameStr || !lNameStr) return alert("Full name required.");
 
   isLoading.value = true;
   try {
-    const qRef = query(
-      collection($db, "players"),
-      where("fname", "==", fNameStr),
-      where("lname", "==", lNameStr)
-    );
+    const qRef = query(collection($db, "players"), where("fname", "==", fNameStr), where("lname", "==", lNameStr));
     const snap = await getDocs(qRef);
 
     if (!snap.empty) {
-      // Player found
       const existingDoc = snap.docs[0];
       const existingData = existingDoc.data();
-
       if (existingData.active !== false) {
         alert(`${fNameStr} ${lNameStr} is already an active player.`);
       } else {
-        // Player is archived - Reactivate
-        const wantsToReactivate = await confirm.ask(
-          'Reactivate Player?', 
-          `<b>${fNameStr} ${lNameStr}</b> is currently archived in the database. Would you like to reactivate them instead of creating a duplicate?`,
-          { 
-            confirmText: 'Reactivate', 
-            icon: 'mdi:account-convert', 
-            iconBg: 'bg-amber-50 dark:bg-amber-900/30', 
-            iconColor: 'text-amber-500',
-            confirmBtnClass: 'bg-amber-500 hover:bg-amber-600'
-          }
-        );
-        
+        const wantsToReactivate = await confirm.ask('Reactivate Player?', `<b>${fNameStr} ${lNameStr}</b> is currently archived. Reactivate instead?`, { confirmText: 'Reactivate' });
         if (wantsToReactivate) {
-          const updates = { active: true };
-          
-          if (form.value.phone && form.value.phone !== existingData.phone) updates.phone = form.value.phone;
-          if (form.value.ghin && Number(form.value.ghin) !== Number(existingData.ghin)) updates.ghin = Number(form.value.ghin);
-          if (form.value.tee_type && form.value.tee_type !== existingData.tee_type) updates.tee_type = form.value.tee_type;
-
+          const updates = { active: true, tee_type: form.value.tee_type, teesId: form.value.teesId, ghin: forceDouble(form.value.ghin) };
           await updateDoc(doc($db, "players", existingDoc.id), updates);
-          
-          const reactivatedPlayer = { id: existingDoc.id, ...existingData, ...updates };
-          
-          allPlayers.value.push(reactivatedPlayer);
-          allPlayers.value.sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
-          
-          // Use handleToggle to apply tee logic
-          handleToggle(reactivatedPlayer);
-          
+          handleToggle({ id: existingDoc.id, ...existingData, ...updates });
           isCreatingManual.value = false;
         }
       }
     } else {
-      // Safe to create new
-      const newPlayer = { ...form.value, fname: fNameStr, lname: lNameStr, active: true };
-      
-      // Apply tee logic for brand new players
-      if (props.roundTeesId && props.roundTeesId !== 'mixed') {
-        newPlayer.teesId = props.roundTeesId;
-      } else {
-        newPlayer.teesId = newPlayer.defaultTeesId || newPlayer.teesId || null;
-      }
-
+      const newPlayer = { ...form.value, fname: fNameStr, lname: lNameStr, active: true, ghin: forceDouble(form.value.ghin) };
+      if (!newPlayer.teesId) newPlayer.teesId = props.roundTeesId !== 'mixed' ? props.roundTeesId : null;
       emit('create-new', newPlayer);
       isCreatingManual.value = false;
     }
   } catch (err) {
-    console.error("Error verifying player existence:", err);
-    alert("There was an error checking the database.");
+    alert("Error saving player.");
   } finally {
     isLoading.value = false;
   }
@@ -307,29 +263,14 @@ const closePicker = () => {
   emit('update:isOpen', false);
 };
 
-// --- DATA FETCHING ---
 watch(() => props.isOpen, async (opened) => {
   if (opened && allPlayers.value.length === 0) {
     isLoading.value = true;
-    try {
-      let qRef = collection($db, "players");
-
-      if (props.leagueId) {
-        qRef = query(qRef, where("leagues", "array-contains", props.leagueId));
-      }
-
-      const snap = await getDocs(qRef);
-      
-      allPlayers.value = snap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(p => p.active !== false)
-        .sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
-        
-    } catch (e) {
-      console.error("Error fetching players:", e);
-    } finally {
-      isLoading.value = false;
-    }
+    let qRef = collection($db, "players");
+    if (props.leagueId) qRef = query(qRef, where("leagues", "array-contains", props.leagueId));
+    const snap = await getDocs(qRef);
+    allPlayers.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(p => p.active !== false).sort((a, b) => (a.lname || '').localeCompare(b.lname || ''));
+    isLoading.value = false;
   }
 });
 

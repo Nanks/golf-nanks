@@ -9,7 +9,7 @@
         </div>
 
         <div @click="showGhinModal = true" class="relative active:scale-95 transition-transform cursor-pointer">
-          <div class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-md z-10">
+          <div class="absolute -top-1.5 -right-1.5 size-5 bg-emerald-500/80 rounded-md flex items-center justify-center text-emerald-800 shadow-md z-10">
             <Icon name="mdi:pencil" class="size-2.5" />
           </div>
           
@@ -47,7 +47,7 @@
             class="absolute left-4 top-1/2 -translate-y-1/2 z-40 p-2.5 rounded-xl border transition-all flex items-center justify-center disabled:opacity-0 disabled:pointer-events-none"
             :class="carouselIndex === 0 
               ? 'border-transparent text-slate-300 dark:text-slate-800 bg-transparent' 
-              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-sm active:scale-95 hover:bg-emerald-500/20'"
+              : 'bg-emerald-500/60 border-emerald-500/80 text-emerald-900 dark:text-emerald-400 shadow-sm active:scale-95 hover:bg-emerald-500/20'"
           >
             <Icon name="mdi:chevron-left" class="size-6" />
           </button>
@@ -80,7 +80,7 @@
             class="absolute right-4 top-1/2 -translate-y-1/2 z-40 p-2.5 rounded-xl border transition-all flex items-center justify-center disabled:opacity-0 disabled:pointer-events-none"
             :class="carouselIndex >= myLeagues.length - 1
               ? 'border-transparent text-slate-300 dark:text-slate-800 bg-transparent' 
-              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-sm active:scale-95 hover:bg-emerald-500/20'"
+              : 'bg-emerald-500/60 border-emerald-500/80 text-emerald-900 dark:text-emerald-400 shadow-sm active:scale-95 hover:bg-emerald-500/20'"
           >
             <Icon name="mdi:chevron-right" class="size-6" />
           </button>

@@ -6,6 +6,7 @@
     </div>
 
     <template v-else-if="leagueData && processedPlayers.length > 0">
+      
       <LeagueHeader 
         :title="leagueData?.shortName || leagueData?.name || 'Leaderboard'"
         :is-admin="isAdmin"
@@ -82,54 +83,25 @@
           </div>
 
           <TransitionGroup name="shuffle-list" tag="div" class="space-y-2">
-            <div v-for="(row, index) in activeDisplayList" :key="row.id" class="active:scale-[0.98] transition-transform">
+            <template v-for="(row, index) in activeDisplayList" :key="row.id">
               
-              <div v-if="row.isWinnerRow" @click="openTeamModal(row)" class="card-base cursor-pointer flex items-center justify-between p-3">
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <span class="text-primary text-lg opacity-40 w-6 text-center">{{ index + 1 }}</span>
-                  <div class="w-px h-8 bg-stone-200 dark:bg-stone-800"></div>
-                  <div class="min-w-0 flex flex-col leading-tight">
-                    <p class="text-primary text-md font-black">{{ row.player.split(' / ')[0] }}</p>
-                    <p class="text-primary text-md opacity-60">{{ row.player.split(' / ')[1] || 'TBD' }}</p>
-                  </div>
-                </div>
-                <div class="pl-4 border-l border-stone-200 dark:border-stone-800">
-                  <span class="text-primary text-3xl text-emerald-600 font-black italic tabular-nums">{{ row.score }}</span>
-                </div>
-              </div>
+              <LeaderboardTeamCard 
+                v-if="row.isWinnerRow" 
+                :row="row" 
+                :index="index" 
+                @click="openTeamModal(row)" 
+              />
+              
+              <LeaderboardPlayerCard 
+                v-else 
+                :row="row" 
+                :rank="getRank(index)" 
+                :is-app-managed="isAppManaged" 
+                :event-games="eventDetails?.game" 
+                @click="openPlayerModal(row)" 
+              />
 
-              <div v-else @click="openPlayerModal(row)" class="card-interactive cursor-pointer p-3 flex flex-col gap-1.5">
-                <div class="flex items-center justify-between gap-2">
-                  <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <span class="text-primary text-md opacity-40 font-black w-6 text-center">{{ getRank(index) }}</span>
-                    <h3 class="text-lg text-primary font-black uppercase italic">{{ row.name }}</h3>
-                  </div>
-                  <span :class="row.scoreColor" class="text-2xl font-black italic tabular-nums">{{ row.scoreDisplay }}</span>
-                </div>
-                
-                <div class="flex items-center justify-between border-t border-stone-100 dark:border-stone-800/60">
-                  <div class="flex items-center gap-4 text-secondary text-xs font-black uppercase">
-                    <span>HCP: <span class="text-stone-900 dark:text-stone-100">{{ isYearlyLeague ? Number(row.index).toFixed(3) : Math.round(row.index) }}</span></span>
-                    <span>THRU: <span class="text-stone-900 dark:text-stone-100">{{ row.games.holesPlayed === (row.holes || 18) ? 'F' : row.games.holesPlayed }}</span></span>
-                    <span>GROSS: <span class="text-stone-900 dark:text-stone-100">{{ row.games.totalGrossUnder === 0 ? 'E' : (row.games.totalGrossUnder > 0 ? `+${row.games.totalGrossUnder}` : row.games.totalGrossUnder) }}</span></span>
-                  </div>
-                  <span v-if="row.winStats?.totalMoney > 0" class="text-primary text-sm text-emerald-600 font-black italic">${{ row.winStats.totalMoney.toFixed(2) }}</span>
-                </div>
-
-                <div v-if="row.winStats?.individualBadges?.length > 0" class="flex gap-1 overflow-x-auto no-scrollbar pt-1.5">
-                  <template v-for="(badge, bIdx) in row.winStats.individualBadges" :key="bIdx">
-                    <span 
-                      v-if="shouldShowBadge(badge.label)"
-                      :class="badge.color" 
-                      class="badge whitespace-nowrap shrink-0"
-                    >
-                      {{ badge.label }}
-                    </span>
-                  </template>
-                </div>
-              </div>
-
-            </div>
+            </template>
           </TransitionGroup>
         </div>
       </div>
@@ -141,158 +113,149 @@
     </div>
 
     <ClientOnly>
-      <ScorecardPlayerModal v-if="selectedPlayer && eventDetails" :is-open="isModalOpen" :player="selectedPlayer" :event="eventDetails" @close="isModalOpen = false" />
-      <BlindBestBallModal v-if="selectedTeam && eventDetails" :is-open="isTeamModalOpen" :team="selectedTeam" :event="eventDetails" @close="isTeamModalOpen = false" />
-      
-      <LiveRoundFooter 
-        v-if="mode === 'live' && roundId && leagueData && !['calendar', 'menu', 'home'].includes(route.query.from)" 
-        active-tab="leaderboard" 
-        :round-id="roundId" 
-        :league-type="leagueId" 
-        :iso="iso" 
+      <ScorecardPlayerModal 
+        v-if="selectedPlayer && eventDetails" 
+        :is-open="isModalOpen" 
+        :player="selectedPlayer" 
+        :event="eventDetails" 
+        @close="isModalOpen = false" 
+      />
+      <BlindBestBallModal 
+        v-if="selectedTeam && eventDetails" 
+        :is-open="isTeamModalOpen" 
+        :team="selectedTeam" 
+        :event="eventDetails" 
+        :is-app-managed="isAppManaged" 
+        @close="isTeamModalOpen = false" 
       />
     </ClientOnly>
   </div>
 </template>
 
 <script setup>
-import { collection, collectionGroup, query, where, getDocs } from "firebase/firestore";
+import { computed, ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useData } from '~/stores/data';
 import { useUIStore } from '~/stores/ui';
 import { useAuthStore } from '~/stores/auth';
 import { useConfirm } from '~/composables/useConfirm';
-import { calcRounds, runLeaguePass, getTieBreakerValue } from '~/utils/gameLogic';
+import { useLeaderboardData } from '~/composables/useLeaderboardData';
+import { getTieBreakerValue } from '~/utils/gameLogic';
+
+import LeaderboardPlayerCard from '~/components/leaderboard/PlayerCard.vue';
+import LeaderboardTeamCard from '~/components/leaderboard/TeamCard.vue';
 
 const route = useRoute();
 const dataStore = useData();
 const uiStore = useUIStore();
 const authStore = useAuthStore();
 const { ask } = useConfirm();
-const { $db } = useNuxtApp();
 
 const { type: leagueId, iso, mode = 'live' } = route.params;
 
-// --- STATE ---
-const roundsSource = ref([]);
-const eventDetails = ref(null);
+// --- UI STATE ---
 const activeTab = ref('Net Score');
-const availableTabs = ref(['Net Score']);
-const winnersLog = ref({ blindBestBall: [] });
 const selectedPlayer = ref(null);
 const isModalOpen = ref(false);
 const selectedTeam = ref(null);
 const isTeamModalOpen = ref(false);
 const isPreviewingPairings = ref(false);
 
-// --- COMPUTED ---
+// --- LEAGUE CONFIG ---
 const leagueData = computed(() => dataStore.leagues.find(l => l.id === leagueId));
-const isYearlyLeague = computed(() => leagueData.value?.cadence === 'yearly');
+const isAppManaged = computed(() => leagueData.value?.appHandicap === true);
+const isAdmin = computed(() => !!leagueData.value && authStore.isAdminForLeague(leagueData.value));
 
-const eventStatusDisplay = computed(() => {
-  const s = eventDetails.value?.status?.toLowerCase() || 'active';
-  if (['complete', 'mdi-check-bold', 'mdi:check-bold'].includes(s)) return { text: 'FINAL', color: 'text-emerald-500' };
-  if (['rain', 'mdi-weather-pouring', 'mdi:cancel'].includes(s)) return { text: 'RAIN OUT', color: 'text-stone-400' };
-  if (['practice', 'mdi-alpha-p-circle-outline'].includes(s)) return { text: 'PRACTICE', color: 'text-blue-500' };
-  return { text: 'ACTIVE', color: 'text-amber-500' };
-});
+// --- COMPOSABLE INJECTION (The Brains) ---
+const { 
+  eventDetails, 
+  roundsSource, 
+  winnersLog, 
+  availableTabs, 
+  initLeaderboard, 
+  lockEventAndProcess 
+} = useLeaderboardData(leagueId, iso, mode, isAppManaged, isPreviewingPairings);
 
-const isAdmin = computed(() => {
-  if (!leagueData.value) return false;
-  return authStore.isAdminForLeague(leagueData.value);
-});
-
+// --- LIST BUILDERS ---
 const processedPlayers = computed(() => (roundsSource.value || []).map(p => ({
   ...p,
   netRel: p.games?.totalNet ?? p.totalNet ?? 0,
   thru: p.games?.holesPlayed ?? p.holes ?? 0
 })));
 
-const activeDisplayList = computed(() => {
-  // 1. Handle Blind Best Ball (Team Game)
-  if (activeTab.value === 'Blind Best Ball') {
-    const currentStatus = eventDetails.value?.status?.toLowerCase() || '';
-    const isLocked = ['complete', 'mdi-check-bold', 'mdi:check-bold'].includes(currentStatus);
-    if (!isLocked && !isPreviewingPairings.value) return [];
-    return (winnersLog.value?.blindBestBall || []).map((win, idx) => ({ 
+const buildTeamList = () => {
+  const isLocked = ['complete', 'mdi-check-bold', 'mdi:check-bold'].includes(eventDetails.value?.status?.toLowerCase() || '');
+  if (!isLocked && !isPreviewingPairings.value) return [];
+
+  return (winnersLog.value?.blindBestBall || []).map((win, idx) => {
+    const scoreVal = win.score;
+    const fmt = isAppManaged.value ? scoreVal.toFixed(3) : Math.round(scoreVal);
+    let scoreDisplay = 'E';
+    
+    if (Math.abs(scoreVal) > 0.001) {
+      scoreDisplay = scoreVal > 0 ? `+${fmt}` : fmt.toString();
+    }
+    
+    return { 
       ...win, 
       id: `team-${win.id || idx}`, 
-      isWinnerRow: true 
-    }));
-  }
+      isWinnerRow: true, 
+      scoreDisplay 
+    };
+  });
+};
 
-  // 2. Identify Game Type
+const buildPlayerList = () => {
   const isChicago = ['Chicago Points', 'Modified Chicago'].includes(activeTab.value);
   const isBirdies = activeTab.value === 'birds';
   const isDeuces = activeTab.value === 'deuces';
 
-  // 3. Process Players for the Leaderboard
   const players = [...processedPlayers.value].map(p => {
-    let scoreVal = 0;
-    let display = '';
-    let color = 'text-stone-900 dark:text-white';
+    let scoreVal = 0, display = '', color = 'text-stone-900 dark:text-white', tieScores = p.games?.net || [];
     
     if (activeTab.value === 'Net Score') {
-      // Use the pre-calculated totalNet from your utility
       scoreVal = p.games?.totalNet ?? 0;
-      
-      const fmt = isYearlyLeague.value ? scoreVal.toFixed(3) : Math.round(scoreVal);
+      const fmt = isAppManaged.value ? scoreVal.toFixed(3) : Math.round(scoreVal);
       display = scoreVal === 0 ? 'E' : (scoreVal > 0 ? `+${fmt}` : fmt);
-      
       if (scoreVal < 0) color = 'text-emerald-500'; 
     } 
     else if (isChicago) {
       const key = activeTab.value === 'Chicago Points' ? 'totalChicago' : 'totalModChicago';
       scoreVal = p.games?.[key] || 0;
-      display = isYearlyLeague.value ? scoreVal.toFixed(3) : Math.round(scoreVal).toString();
-    }
-    else if (isBirdies) {
-      // Map to your new totalBirds property
-      scoreVal = p.games?.totalBirds || 0;
+      display = isAppManaged.value ? scoreVal.toFixed(3) : Math.round(scoreVal).toString();
+      tieScores = p.games?.chicago || [];
+    } 
+    else if (isBirdies || isDeuces) {
+      const key = isBirdies ? 'totalBirds' : 'totalDeuces';
+      scoreVal = p.games?.[key] || 0;
       display = scoreVal.toString();
       if (scoreVal > 0) color = 'text-emerald-500';
+      tieScores = p.games?.[isBirdies ? 'birds' : 'deuces'] || [];
     }
-    else if (isDeuces) {
-      // Map to your new totalDeuces property
-      scoreVal = p.games?.totalDeuces || 0;
-      display = scoreVal.toString();
-      if (scoreVal > 0) color = 'text-emerald-500';
-    }
-
-    // Determine tie-breaker array based on active game
-    let tieScores = p.games?.net || [];
-    if (isChicago) tieScores = p.games?.chicago || [];
-    if (isBirdies) tieScores = p.games?.birds || [];
-    if (isDeuces) tieScores = p.games?.deuces || [];
 
     return { 
       ...p, 
       scoreVal, 
       scoreDisplay: display, 
       scoreColor: color, 
-      tieBreaker: getTieBreakerValue(tieScores, !isChicago), // true if lower is better (Net), false if higher is better (Points/Birds)
+      tieBreaker: getTieBreakerValue(tieScores, !isChicago), 
       isWinnerRow: false 
     };
   });
 
-  // 4. Sort the List
   return players.sort((a, b) => {
-    // Net Score: Ascending (Lower is better)
-    if (activeTab.value === 'Net Score') {
-      if (a.scoreVal !== b.scoreVal) return a.scoreVal - b.scoreVal;
-    } 
-    // Points, Birdies, Deuces: Descending (Higher is better)
-    else {
-      if (a.scoreVal !== b.scoreVal) return b.scoreVal - a.scoreVal;
+    if (a.scoreVal !== b.scoreVal) {
+      return activeTab.value === 'Net Score' ? a.scoreVal - b.scoreVal : b.scoreVal - a.scoreVal;
     }
-
-    // Secondary Tie Breaker (Back 9, Back 6, etc.)
     for (let i = 0; i < a.tieBreaker.length; i++) {
       if (a.tieBreaker[i] !== b.tieBreaker[i]) return b.tieBreaker[i] - a.tieBreaker[i];
     }
-
-    // Tertiary: Most holes played wins ties
     return (b.games?.holesPlayed ?? 0) - (a.games?.holesPlayed ?? 0);
   });
+};
+
+const activeDisplayList = computed(() => {
+  return activeTab.value === 'Blind Best Ball' ? buildTeamList() : buildPlayerList();
 });
 
 const getRank = (index) => {
@@ -301,12 +264,11 @@ const getRank = (index) => {
   return list[index].scoreVal === list[index - 1].scoreVal ? '-' : (index + 1).toString();
 };
 
+// --- ROUTING COMPUTEDS ---
 const roundId = computed(() => {
   if (mode !== 'live' || !dataStore.liveRounds?.length || !leagueData.value) return null;
-  const myId = authStore.userProfile?.id;
   const myRound = dataStore.liveRounds.find(r => 
-    r.leagueId === leagueId && 
-    r.players?.some(p => String(p.id) === String(myId))
+    r.leagueId === leagueId && r.players?.some(p => String(p.id) === String(authStore.userProfile?.id))
   );
   return myRound?.id || dataStore.liveRounds[0]?.id || null;
 });
@@ -324,45 +286,17 @@ const backText = computed(() => {
   return (mode !== 'live' || route.query.from === 'calendar') ? 'Calendar' : 'Scorecard';
 });
 
-// --- METHODS ---
-const shouldShowBadge = (label) => {
-  // 1. If no games are defined for the event, show nothing
-  if (!eventDetails.value?.game) return false;
-  
-  const games = eventDetails.value.game;
-  const lowerLabel = label.toLowerCase();
-
-  // 2. Check for "Gross" badges (Gross Skins)
-  if (lowerLabel.startsWith('gross')) {
-    return games.includes('Gross Skins');
-  }
-
-  // 3. Check for "Net" badges (Net Skins)
-  if (lowerLabel.startsWith('net')) {
-    return games.includes('Net Skins');
-  }
-
-  // 4. Check for "Deuce" badges (Deuce Pot)
-  if (lowerLabel.startsWith('deuce')) {
-    return games.includes('Deuce Pot');
-  }
-
-  // 5. Default to true for any badges that don't match the side-game categories
-  return true;
-};
-
+// --- EVENT HANDLERS ---
 const openPlayerModal = (row) => { 
   selectedPlayer.value = row; 
   isModalOpen.value = true; 
 };
 
-// FIX 2: Bulletproof team modal opener
 const openTeamModal = (pairing) => {
-  // 1. Try to grab the exact player objects if they are attached to the pairing
+  // Reconstruct full objects if missing
   let p1 = pairing.p1 || pairing.team?.[0];
   let p2 = pairing.p2 || pairing.team?.[1];
 
-  // 2. Fallback: If objects aren't attached, try splitting the ID to find them in processedPlayers
   if (!p1 || !p2) {
     const rawId = pairing.id?.replace('team-', '') || '';
     const parts = rawId.split('|');
@@ -372,150 +306,47 @@ const openTeamModal = (pairing) => {
     }
   }
 
-  // 3. Ultimate Fallback: Force the modal open by creating mock objects with the parsed names
-  // This guarantees the modal opens even if the player lookup fails completely.
   selectedTeam.value = { 
     p1: p1 || { name: pairing.player?.split(' / ')[0] || 'Player 1' }, 
     p2: p2 || { name: pairing.player?.split(' / ')[1] || 'Player 2' }, 
-    totalNet: pairing.score,
-    ...pairing
+    totalNet: pairing.score, 
+    ...pairing 
   };
   
   isTeamModalOpen.value = true;
 };
 
 const completeEvent = async () => {
-  const confirmed = await ask("Complete Event?", "Pairings and results will be permanently set for this round.", {
-    confirmText: "Complete",
-    icon: "mdi:lock-check",
-    iconBg: "bg-emerald-50 dark:bg-emerald-950/30",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-    confirmBtnClass: "bg-emerald-600 active:bg-emerald-700"
+  const confirmed = await ask("Complete Event?", "Pairings and results will be permanently set for this round.", { 
+    confirmText: "Complete", 
+    icon: "mdi:lock-check", 
+    iconBg: "bg-emerald-50 dark:bg-emerald-950/30", 
+    iconColor: "text-emerald-600 dark:text-emerald-400", 
+    confirmBtnClass: "bg-emerald-600 active:bg-emerald-700" 
   });
   if (!confirmed) return;
-  try {
-    uiStore.setLoading(true, "Locking Event...");
-    eventDetails.value.status = 'complete';
-    isPreviewingPairings.value = false;
-    
-    if (mode === 'live') {
-      const normalized = normalizeLiveRounds(dataStore.liveRounds);
-      processLeaderboard(normalized);
-    }
-  } finally {
+  
+  uiStore.setLoading(true, "Locking Event...");
+  isPreviewingPairings.value = false;
+  
+  lockEventAndProcess();
+  
+  // Give the UI a beat to catch up and clear the loader
+  setTimeout(() => {
     uiStore.setLoading(false);
-  }
+  }, 300); 
 };
 
-// --- UNIFIED CALCULATION ENGINE ---
-const processLeaderboard = (flatPlayersArray) => {
-  if (!eventDetails.value || !flatPlayersArray?.length) {
-    roundsSource.value = flatPlayersArray || [];
-    return;
-  }
-  
-  const simulationEvent = { 
-    ...eventDetails.value, 
-    status: isPreviewingPairings.value ? 'complete' : eventDetails.value.status 
-  };
-  
-  const calculatedRounds = calcRounds(flatPlayersArray, simulationEvent);
-  const res = runLeaguePass(calculatedRounds, simulationEvent);
-  winnersLog.value = res.winnersLog || { blindBestBall: [] };
-  roundsSource.value = res.players || [];
-};
-
-// --- DATA PIPELINE: LIVE ---
-const normalizeLiveRounds = (liveRounds) => {
-  return liveRounds
-    .filter(r => r.iso === iso && r.leagueId === leagueId)
-    .flatMap(r => r.players.map(p => ({
-      ...p,
-      name: p.name || `${p.fname} ${p.lname}`,
-      iso: r.iso,
-      course: r.course,
-      courseSnapshot: r.courseSnapshot,
-      scores: r.scores?.[p.id] || Array(18).fill(0)
-    })));
-};
-
-// --- DATA PIPELINE: HISTORY ---
-const fetchHistoryRounds = async () => {
-  try {
-    const roundsRef = collectionGroup($db, "rounds");
-    const q = query(
-      roundsRef, 
-      where("leagueId", "==", leagueId), 
-      where("iso", "==", iso)
-    );
-    const snap = await getDocs(q);
-    
-    if (snap.empty) {
-      processLeaderboard([]);
-      return;
-    }
-
-    const flatHistoryPlayers = snap.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: data.playerKey || doc.ref.parent.parent?.id || doc.id,
-        name: data.name || "Unknown Player",
-        iso: data.iso,
-        course: data.course || "Course TBD",
-        courseSnapshot: data.courseSnapshot || { tees: {} },
-        teesId: data.teesId || data.tees || "fallback",
-        scores: data.scores || Array(18).fill(0),
-        index: data.index || 0,
-        ...data
-      };
-    });
-    
-    processLeaderboard(flatHistoryPlayers);
-  } catch (err) {
-    console.error("History Fetch Error:", err);
-  }
+const getShortDate = (d) => {
+  return d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 };
 
 // --- LIFECYCLE ---
-onMounted(async () => {
-  uiStore.setLoading(true, "Syncing...");
-  try {
-    if (!leagueData.value) return;
-    
-    const q = query(collection($db, "leagues", leagueId, "calendar"), where("iso", "==", iso));
-    const snap = await getDocs(q);
-    eventDetails.value = snap.empty ? { iso, status: 'active', game: [] } : snap.docs[0].data();
-
-    const leagueGames = leagueData.value?.yearly_games || [];
-    const eventGames = eventDetails.value.game || [];
-    const allPossibleGames = [...new Set([...leagueGames, ...eventGames])];
-
-    availableTabs.value = [
-      'Net Score', 
-      ...allPossibleGames.filter(g => 
-        ['Modified Chicago', 'Chicago Points', 'Blind Best Ball', 'birds', 'deuces'].includes(g)
-      )
-    ];
-
-    if (mode === 'live') {
-      dataStore.startLiveListener({ leagueId });
-      
-      watch(() => dataStore.liveRounds, (newLiveRounds) => {
-        const normalized = normalizeLiveRounds(newLiveRounds);
-        processLeaderboard(normalized);
-      }, { immediate: true, deep: true });
-      
-    } else {
-      await fetchHistoryRounds();
-    }
-  } finally {
-    uiStore.setLoading(false);
+onMounted(() => {
+  if (leagueData.value) {
+    initLeaderboard(leagueData.value.yearly_games);
   }
 });
-
-onUnmounted(() => mode === 'live' && dataStore.stopLiveListener());
-
-const getShortDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 </script>
 
 <style scoped>

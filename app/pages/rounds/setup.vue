@@ -36,7 +36,6 @@
         </section>
 
         <section v-show="selectedCourseId" class="bg-stone-50 dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm">
-          
           <div class="flex justify-between items-center mb-4">
             <label class="text-[11px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400">2. Players & Tees</label>
             <button 
@@ -53,52 +52,15 @@
           </div>
 
           <div v-else class="space-y-2.5 mt-2">
-            <div v-for="(player, index) in players" :key="player.id" 
-                 class="p-2.5 bg-white dark:bg-stone-950 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm relative group">
-              
-              <div class="grid grid-cols-12 gap-2 items-center">
-                <div class="col-span-7 flex flex-col justify-center min-w-0 pl-1.5">
-                  <h4 class="font-black uppercase italic tracking-tighter leading-none truncate text-base text-stone-900 dark:text-white">
-                    {{ player.fname }} {{ player.lname }}
-                  </h4>
-                  
-                  <div class="mt-1.5 flex items-center gap-1.5">
-                    
-                    <p v-if="isAppManaged" class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
-                      League HCP: <span class="text-emerald-500 text-[10px]">{{ getDisplayHandicap(player) }}</span>
-                    </p>
-                    
-                    <template v-else>
-                      <p class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
-                        Index: <span class="text-emerald-500 text-[10px]">{{ (player.ghin ?? 0).toFixed(1) }}</span>
-                      </p>
-                      <span v-if="player.teeId" class="w-px h-2.5 bg-stone-200 dark:bg-stone-800 rounded-full"></span>
-                      <p v-if="player.teeId" class="text-[8px] font-black text-stone-400 uppercase tracking-widest">
-                        CH: <span class="text-emerald-500 text-[10px]">{{ getDynamicCourseHandicap(player) }}</span>
-                      </p>
-                    </template>
-
-                  </div>
-                </div>
-
-                <div class="col-span-5">
-                  <BaseSelect 
-                    v-model="player.teeId"
-                    :options="getAvailableTees(player)"
-                    placeholder="Tee"
-                    dense
-                    :disabled="isLeague"
-                  />
-                </div>
-              </div>
-
-              <button 
-                @click="removePlayer(index)" 
-                class="absolute -top-2.5 -left-2.5 bg-white dark:bg-stone-950 rounded-full p-0.5 active:scale-90 transition-transform z-10 shadow-sm border border-stone-100 dark:border-stone-800"
-              >
-                <Icon name="mdi:close-circle" class="size-5 text-stone-300 dark:text-stone-700 active:text-red-500 transition-colors" />
-              </button>
-            </div>
+            <SetupPlayerCard
+              v-for="(player, index) in players"
+              :key="player.id"
+              :player="player"
+              :is-app-managed="isAppManaged"
+              :is-league="isLeague"
+              :available-tees="getAvailableTees(player)"
+              @remove="removePlayer(index)"
+            />
           </div>
         </section>
       </div>
@@ -109,9 +71,7 @@
         <button 
           @click="startRound" 
           :disabled="!canStart || uiStore.isGlobalLoading" 
-          class="w-full py-3.5 rounded-xl font-black uppercase tracking-widest text-sm active:scale-[0.98] transition-all
-                 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 shadow-[inset_0_0_12px_rgba(16,185,129,0.1)] backdrop-blur-md
-                 disabled:opacity-60 disabled:text-stone-500 disabled:bg-stone-500/10 disabled:border-stone-500/20 disabled:shadow-none"
+          class="w-full py-3.5 rounded-xl font-black uppercase tracking-widest text-sm active:scale-[0.98] transition-all text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 shadow-[inset_0_0_12px_rgba(16,185,129,0.1)] backdrop-blur-md disabled:opacity-60 disabled:text-stone-500 disabled:bg-stone-500/10 disabled:border-stone-500/20 disabled:shadow-none"
         >
           <div class="flex items-center justify-center gap-2">
             <Icon v-if="uiStore.isGlobalLoading" name="svg-spinners:ring-resize" class="size-5" />
@@ -127,6 +87,7 @@
       mode="setup" 
       :league-id="isLeague ? leagueId : null" 
       :can-create="isAdmin"
+      :course="selectedCourse" 
       @toggle="togglePlayer" 
       @create-new="addManualPlayer" 
     />
@@ -134,285 +95,14 @@
 </template>
 
 <script setup>
-import { collection, addDoc } from 'firebase/firestore'
-import { useData } from '~/stores/data'
-import { useAuthStore } from '~/stores/auth'
-import { useUIStore } from '~/stores/ui'
-import { calcCourseHandicap } from '~/utils/gameLogic'
-import { getLocalIsoDate } from '~/utils/leagueActions'
+import { useRoundSetup } from '~/composables/useRoundSetup'
 
-const { $db } = useNuxtApp()
-const dataStore = useData()
-const authStore = useAuthStore()
-const uiStore = useUIStore()
-const route = useRoute()
-
-const TEE_MAPPING = {
-  'mens': 'Blue',
-  'senior': 'White',
-  'ladies': 'Green'
-}
-
-// State
-const showPlayerPicker = ref(false)
-const selectedCourseId = ref('')
-const players = ref([])
-
-// Params
-const isLeague = computed(() => route.query.isLeague === 'true')
-const leagueId = computed(() => route.query.leagueId || '')
-const currentLeague = computed(() => dataStore.leagues.find(l => l.id === leagueId.value))
-const leagueName = computed(() => currentLeague.value?.name || '')
-const isAdmin = computed(() => authStore.isAdminForLeague(currentLeague.value))
-
-// NEW: Use the dynamic appHandicap boolean directly from the league document
-const isAppManaged = computed(() => isLeague.value && currentLeague.value?.appHandicap === true)
-
-const backRoute = computed(() => {
-  return route.query.from === 'menu' ? `/leagues/${leagueId.value}/menu` : '/';
-});
-
-const backText = computed(() => {
-  return route.query.from === 'menu' ? 'Menu' : 'Dashboard';
-});
-
-// Computed
-const scheduledEvent = computed(() => {
-  const today = getLocalIsoDate();
-  if (!currentLeague.value?.nextRound) return null;
-  return currentLeague.value.nextRound.iso === today ? currentLeague.value.nextRound : null;
-});
-
-const sortedCourses = computed(() => {
-  return [...dataStore.courses]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(c => ({ label: c.name, value: c.id }))
-})
-
-const selectedCourse = computed(() => dataStore.courses.find(c => c.id === selectedCourseId.value))
-
-const canStart = computed(() => {
-  return selectedCourseId.value && players.value.length > 0 && players.value.every(p => p.teeId) && !uiStore.isGlobalLoading
-})
-
-// ==========================================
-// CENTRALIZED HELPERS 
-// ==========================================
-
-const getTeePar = (teeData) => {
-  return teeData?.pars?.reduce((sum, val) => sum + Number(val), 0) || 72
-}
-
-// UI: Display exact decimal for App Managed Leagues, fallback to GHIN if they are new
-const getDisplayHandicap = (player) => {
-  // If they don't have a league handicap yet, use (GHIN - 3)
-  const hcp = player.leagueHandicaps?.[leagueId.value] ?? ((player.ghin ?? 0) - 3)
-  return parseFloat(hcp).toFixed(3)
-}
-
-// UI: Display dynamic integer for GHIN / Casual rounds
-const getDynamicCourseHandicap = (player) => {
-  if (!selectedCourse.value || !player.teeId) return '-'
-  
-  const teeData = selectedCourse.value.tees[player.teeId]
-  if (!teeData) return '-'
-
-  return calcCourseHandicap(
-    player.ghin ?? 0, 
-    teeData.slope, 
-    teeData.rating, 
-    getTeePar(teeData)
-  )
-}
-
-const getAvailableTees = (player) => {
-  if (!selectedCourse.value?.tees) return []
-  return Object.entries(selectedCourse.value.tees)
-    .filter(([id, tee]) => {
-      if (tee.types && Array.isArray(tee.types) && tee.types.length > 0) {
-        return tee.types.includes(player.tee_type || 'mens')
-      }
-      return true
-    })
-    .map(([id, tee]) => ({ label: tee.name, value: id }))
-    .sort((a, b) => a.label.localeCompare(b.label))
-}
-
-const getTeeIdByName = (course, teeName) => {
-  const entry = Object.entries(course?.tees || {}).find(([id, t]) => t.name === teeName)
-  return entry ? entry[0] : ''
-}
-
-const applyTeeLogic = (playerList) => {
-  if (!selectedCourse.value) return
-
-  playerList.forEach(p => {
-    let finalTeeId = ''
-    const pType = p.tee_type || 'mens'
-
-    // 1. SCHEDULED EVENT (Highest Priority)
-    if (scheduledEvent.value && scheduledEvent.value.teesId && scheduledEvent.value.tees !== 'Mixed') {
-      finalTeeId = scheduledEvent.value.teesId
-    }
-    // 2. LEAGUE DEFAULT (Hardcoded Tee)
-    else if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
-      finalTeeId = currentLeague.value.teesId
-    } 
-    // 3. MIXED LEAGUE or CASUAL ROUND (Player's Default)
-    else {
-      if (selectedCourse.value.tee_types && selectedCourse.value.tee_types[pType]) {
-        finalTeeId = selectedCourse.value.tee_types[pType]
-      } else {
-        const targetName = TEE_MAPPING[pType] || 'Blue'
-        finalTeeId = getTeeIdByName(selectedCourse.value, targetName)
-      }
-    }
-    
-    if (finalTeeId) p.teeId = finalTeeId
-  })
-}
-
-// Initialization
-onMounted(async () => {
-  if (!dataStore.isHydrated) await dataStore.hydrateStore()
-  if (authStore.userProfile && players.value.length === 0) {
-    players.value.push({ ...authStore.userProfile, teeId: '' })
-  }
-
-  // 1. Use Scheduled Event Course first
-  if (scheduledEvent.value?.courseId) {
-    selectedCourseId.value = scheduledEvent.value.courseId
-  }
-  // 2. Fallback to League Default Course
-  else if (isLeague.value && currentLeague.value?.courseId) {
-    selectedCourseId.value = currentLeague.value.courseId
-  } 
-  // 3. Fallback for casual rounds
-  else if (!isLeague.value) {
-    const elks = dataStore.courses.find(c => c.name.toLowerCase().includes('elks'))
-    if (elks) selectedCourseId.value = elks.id
-  }
-  
-  applyTeeLogic(players.value)
-})
-
-// Methods
-const togglePlayer = (player) => {
-  const index = players.value.findIndex(p => p.id === player.id)
-  if (index > -1) {
-    players.value.splice(index, 1)
-  } else {
-    const newPlayer = { ...player, teeId: '' }
-    applyTeeLogic([newPlayer])
-    players.value.push(newPlayer)
-  }
-}
-
-const addManualPlayer = (formData) => {
-  const newGuest = { id: `guest-${Date.now()}`, ...formData, teeId: '' }
-  applyTeeLogic([newGuest])
-  players.value.push(newGuest)
-}
-
-const removePlayer = (index) => players.value.splice(index, 1)
-
-const startRound = async () => {
-  if (!canStart.value || uiStore.isGlobalLoading) return
-  
-  showPlayerPicker.value = false
-  uiStore.setLoading(true, "Setting up...")
-
-  try {
-    const courseSnapshot = {
-      id: selectedCourse.value.id,
-      name: selectedCourse.value.name,
-      holes: selectedCourse.value.holes || 18,
-      tees: {}
-    }
-
-    Object.entries(selectedCourse.value.tees).forEach(([id, tee]) => {
-      courseSnapshot.tees[id] = { 
-        name: tee.name,
-        active: true,
-        rating: tee.rating,
-        slope: tee.slope,
-        pars: tee.pars || [], 
-        hnds: tee.hnds || [], 
-        par: getTeePar(tee),
-        types: tee.types || [] 
-      }
-    })
-
-    const playerSnapshots = players.value.map(p => {
-      const teeData = selectedCourse.value.tees[p.teeId]
-      const teePar = getTeePar(teeData)
-      
-      let finalIndex, finalCourseHcp;
-
-      // NEW: Check isAppManaged instead of isYearlyLeague
-      if (isAppManaged.value) {
-        // Fallback to GHIN if it's their very first round in this league
-        const rawLeagueHcp = p.leagueHandicaps?.[leagueId.value] ?? ((p.ghin ?? 0) - 3);
-        finalIndex = parseFloat(rawLeagueHcp);
-        finalCourseHcp = parseFloat(finalIndex.toFixed(3)); 
-      } else {
-        finalIndex = p.ghin ?? 0;
-        finalCourseHcp = calcCourseHandicap(finalIndex, teeData.slope, teeData.rating, teePar);
-      }
-
-      return {
-        id: p.id,
-        fname: p.fname,
-        lname: p.lname,
-        ghin: finalIndex, 
-        index: finalCourseHcp, 
-        teesId: p.teeId,
-        tees: teeData.name, 
-        tee_type: p.tee_type || 'mens'
-      }
-    })
-
-    let eventTeeId = '';
-    let eventTeeName = '';
-    
-    if (scheduledEvent.value && scheduledEvent.value.tees !== 'Mixed') {
-      eventTeeId = scheduledEvent.value.teesId || '';
-      eventTeeName = scheduledEvent.value.tees || 'Mixed';
-    } else if (isLeague.value && currentLeague.value?.tees !== 'Mixed' && currentLeague.value?.teesId) {
-      eventTeeId = currentLeague.value.teesId;
-      eventTeeName = currentLeague.value.tees;
-    } else {
-      eventTeeId = playerSnapshots[0]?.teesId || '';
-      eventTeeName = playerSnapshots[0]?.tees || 'Mixed';
-    }
-
-    const roundData = {
-      courseId: selectedCourse.value.id,
-      course: courseSnapshot.name,
-      courseSnapshot,
-      tees: eventTeeName,
-      teesId: eventTeeId,
-      leagueId: leagueId.value,
-      type: isLeague.value ? (currentLeague.value?.type || 'league') : 'casual',
-      createdAt: new Date().toISOString(),
-      iso: getLocalIsoDate(),
-      players: playerSnapshots,
-      scores: {},
-      currentHole: 1,
-      status: 'active'
-    }
-
-    players.value.forEach(p => {
-      roundData.scores[p.id] = new Array(courseSnapshot.holes).fill(0)
-    })
-
-    const docRef = await addDoc(collection($db, 'live_rounds'), roundData)
-    
-    await navigateTo(`/rounds/${docRef.id}`)
-    
-  } catch (e) {
-    console.error("Setup failed:", e)
-    uiStore.setLoading(false)
-  }
-}
+// 1. Destructure exactly what the template needs from our unified brain
+const {
+  showPlayerPicker, selectedCourseId, players,
+  isLeague, leagueId, leagueName, isAdmin, isAppManaged,
+  backRoute, backText, sortedCourses, canStart,
+  getAvailableTees, togglePlayer, addManualPlayer, removePlayer, startRound,
+  dataStore, uiStore
+} = useRoundSetup()
 </script>

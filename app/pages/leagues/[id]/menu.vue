@@ -1,5 +1,5 @@
 <template>
-  <div class="px-2 max-w-lg mx-auto">
+  <div class="px-2 max-w-lg mx-auto pb-32">
     <LeagueHeader 
         :title="leagueName"
         subtitle="Menu" 
@@ -108,87 +108,120 @@
         </div>
         <Icon name="mdi:chevron-right" class="text-slate-400" />
       </div>
+
+      <template v-if="isAdmin">
+        <div class="mt-8 mb-2 px-1 flex items-center justify-between">
+          <h2 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin Tools</h2>
+          <div class="h-px flex-1 bg-slate-200 dark:bg-slate-800 ml-4"></div>
+        </div>
+
+        <div 
+          @click="isAnnouncementModalOpen = true"
+          class="card-interactive flex items-center justify-between p-5 border-2 border-dashed !border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 transition-all group"
+        >
+          <div class="flex items-center gap-4">
+            <div class="bg-blue-500 text-white p-2 rounded-xl shadow-lg shadow-blue-500/20 group-active:scale-95 transition-transform">
+              <Icon name="mdi:bullhorn-outline" class="size-6" />
+            </div>
+            <div>
+              <h3 class="font-black text-xl italic uppercase text-blue-700 dark:text-blue-500">Send Announcement</h3>
+            </div>
+          </div>
+          <Icon name="mdi:chevron-right" class="text-blue-600/50 dark:text-blue-400" />
+        </div>
+      </template>
+
     </div>
+
+    <ClientOnly>
+      <AnnouncementModal 
+        v-if="isAdmin"
+        :is-open="isAnnouncementModalOpen" 
+        @close="isAnnouncementModalOpen = false"
+        @send="handleSendAnnouncement"
+      />
+    </ClientOnly>
+
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
+import { useUIStore } from '~/stores/ui'
+import { useToast } from '~/composables/useToast'
 import { getLocalIsoDate } from '~/utils/leagueActions'
+import AnnouncementModal from '~/components/AnnouncementModal.vue'
 
+const { $db } = useNuxtApp()
 const route = useRoute()
 const authStore = useAuthStore()
 const dataStore = useData()
+const uiStore = useUIStore()
+const toast = useToast()
 
 const leagueId = route.params.id 
 const todayIso = getLocalIsoDate()
 
+const isAnnouncementModalOpen = ref(false)
+
 // --- FETCH ON MOUNT ---
 onMounted(async () => {
-  // Pull the latest 3 events into the Pinia cache
   await dataStore.fetchUpcomingEvents(leagueId)
 })
 
-// 1. Find the current league object
-const leagueData = computed(() => {
-  return dataStore.leagues.find(l => l.id === leagueId)
-})
-
+const leagueData = computed(() => dataStore.leagues.find(l => l.id === leagueId))
 const leagueName = computed(() => leagueData.value?.shortName || 'League')
 const isAdmin = computed(() => authStore.isAdminForLeague?.(leagueData.value))
-
-// NEW: Check if the current user has this league ID in their profile's leagues array
-const isPlayerInLeague = computed(() => {
-  const userLeagues = authStore.userProfile?.leagues || []
-  return userLeagues.includes(leagueId)
-})
-
-// 2. Pull yearly games array from the league document
+const isPlayerInLeague = computed(() => (authStore.userProfile?.leagues || []).includes(leagueId))
 const yearlyGames = computed(() => leagueData.value?.yearly_games || [])
 
 // --- NEXT ACTIVE EVENT LOGIC ---
 const nextActiveEvent = computed(() => {
-  // Grab the central truth from Pinia
   const storeEvent = dataStore.getNextActiveEvent(leagueId)
   if (storeEvent) return storeEvent
-  
-  // Fallback to static league data
-  if (leagueData.value?.nextRound && leagueData.value.nextRound.status !== 'complete') {
-    return leagueData.value.nextRound
-  }
-  
+  if (leagueData.value?.nextRound && leagueData.value.nextRound.status !== 'complete') return leagueData.value.nextRound
   return null
 })
 
 // --- START / RESUME CHECKS ---
-const hasEventToday = computed(() => {
-  return nextActiveEvent.value?.iso === todayIso
-})
-
-const isLive = computed(() => {
-  return dataStore.liveRounds.some(r => 
-    r.leagueId === leagueId && 
-    r.iso === todayIso
-  )
-})
-
+const hasEventToday = computed(() => nextActiveEvent.value?.iso === todayIso)
+const isLive = computed(() => dataStore.liveRounds.some(r => r.leagueId === leagueId && r.iso === todayIso))
 const activeRoundId = computed(() => {
   const myId = authStore.userProfile?.id
   if (!myId || !dataStore.liveRounds.length) return null
-
-  const found = dataStore.liveRounds.find(r => 
-    r.leagueId === leagueId && 
-    r.iso === todayIso &&
-    r.players?.some(p => String(p.id) === String(myId))
-  )
-  
+  const found = dataStore.liveRounds.find(r => r.leagueId === leagueId && r.iso === todayIso && r.players?.some(p => String(p.id) === String(myId)))
   return found?.id || null
 })
 
 const startRound = () => {
   navigateTo(`/rounds/setup?leagueId=${leagueId}&isLeague=true&from=menu`) 
+}
+
+// --- AD HOC MESSAGING LOGIC ---
+const handleSendAnnouncement = async (payload) => {
+  uiStore.setLoading(true, "Broadcasting...")
+  try {
+    const announcementsRef = collection($db, "leagues", leagueId, "announcements")
+    
+    await addDoc(announcementsRef, {
+      title: payload.title,
+      body: payload.body,
+      createdBy: authStore.userProfile.id,
+      authorName: `${authStore.userProfile.fname} ${authStore.userProfile.lname}`,
+      createdAt: serverTimestamp()
+    })
+
+    toast.add("Announcement sent successfully!", "success")
+    isAnnouncementModalOpen.value = false
+  } catch (error) {
+    console.error("Failed to send announcement:", error)
+    toast.add("Failed to broadcast message", "error")
+  } finally {
+    uiStore.setLoading(false)
+  }
 }
 </script>
