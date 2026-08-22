@@ -24,12 +24,12 @@
       </div>
 
       <div class="col-span-5">
-        <BaseSelect 
+        <BaseSelect
           v-model="player.teeId"
           :options="availableTees"
           placeholder="Tee"
           dense
-          :disabled="isLeague"
+          :disabled="isLeague && !isMixedTees"
         />
       </div>
     </div>
@@ -48,6 +48,7 @@ defineProps({
   player: { type: Object, required: true },
   isAppManaged: { type: Boolean, default: false },
   isLeague: { type: Boolean, default: false },
+  isMixedTees: { type: Boolean, default: false },
   availableTees: { type: Array, default: () => [] }
 })
 

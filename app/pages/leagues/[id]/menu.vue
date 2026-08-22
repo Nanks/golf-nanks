@@ -52,9 +52,9 @@
         <Icon name="mdi:chevron-right" class="text-emerald-600/50 dark:text-emerald-400" />
       </div>
 
-      <div 
-        v-if="isLive" 
-        @click="navigateTo(`/leaderboard/${leagueId}/${todayIso}/live`)"
+      <div
+        v-if="isLive && nextActiveEvent?.id"
+        @click="navigateTo(`/leaderboard/${leagueId}/${nextActiveEvent.id}`)"
         class="card-interactive flex items-center justify-between p-5 !border-emerald-500/30"
       >
         <div class="flex items-center gap-4">
@@ -134,7 +134,7 @@
     </div>
 
     <ClientOnly>
-      <AnnouncementModal 
+      <LazyAnnouncementModal
         v-if="isAdmin"
         :is-open="isAnnouncementModalOpen" 
         @close="isAnnouncementModalOpen = false"
@@ -153,7 +153,7 @@ import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
 import { useUIStore } from '~/stores/ui'
 import { useToast } from '~/composables/useToast'
-import { getLocalIsoDate } from '~/utils/leagueActions'
+import { getLocalIsoDate, isEventFinished } from '~/utils/leagueActions'
 import AnnouncementModal from '~/components/AnnouncementModal.vue'
 
 const { $db } = useNuxtApp()
@@ -183,7 +183,7 @@ const yearlyGames = computed(() => leagueData.value?.yearly_games || [])
 const nextActiveEvent = computed(() => {
   const storeEvent = dataStore.getNextActiveEvent(leagueId)
   if (storeEvent) return storeEvent
-  if (leagueData.value?.nextRound && leagueData.value.nextRound.status !== 'complete') return leagueData.value.nextRound
+  if (leagueData.value?.nextRound && !isEventFinished(leagueData.value.nextRound.status)) return leagueData.value.nextRound
   return null
 })
 

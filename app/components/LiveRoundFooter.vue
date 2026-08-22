@@ -17,9 +17,9 @@
           <span class="btn-text">Scorecard</span>
         </NuxtLink>
 
-        <NuxtLink 
-          :to="`/leaderboard/${leagueId}/${iso}/live?from=scorecard`" 
-          class="footer-btn" 
+        <NuxtLink
+          :to="`/leaderboard/${leagueId}/${eventId}?from=scorecard`"
+          class="footer-btn"
           :class="{ 'active': activeTab === 'leaderboard' }"
         >
           <Icon name="mdi:trophy" class="size-8 mb-1" />
@@ -36,7 +36,7 @@ defineProps({
   activeTab: { type: String, default: 'home' },
   roundId: { type: String },
   leagueId: { type: String }, // Using the ID for guaranteed uniqueness
-  iso: { type: String }
+  eventId: { type: String }
 });
 </script>
 

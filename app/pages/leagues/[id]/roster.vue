@@ -23,13 +23,13 @@
     </LeagueHeader>
 
     <Transition name="fade">
-      <div v-if="isEditMode" class="grid grid-cols-2 gap-2 mb-6 px-1">
+      <div v-if="isEditMode" class="grid gap-2 mb-6 px-1" :class="league?.appHandicap ? 'grid-cols-2' : 'grid-cols-1'">
         <button @click="isAddModalOpen = true" class="card-interactive p-4 border-2 border-dashed flex flex-col items-center gap-2">
-          <Icon name="mdi:plus-circle-outline" class="size-5 text-emerald-500" /> 
+          <Icon name="mdi:plus-circle-outline" class="size-5 text-emerald-500" />
           <span class="text-secondary text-[10px]">Add Player</span>
         </button>
-        <button @click="syncAllHandicaps" class="card-interactive p-4 border-2 border-dashed flex flex-col items-center gap-2">
-          <Icon name="mdi:sync" class="size-5 text-amber-500" /> 
+        <button v-if="league?.appHandicap" @click="syncAllHandicaps" class="card-interactive p-4 border-2 border-dashed flex flex-col items-center gap-2">
+          <Icon name="mdi:sync" class="size-5 text-amber-500" />
           <span class="text-secondary text-[10px]">Sync All</span>
         </button>
       </div>
@@ -90,21 +90,21 @@
       </div>
     </div>
 
-    <HandicapAuditModal :is-open="isAuditModalOpen" :player="selectedPlayerForAudit" :league-id="route.params.id" @close="isAuditModalOpen = false" />
-    
-    <GhinModal v-if="selectedPlayer" :is-open="isGhinModalOpen" :player="selectedPlayer" @close="isGhinModalOpen = false" @updated="fetchRoster" />
-    
-    <PlayerPicker v-model:is-open="isAddModalOpen" 
-      :selected-players="roster" 
-      :can-create="isAdmin" 
-      :default-tee-type="league?.tee_type || 'mens'" 
+    <LazyHandicapAuditModal :is-open="isAuditModalOpen" :player="selectedPlayerForAudit" :league-id="route.params.id" @close="isAuditModalOpen = false" />
+
+    <LazyGhinModal v-if="selectedPlayer" :is-open="isGhinModalOpen" :player="selectedPlayer" @close="isGhinModalOpen = false" @updated="fetchRoster" />
+
+    <LazyPlayerPicker v-model:is-open="isAddModalOpen"
+      :selected-players="roster"
+      :can-create="isAdmin"
+      :default-tee-type="league?.tee_type || 'mens'"
       :course="leagueCourse"
-      @toggle="handleTogglePlayer" 
-      @create-new="handleCreateAndAdd" 
+      @toggle="handleTogglePlayer"
+      @create-new="handleCreateAndAdd"
     />
 
     <ClientOnly>
-      <PlayerCreateModal 
+      <LazyPlayerCreateModal
         v-if="isEditModalOpen && selectedPlayerForEdit"
         :player="selectedPlayerForEdit" 
         :course="leagueCourse"
@@ -127,6 +127,7 @@ import { useUIStore } from "~/stores/ui";
 import { useData } from "~/stores/data";
 import { useToast } from "~/composables/useToast";
 import { useConfirm } from "~/composables/useConfirm";
+import { useHandicap } from "~/composables/useHandicap";
 import { getDefaultTeeId } from "~/utils/gameLogic";
 
 // Route & Stores
@@ -137,6 +138,7 @@ const dataStore = useData();
 const ui = useUIStore();
 const toast = useToast();
 const confirm = useConfirm();
+const { calculateLeagueHandicap } = useHandicap();
 
 // UI State
 const roster = ref([]);
@@ -303,22 +305,27 @@ const handleRemoveClick = async (player) => {
 };
 
 const syncAllHandicaps = async () => {
+  if (!league.value?.appHandicap) {
+    toast.add({ title: 'Not Applicable', description: 'This league does not use app-managed handicaps.', color: 'amber' });
+    return;
+  }
+
   const confirmed = await confirm.ask(
-    'Sync All Handicaps', 
+    'Sync All Handicaps',
     `Re-calculate and sync handicaps for all ${roster.value.length} players?`,
     { confirmText: 'Sync', icon: 'mdi:sync', confirmBtnClass: 'bg-amber-500' }
   );
 
   if (!confirmed) return;
-  
+
   ui.setLoading(true, "Global Re-Sync...");
   const batch = writeBatch($db);
 
   try {
     for (const player of roster.value) {
-      const { hcp, audit } = await getYearlyInitData(player.id, player.ghin || 0);
+      const { hcp, audit } = await calculateLeagueHandicap(player.id, route.params.id, player.ghin || 0);
       const playerRef = doc($db, "players", player.id);
-      
+
       batch.update(playerRef, {
         [`leagueHandicaps.${route.params.id}`]: hcp,
         [`leagueAudits.${route.params.id}`]: audit
@@ -353,10 +360,10 @@ const onPlayerEdited = async () => {
 
 // --- Local Utilities ---
 const getYearlyInitData = async (playerId, ghin) => {
-  const initialHcp = (Number(ghin) - 3).toFixed(3);
+  const initialHcp = Number((Number(ghin) - 3).toFixed(3));
   const initialAudit = [{
     iso: 'INIT',
-    diff: Number(initialHcp),
+    diff: initialHcp,
     score: 0,
     isPlaceholder: true,
     isBest: true

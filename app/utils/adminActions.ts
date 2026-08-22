@@ -7,7 +7,7 @@ export const finalizeEvent = async ($db: any, leagueDocId: string, eventIso: str
   
   // 1. Mark event as finalized
   const eventRef = doc($db, "leagues", leagueDocId, "calendar", eventIso);
-  batch.update(eventRef, { status: "mdi-check-bold" });
+  batch.update(eventRef, { status: "complete" });
 
   // 2. Find all players in this league
   const playersQuery = query(collection($db, "players"), where("leagues", "array-contains", leagueDocId));

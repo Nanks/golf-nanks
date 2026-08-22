@@ -22,7 +22,7 @@
           </button>
         </div>
 
-        <div class="p-3 grid grid-cols-2 gap-2 overflow-hidden">
+        <div class="p-3 grid grid-cols-2 gap-2 overflow-y-auto flex-1 min-h-0">
           <div v-for="(round, idx) in auditRounds" :key="idx" 
               :class="round.isUsed 
                   ? 'border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10 shadow-sm shadow-emerald-500/10' 
@@ -37,7 +37,7 @@
               <span class="text-[8px] text-slate-400 font-black uppercase tracking-tighter truncate">
                 {{ formatDate(round.date) }}
               </span>
-              <span v-if="round.isPadding" class="text-[7px] text-amber-500 font-black uppercase leading-none">Penalty</span>
+              <span v-if="round.isPadding" class="text-[7px] text-amber-500 font-black uppercase leading-none">GHIN - 3</span>
             </div>
 
             <div class="flex justify-between items-end">
@@ -50,7 +50,7 @@
               <div class="text-right">
                 <p class="text-[6px] uppercase text-slate-400 font-bold leading-none">Diff</p>
                 <p :class="round.isUsed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'" class="text-[11px] font-black italic">
-                  {{ round.differential?.toFixed(1) }}
+                  {{ round.differential?.toFixed(3) }}
                 </p>
               </div>
             </div>

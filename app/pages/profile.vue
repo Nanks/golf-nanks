@@ -140,7 +140,7 @@
       </div>
     </div>
 
-    <PlayerPicker 
+    <LazyPlayerPicker
       :is-open="isPartnerModalOpen"
       :selected-players="favoritePlayerObjects"
       :exclude-id="authStore.userProfile?.id"

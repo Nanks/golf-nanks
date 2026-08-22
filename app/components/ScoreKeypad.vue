@@ -3,13 +3,13 @@
     <Transition name="slide-up">
       <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-end justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div @click="$emit('update:isOpen', false)" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-        
+
         <div class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85dvh]">
-          
+
           <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
             <div>
               <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Hole {{ hole }} <span class="text-emerald-500 ml-1">• Par {{ currentPar }}</span>
+                Hole {{ hole }}
               </p>
               <h4 class="text-xl font-black text-slate-800 dark:text-white uppercase italic leading-none">Score Entry</h4>
             </div>
@@ -19,46 +19,40 @@
           </div>
 
           <div class="p-3 overflow-y-auto space-y-1.5 no-scrollbar">
-            <div v-for="p in round.players" :key="'key'+p.id" @click="localActivePlayerId = p.id" 
-              class="px-3 py-1.5 rounded-xl border-2 flex justify-between items-center transition-all cursor-pointer"
-              :class="localActivePlayerId === p.id ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'"
+            <div v-for="p in round.players" :key="'key'+p.id"
+              class="px-3 py-2 rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center gap-2"
             >
-              <div class="flex flex-col">
-                <div class="font-black text-lg uppercase transition-colors" :class="localActivePlayerId === p.id ? 'text-emerald-600' : 'text-slate-500'">
+              <div class="flex flex-col min-w-0">
+                <div class="font-black text-lg uppercase text-slate-600 dark:text-slate-300 truncate">
                   {{ p.fname }} {{ p.lname }}
                 </div>
                 <div v-if="Math.floor(pStats[p.id]?.pops?.[hole - 1] || 0) > 0" class="flex gap-1 mt-1">
                   <div v-for="dot in Math.floor(pStats[p.id]?.pops?.[hole - 1] || 0)" :key="p.id+'k'+dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_2px_rgba(16,185,129,0.5)]"></div>
                 </div>
               </div>
-              <div class="text-3xl font-black w-14 text-center transition-colors" :class="localActivePlayerId === p.id ? 'text-emerald-600' : 'text-slate-300'">
-                {{ localScores[p.id] || '-' }}
+
+              <div class="flex items-center gap-3 shrink-0">
+                <button
+                  @click="adjustScore(p.id, -1)"
+                  class="size-11 flex items-center justify-center bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl active:bg-red-500 active:border-red-500 active:text-white transition-colors"
+                >
+                  <Icon name="mdi:minus" class="size-5" />
+                </button>
+                <div class="text-2xl font-black w-8 text-center text-slate-800 dark:text-white tabular-nums">
+                  {{ localScores[p.id] || '-' }}
+                </div>
+                <button
+                  @click="adjustScore(p.id, 1)"
+                  class="size-11 flex items-center justify-center bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl active:bg-emerald-500 active:border-emerald-500 active:text-white transition-colors"
+                >
+                  <Icon name="mdi:plus" class="size-5" />
+                </button>
               </div>
             </div>
           </div>
 
           <div class="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
-            
-            <div class="flex gap-2 mb-3">
-              <button 
-                v-for="n in quickEntryNumbers" 
-                :key="n" 
-                @click="setScore(n)" 
-                class="flex-1 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-slate-600 dark:text-white active:scale-95 shadow-sm transition-transform"
-              >
-                {{ n }}
-              </button>
-            </div>
-
-            <div class="flex items-center gap-4 mb-5">
-              <button @click="adjustScore(-1)" class="flex-1 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center active:bg-red-500 active:border-red-500 active:text-white shadow-sm transition-colors"><Icon name="mdi:minus" class="size-8" /></button>
-              <button @click="adjustScore(1)" class="flex-1 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center active:bg-emerald-500 active:border-emerald-500 active:text-white shadow-sm transition-colors"><Icon name="mdi:plus" class="size-8" /></button>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-3">
-              <button @click="nextPlayer" class="py-3 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform">Next Player</button>
-              <button @click="saveScores" class="py-3 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-transform">Save Hole {{ hole }}</button>
-            </div>
+            <button @click="saveScores" class="w-full py-3.5 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-transform">Save Hole {{ hole }}</button>
           </div>
         </div>
       </div>
@@ -67,12 +61,11 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch } from 'vue';
 
 const props = defineProps({
   isOpen: Boolean,
   hole: Number,
-  initialPlayerId: String,
   round: Object,
   pStats: Object
 });
@@ -80,69 +73,32 @@ const props = defineProps({
 const emit = defineEmits(['update:isOpen', 'save']);
 
 const localScores = ref({});
-const localActivePlayerId = ref(null);
 
-// 1. Dynamic Par Calculation for the Header & Buttons
-const currentPar = computed(() => {
-  if (!props.round?.courseSnapshot || !props.round?.players?.length) return 4;
-  
-  const activePlayer = props.round.players.find(p => p.id === localActivePlayerId.value) || props.round.players[0];
-  
-  // FIXED: Using teesId
-  const tee = activePlayer.teesId || props.round.players[0]?.teesId;
-  
-  return props.round.courseSnapshot.tees?.[tee]?.pars?.[props.hole - 1] || 4;
-});
-
-// Calculate the quick entry numbers: [Par - 1, Par, Par + 1]
-const quickEntryNumbers = computed(() => {
-  const par = currentPar.value;
-  return [par - 1, par, par + 1];
-});
+// Each player can be on a different tee, so par is resolved per player rather
+// than for a single "active" selection.
+const getPlayerPar = (p) => {
+  const tee = p?.teesId || props.round?.players?.[0]?.teesId;
+  return props.round?.courseSnapshot?.tees?.[tee]?.pars?.[props.hole - 1] || 4;
+};
 
 // Initialize state every time the modal opens
 watch(() => props.isOpen, (newVal) => {
   if (newVal && props.round) {
-    localActivePlayerId.value = props.initialPlayerId || props.round.players[0]?.id;
-    
     const initScores = {};
     props.round.players.forEach(p => {
       // Safely access the current score if they already entered one
       const currentScore = props.round.scores?.[p.id]?.[props.hole - 1];
-      
-      // FIXED: Using teesId to calculate the specific par for THIS player's starting score
-      const playerTee = p.teesId || props.round.players[0]?.teesId;
-      const playerPar = props.round.courseSnapshot?.tees?.[playerTee]?.pars?.[props.hole - 1] || 4;
-      
       // Set to existing score, or default to their specific par
-      initScores[p.id] = (currentScore || playerPar).toString();
+      initScores[p.id] = (currentScore || getPlayerPar(p)).toString();
     });
-    
     localScores.value = initScores;
   }
 });
 
-// Controls
-const setScore = (val) => {
-  if (localActivePlayerId.value) {
-    localScores.value[localActivePlayerId.value] = val.toString();
-    nextPlayer();
-  }
-};
-
-const adjustScore = (mod) => {
-  const pid = localActivePlayerId.value;
-  if (!pid) return;
-  
-  // Use currentPar so if they erase the number, it starts adjusting from Par instead of 4
-  const current = parseInt(localScores.value[pid]) || currentPar.value;
-  localScores.value[pid] = Math.min(Math.max(current + mod, 1), 15).toString();
-};
-
-const nextPlayer = () => {
-  const players = props.round.players;
-  const idx = players.findIndex(p => p.id === localActivePlayerId.value);
-  localActivePlayerId.value = players[(idx + 1) % players.length].id;
+const adjustScore = (playerId, mod) => {
+  const player = props.round.players.find(p => p.id === playerId);
+  const current = parseInt(localScores.value[playerId]) || getPlayerPar(player);
+  localScores.value[playerId] = Math.min(Math.max(current + mod, 1), 15).toString();
 };
 
 // Emit data back to parent to save

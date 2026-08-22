@@ -1,5 +1,5 @@
 import { ref, computed, onMounted } from 'vue'
-import { collection, addDoc } from 'firebase/firestore'
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore'
 import { useRoute, useRouter } from 'vue-router'
 import { useData } from '~/stores/data'
 import { useAuthStore } from '~/stores/auth'
@@ -32,6 +32,10 @@ export function useRoundSetup() {
   const leagueName = computed(() => currentLeague.value?.name || '')
   const isAdmin = computed(() => authStore.isAdminForLeague(currentLeague.value))
   const isAppManaged = computed(() => isLeague.value && currentLeague.value?.appHandicap === true)
+  // Matches the same check getDefaultTeeId uses to decide whether to force a
+  // single league-wide tee -- a Mixed league has no single tee to force, so
+  // players need to be able to pick their own.
+  const isMixedTees = computed(() => isLeague.value && currentLeague.value?.tees === 'Mixed')
 
   const backRoute = computed(() => route.query.from === 'menu' ? `/leagues/${leagueId.value}/menu` : '/')
   const backText = computed(() => route.query.from === 'menu' ? 'Menu' : 'Dashboard')
@@ -174,6 +178,7 @@ export function useRoundSetup() {
         tees: eventTeeName,
         teesId: eventTeeId,
         leagueId: leagueId.value,
+        eventId: isLeague.value ? (scheduledEvent.value?.id || null) : null,
         appHandicap: isAppManaged.value,
         type: isLeague.value ? (currentLeague.value?.type || 'league') : 'casual',
         createdAt: new Date().toISOString(),
@@ -188,6 +193,24 @@ export function useRoundSetup() {
       players.value.forEach(p => {
         roundData.scores[p.id] = new Array(courseSnapshot.holes).fill(0)
       })
+
+      // Re-check directly against Firestore right before writing -- the
+      // earlier check above reads the locally cached liveRounds, which can
+      // be stale (two people tapping Start Round within the same moment, or
+      // a listener that hasn't caught up yet). That previously let a player
+      // end up in two live_rounds groups for the same event.
+      if (isLeague.value && currentUserId) {
+        const existingQ = query(
+          collection($db, 'live_rounds'),
+          where('leagueId', '==', leagueId.value),
+          where('iso', '==', todayIso),
+          where('playerIds', 'array-contains', currentUserId)
+        )
+        const existingSnap = await getDocs(existingQ)
+        if (!existingSnap.empty) {
+          return router.push(`/rounds/${existingSnap.docs[0].id}`)
+        }
+      }
 
       const docRef = await addDoc(collection($db, 'live_rounds'), roundData)
       dataStore.liveRounds.push({ id: docRef.id, ...roundData })
@@ -220,7 +243,7 @@ export function useRoundSetup() {
 
   return {
     showPlayerPicker, selectedCourseId, players,
-    isLeague, leagueId, leagueName, isAdmin, isAppManaged,
+    isLeague, leagueId, leagueName, isAdmin, isAppManaged, isMixedTees,
     backRoute, backText, sortedCourses, canStart,
     getAvailableTees, togglePlayer, addManualPlayer, removePlayer, startRound,
     dataStore, uiStore

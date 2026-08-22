@@ -15,13 +15,50 @@
       Live
     </div>
 
-    <div class="mb-1">
-      <h2 class="text-2xl text-primary leading-tight font-black uppercase italic">
-        {{ league.shortName }}
-      </h2>
-      <p class="text-secondary text-xs uppercase tracking-widest font-bold">
-        {{ league.course }}
-      </p>
+    <div class="mb-1 flex items-center gap-3">
+      <div class="size-12 shrink-0 rounded-xl bg-white border border-slate-200 dark:border-slate-600 flex items-center justify-center overflow-hidden p-2">
+        <TheSmssLogo
+          v-if="isSmss"
+          :startColor="league.theme?.startColor || '#1e293b'"
+          :endColor="league.theme?.endColor || '#10b981'"
+          class="w-full h-full"
+        />
+        <TheVegasLogo
+          v-else-if="isVegas"
+          :startColor="league.theme?.startColor || '#F59E0B'"
+          :endColor="league.theme?.endColor || '#EA580C'"
+          class="w-full h-full"
+        />
+        <TheSSCLogo
+          v-else-if="isSsc"
+          :startColor="league.theme?.startColor || '#2563eb'"
+          :endColor="league.theme?.endColor || '#34d399'"
+          class="w-full h-full"
+        />
+        <TheT4gLogo
+          v-else-if="isT4g"
+          :startColor="league.theme?.startColor || 'var(--color-pink-500)'"
+          :endColor="league.theme?.endColor || 'var(--color-purple-600)'"
+          class="w-full h-full"
+        />
+        <Icon
+          v-else
+          name="mdi:golf-tee"
+          class="size-6 text-slate-300 dark:text-slate-700"
+        />
+      </div>
+
+      <div>
+        <h2
+          class="text-2xl text-primary leading-tight font-black uppercase italic"
+          :style="themeEndColor ? { color: themeEndColor } : {}"
+        >
+          {{ league.shortName }}
+        </h2>
+        <p class="text-secondary text-xs uppercase tracking-widest font-bold">
+          {{ league.course }}
+        </p>
+      </div>
     </div>
 
     <!-- <div 
@@ -66,32 +103,11 @@ const dataStore = useData()
 const toast = useToast()
 const todayIso = getLocalIsoDate()
 
-// --- STATE & WATCHERS ---
-const activeRoundId = ref(null)
+// --- LOGO DETECTION ---
+const { isSmss, isVegas, isSsc, isT4g, themeEndColor } = useLeagueLogo(() => props.league)
 
-// This watcher fixes the "Lazy Evaluation" issue by forcing a check whenever rounds load
-watch(
-  [() => dataStore.liveRounds, () => authStore.isInitialized],
-  ([rounds, ready]) => {
-    
-    if (!ready || !rounds.length) {
-      activeRoundId.value = null;
-      return;
-    }
-
-    const myId = authStore.userProfile?.id;
-    const found = rounds.find(r => {
-      const isLeague = r.leagueId === props.league.id;
-      const isDate = r.iso === todayIso;
-      const isMe = r.players?.some(p => String(p.id) === String(myId));
-      
-      return isLeague && isDate && isMe;
-    });
-
-    activeRoundId.value = found?.id || null;
-  },
-  { immediate: true, deep: true }
-);
+// --- ACTIVE ROUND ---
+const activeRoundId = computed(() => dataStore.activeRoundIdForLeague(props.league.id))
 
 // --- OTHER COMPUTED ---
 const nextRoundData = computed(() => {

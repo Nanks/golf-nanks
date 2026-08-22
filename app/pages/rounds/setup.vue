@@ -58,6 +58,7 @@
               :player="player"
               :is-app-managed="isAppManaged"
               :is-league="isLeague"
+              :is-mixed-tees="isMixedTees"
               :available-tees="getAvailableTees(player)"
               @remove="removePlayer(index)"
             />
@@ -81,8 +82,8 @@
       </div>
     </div>
 
-    <PlayerPicker 
-      v-model:is-open="showPlayerPicker" 
+    <LazyPlayerPicker
+      v-model:is-open="showPlayerPicker"
       :selected-players="players" 
       mode="setup" 
       :league-id="isLeague ? leagueId : null" 
@@ -100,7 +101,7 @@ import { useRoundSetup } from '~/composables/useRoundSetup'
 // 1. Destructure exactly what the template needs from our unified brain
 const {
   showPlayerPicker, selectedCourseId, players,
-  isLeague, leagueId, leagueName, isAdmin, isAppManaged,
+  isLeague, leagueId, leagueName, isAdmin, isAppManaged, isMixedTees,
   backRoute, backText, sortedCourses, canStart,
   getAvailableTees, togglePlayer, addManualPlayer, removePlayer, startRound,
   dataStore, uiStore

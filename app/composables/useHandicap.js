@@ -1,85 +1,77 @@
 // composables/useHandicap.js
-import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from "firebase/firestore";
-import { useData } from '~/stores/data';
-import { calcDifferential } from '~/utils/gameLogic';
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { calcPops, calcAdjustedGross, calcDifferential, calcRawGross, calcLeagueHandicap } from '~/utils/gameLogic';
 
 export const useHandicap = () => {
   const { $db } = useNuxtApp();
-  const dataStore = useData();
 
-  const calculateLeagueHandicap = async (playerId, leagueDocId, currentGhin) => {
+  // Recalculates a player's league handicap from their finalized round history
+  // for this league (players/{playerId}/rounds where leagueId === leagueId).
+  // Those docs are written by the `archiveLeagueRound` cloud function once an
+  // event's status flips to "complete", each carrying a minimized courseSnapshot
+  // for the tee actually played.
+  const calculateLeagueHandicap = async (playerId, leagueId, currentGhin) => {
     try {
-      // 1. Use local Pinia store instead of passing maps around!
-      const courses = dataStore.courses;
-      
-      const leagueSnap = await getDoc(doc($db, "leagues", leagueDocId));
-      const targetLeagueId = leagueSnap.data()?.type;
-      if (!targetLeagueId) throw new Error("League ID not found");
-
-      const calRef = collection($db, "leagues", leagueDocId, "calendar");
-      const calSnap = await getDocs(query(calRef, where("status", "in", ["mdi-check-bold", "mdi-alpha-h-circle-outline"])));
-      const calendarMap = new Map(calSnap.docs.map(d => [d.data().iso, d.data()]));
-
       const roundsRef = collection($db, "players", playerId, "rounds");
-      const roundsSnap = await getDocs(
-        query(roundsRef, where("type", "==", targetLeagueId), orderBy("iso", "desc"), limit(20))
-      );
+      const roundsSnap = await getDocs(query(roundsRef, where("leagueId", "==", leagueId)));
 
-      const fullRounds = [];
-      const placeholderDiff = Number(currentGhin) - 3;
-     
-      for (const d of roundsSnap.docs) {
-        if (fullRounds.length >= 10) break;
+      // Sorted/limited client-side rather than via orderBy()+limit() in the
+      // query itself, so this doesn't depend on a Firestore composite index
+      // existing for (leagueId, iso) on this subcollection.
+      const mostRecentRounds = roundsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.iso || '').localeCompare(a.iso || ''))
+        .slice(0, 10);
 
-        const roundData = d.data();
-        const calData = calendarMap.get(roundData.iso);
+      const realAudits = [];
 
-        if (calData && roundData.scores && !roundData.scores.includes(0)) {
-          const course = courses.find(c => c.name === roundData.course);
-          const teeData = course?.tees[roundData.teesId] || course?.tees[roundData.tees]; // Safety fallback
+      for (const round of mostRecentRounds) {
+        const teeData = round.courseSnapshot?.tees?.[round.teesId];
+        if (!teeData || !round.scores || round.scores.includes(0)) continue;
 
-          if (!teeData) continue;
+        const pops = calcPops({ index: round.index }, teeData);
+        const adjustedGross = calcAdjustedGross(round.scores, teeData.pars, pops);
+        if (!adjustedGross) continue;
 
-          const { pars, hnds, rating, slope } = teeData;
-          const roundHcp = Math.round(roundData.index || currentGhin);
+        const differential = calcDifferential(adjustedGross, teeData.rating, teeData.slope);
 
-          // ... your existing pops and adjusted gross logic ...
-          const pops = hnds.map(hnd => {
-            const basePop = Math.floor(roundHcp / 18);
-            const extra = (roundHcp % 18 >= hnd) ? 1 : 0;
-            return Math.max(0, basePop + extra);
-          });
-
-          const adjustedScores = roundData.scores.map((s, i) => {
-            const limitValue = pars[i] + pops[i] + 2;
-            return s > limitValue ? limitValue : s;
-          });
-
-          const adjGross = adjustedScores.reduce((a, b) => a + b, 0);
-          
-          // Use your pure math utility!
-          const differential = calcDifferential(adjGross, rating, slope);
-
-          fullRounds.push({ iso: roundData.iso, diff: differential, score: adjGross, isPlaceholder: false });
-        }
+        realAudits.push({
+          adjustedGross,
+          courseRating: teeData.rating,
+          slopeRating: teeData.slope,
+          date: round.iso || null,
+          differential,
+          isPadding: false,
+          rawGross: calcRawGross(round.scores),
+          roundId: round.id
+        });
       }
 
-      const auditList = [...fullRounds];
-      while (auditList.length < 10) {
-        auditList.push({ iso: `PH-${auditList.length}`, diff: placeholderDiff, score: 0, isPlaceholder: true });
+      // Pad out to 10 slots with a GHIN-3 placeholder differential where history is short
+      const placeholderDiff = Number((Number(currentGhin) - 3).toFixed(3));
+      const finalAudit = [...realAudits];
+      while (finalAudit.length < 10) {
+        finalAudit.push({
+          adjustedGross: null,
+          courseRating: null,
+          slopeRating: null,
+          date: null,
+          differential: placeholderDiff,
+          isPadding: true,
+          rawGross: null,
+          roundId: null
+        });
       }
-      
-      const sortedByDiff = [...auditList].sort((a, b) => a.diff - b.diff);
-      const bestIsos = sortedByDiff.slice(0, 4).map(r => r.iso);
-      const finalAudit = auditList.map(r => ({ ...r, isBest: bestIsos.includes(r.iso) }));
-      
-      const avgDiff = sortedByDiff.slice(0, 4).reduce((sum, r) => sum + r.diff, 0) / 4;
-      const finalHcp = avgDiff > 36 ? 35.999 : avgDiff;
 
-      return { hcp: finalHcp.toFixed(3), audit: finalAudit };
+      // calcLeagueHandicap already rounds to 3 decimals; keep it a Number
+      // (not a .toFixed() string) so leagueHandicaps stays consistent with
+      // what the archiveLeagueRound cloud function writes.
+      const hcp = calcLeagueHandicap(finalAudit.map(a => a.differential), 4, 10);
+
+      return { hcp, audit: finalAudit };
     } catch (err) {
       console.error("HANDICAP ERROR:", err);
-      return { hcp: (currentGhin - 3).toFixed(3), audit: [] };
+      return { hcp: Number((Number(currentGhin) - 3).toFixed(3)), audit: [] };
     }
   };
 

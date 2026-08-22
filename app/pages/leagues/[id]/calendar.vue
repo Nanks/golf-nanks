@@ -56,9 +56,9 @@
           </button>
         </ClientOnly>
 
-        <button 
-          v-if="isLeagueLive && !isAdminMode" 
-          @click="navigateTo(`/leaderboard/${leagueId}/${todayIso}/live?from=calendar`)"
+        <button
+          v-if="isLeagueLive && !isAdminMode && todayEvent"
+          @click="navigateTo(`/leaderboard/${leagueId}/${todayEvent.id}?from=calendar`)"
           class="w-full py-4 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2 mb-4 relative overflow-hidden"
         >
           <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
@@ -99,7 +99,7 @@
     </div>
 
     <ClientOnly>
-      <CalendarEventModal :is-open="isModalOpen" :event="activeEvent" :league="leagueData" @close="isModalOpen = false" @save="handleSaveEvent" />
+      <LazyCalendarEventModal :is-open="isModalOpen" :event="activeEvent" :league="leagueData" @close="isModalOpen = false" @save="handleSaveEvent" />
     </ClientOnly>
   </div>
 </template>
@@ -107,7 +107,7 @@
 <script setup>
 import { collection, query, where, orderBy, onSnapshot, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore"
 import { getFunctions, httpsCallable } from 'firebase/functions'
-import { getLocalIsoDate } from '~/utils/leagueActions'
+import { getLocalIsoDate, isEventFinished } from '~/utils/leagueActions'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -137,6 +137,7 @@ const leagueData = computed(() => dataStore.leagues.find(l => l.id === leagueId)
 const isAdmin = computed(() => leagueData.value ? authStore.isAdminForLeague(leagueData.value) : false)
 const isPlayerInLeague = computed(() => (authStore.userProfile?.leagues || []).includes(leagueId))
 const isLeagueLive = computed(() => dataStore.liveRounds.some(r => r.leagueId === leagueId && r.iso === todayIso))
+const todayEvent = computed(() => events.value.find(e => e.iso === todayIso))
 const myActiveRoundId = computed(() => {
   const myId = authStore.userProfile?.id
   if (!myId) return null
@@ -223,11 +224,10 @@ const handleCardClick = (leagueEvent) => {
     openEditModal(leagueEvent)
     return
   }
-  const s = (leagueEvent.status || '').toLowerCase().replace(/^mdi-/, 'mdi:')
-  const isFinished = ['complete', 'mdi:check-bold', 'rain', 'handicap', 'practice'].includes(s)
+  const isFinished = isEventFinished(leagueEvent.status)
   
   if (isFinished) {
-    navigateTo(`/leaderboard/${leagueId}/${leagueEvent.iso}/history`)
+    navigateTo(`/leaderboard/${leagueId}/${leagueEvent.id}`)
     return
   }
   
@@ -235,7 +235,7 @@ const handleCardClick = (leagueEvent) => {
     if (myActiveRoundId.value) navigateTo(`/rounds/${myActiveRoundId.value}`)
     else if (isPlayerInLeague.value) navigateTo({ path: '/rounds/setup', query: { leagueId: leagueId, isLeague: 'true' } })
   } else {
-    navigateTo(`/leaderboard/${leagueId}/${leagueEvent.iso}/history`)
+    navigateTo(`/leaderboard/${leagueId}/${leagueEvent.id}`)
   }
 }
 
@@ -245,12 +245,18 @@ const openAddModal = () => { activeEvent.value = null; isModalOpen.value = true 
 const openEditModal = (leagueEvent) => { activeEvent.value = { ...leagueEvent }; isModalOpen.value = true }
 
 const handleSaveEvent = async (data) => {
-  if (data.status === 'complete' && activeEvent.value?.status !== 'complete') {
-    const confirmed = await ask("Complete Event?", "This will archive the round.", { confirmText: 'Complete', confirmBtnClass: 'bg-emerald-600' });
-    if (!confirmed) return; 
-  }
+  // Guards against a double-tap on Save creating two calendar event docs for
+  // the same intended event (each would independently, correctly trigger the
+  // notifyNewLeagueEvent cloud function -- two docs means two real pushes).
+  // Set before the confirm-dialog branch too, so a rapid second call can't
+  // slip through while that dialog is open.
+  if (ui.isGlobalLoading) return;
   ui.setLoading(true, "Saving...")
   try {
+    if (data.status === 'complete' && activeEvent.value?.status !== 'complete') {
+      const confirmed = await ask("Complete Event?", "This will archive the round.", { confirmText: 'Complete', confirmBtnClass: 'bg-emerald-600' });
+      if (!confirmed) return;
+    }
     const ref = activeEvent.value?.id ? doc($db, "leagues", leagueId, "calendar", activeEvent.value.id) : collection($db, "leagues", leagueId, "calendar")
     activeEvent.value?.id ? await updateDoc(ref, { ...data, lastUpdated: new Date().toISOString() }) : await addDoc(ref, { ...data, lastUpdated: new Date().toISOString() })
     isModalOpen.value = false
@@ -276,6 +282,9 @@ onMounted(() => {
   }
 })
 
-onUnmounted(() => { if (currentUnsub) currentUnsub() })
+onUnmounted(() => {
+  if (currentUnsub) currentUnsub()
+  dataStore.startLiveListener({ myRoundsOnly: true })
+})
 watch(selectedYear, (v) => loadEventsForYear(v))
 </script>

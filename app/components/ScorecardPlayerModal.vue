@@ -10,8 +10,15 @@
             <h3 class="text-xl font-black text-stone-800 dark:text-white uppercase tracking-tight leading-none truncate">
               {{ player.name }}
             </h3>
-            <p class="text-sm font-black text-lime-500 uppercase tracking-widest mt-2">
-              {{ player.tees }} • HCP: {{ player.index % 1 !== 0 ? player.index.toFixed(3) : Math.round(player.index) }}
+            <p class="text-sm font-black text-lime-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
+              <span>{{ player.tees }} • HCP: {{ player.index % 1 !== 0 ? player.index.toFixed(3) : Math.round(player.index) }}</span>
+              <button
+                v-if="isAdmin && player.roundDocId"
+                @click="isTeeModalOpen = true"
+                class="text-lime-500/60 hover:text-lime-500 active:scale-90 transition-all"
+              >
+                <Icon name="mdi:pencil-circle" class="size-4" />
+              </button>
             </p>
           </div>
           <button @click="$emit('close')" class="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors">
@@ -120,17 +127,38 @@
           </div>
         </div>
       </div>
+
+      <LazyCourseTeesModal
+        :is-open="isTeeModalOpen"
+        :selected-course="player.course"
+        :selected-tee="player.tees"
+        :league-tees-type="player.tee_type || 'mens'"
+        @close="isTeeModalOpen = false"
+        @pick="handleTeePick"
+      />
     </div>
   </Transition>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { calcAdjustedGross } from '~/utils/gameLogic';
 
-const props = defineProps(['isOpen', 'player', 'event']);
-defineEmits(['close']);
+const props = defineProps({
+  isOpen: Boolean,
+  player: Object,
+  event: Object,
+  isAdmin: { type: Boolean, default: false }
+});
+const emit = defineEmits(['close', 'change-tee']);
+
+const isTeeModalOpen = ref(false);
+
+const handleTeePick = (picked) => {
+  isTeeModalOpen.value = false;
+  emit('change-tee', { player: props.player, ...picked });
+};
 const route = useRoute();
 
 const roundType = computed(() => route.params.type || '');

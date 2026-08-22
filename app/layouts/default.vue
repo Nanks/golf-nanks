@@ -24,11 +24,11 @@
       <slot /> </main>
 
     <ClientOnly>
-      <LiveRoundFooter 
+      <LiveRoundFooter
         v-if="dataStore.activeLiveRound"
         :round-id="dataStore.activeLiveRound.id"
-        :league-id="dataStore.activeLiveRound.leagueId" 
-        :iso="dataStore.activeLiveRound.iso"
+        :league-id="dataStore.activeLiveRound.leagueId"
+        :event-id="dataStore.activeLiveRound.eventId"
         :active-tab="currentTab"
       />
     </ClientOnly>

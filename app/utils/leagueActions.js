@@ -5,3 +5,9 @@ export const getLocalIsoDate = () => {
   return localDate.toISOString().split('T')[0];
 };
 
+// A calendar event's `status` field is one of these once it's been resolved
+// (via the CalendarEventModal status picker), or unset/null while still live.
+export const TERMINAL_EVENT_STATUSES = ['complete', 'rain', 'handicap', 'practice'];
+
+export const isEventFinished = (status) => TERMINAL_EVENT_STATUSES.includes((status || '').toLowerCase());
+

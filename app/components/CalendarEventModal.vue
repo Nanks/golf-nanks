@@ -125,11 +125,9 @@
             </div>
           </div>
 
-          <div v-if="isEditing && localEvent.game?.includes('Blind Best Ball')" class="bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border-2 border-slate-100 dark:border-slate-800">
-          </div>
         </div>
 
-        <button @click="handleSave" :disabled="!localEvent.course || !localEvent.iso" class="w-full mt-6 py-3.5 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-widest text-sm shadow-lg shadow-emerald-900/20 active:scale-95 transition-all disabled:opacity-50">
+        <button @click="handleSave" :disabled="!localEvent.course || !localEvent.iso || uiStore.isGlobalLoading" class="w-full mt-6 py-3.5 bg-emerald-600 text-white font-black rounded-2xl uppercase tracking-widest text-sm shadow-lg shadow-emerald-900/20 active:scale-95 transition-all disabled:opacity-50">
           {{ isEditing ? 'Update Event' : 'Create Event' }}
         </button>
       </div>
@@ -149,8 +147,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { useConfirm } from '~/composables/useConfirm';
+import { useUIStore } from '~/stores/ui';
 
 const confirm = useConfirm();
+const uiStore = useUIStore();
 
 const props = defineProps({
   isOpen: Boolean,

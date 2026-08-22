@@ -330,8 +330,14 @@ export const runLeaguePass = (players, eventDetails) => {
         return hash;
       };
 
-      const men = players.filter(p => (p.tee_type || 'mens').toLowerCase() === 'mens');
-      const women = players.filter(p => (p.tee_type || '').toLowerCase() === 'ladies');
+      // Bucket by ladies vs. everyone else (mens, senior, or unset) rather than
+      // requiring an exact 'mens' match -- tee_type can be 'senior' (a valid,
+      // commonly-used category per PlayerCreateModal/PlayerPicker), and an
+      // exact-match check silently dropped those players from every pairing,
+      // including the leftover fallback, since they landed in neither bucket.
+      const isLadies = (p) => (p.tee_type || '').toLowerCase() === 'ladies';
+      const women = players.filter(isLadies);
+      const men = players.filter(p => !isLadies(p));
 
       const shuffleGroup = (group) => [...group].sort((a, b) => {
         return getSeededValue(a.id + (eventDetails?.iso || '')) - getSeededValue(b.id + (eventDetails?.iso || ''));

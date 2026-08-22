@@ -158,7 +158,7 @@ const fetchStandings = async () => {
     const q = query(calRef, where("year", "==", selectedYear.value)); 
     const snap = await getDocs(q);
     
-    const completedWeeks = snap.docs.filter(d => d.data().status === 'mdi-check-bold');
+    const completedWeeks = snap.docs.filter(d => d.data().status === 'complete');
     totalPossibleWeeks.value = completedWeeks.length; // Now accessible to template
     
     const playerMap = {};

@@ -88,14 +88,26 @@
       </div>
 
       <div class="space-y-6 px-4 pb-12">
+        <div v-if="myOtherLeagues.length > 0">
+          <h3 class="text-secondary text-[10px] mb-3 uppercase tracking-[0.2em] font-black opacity-50">My Leagues</h3>
+          <div class="grid grid-cols-1 gap-3">
+            <LeagueCard
+              v-for="league in myOtherLeagues"
+              :key="`mine-${league.id}`"
+              :league="league"
+              :is-member="true"
+            />
+          </div>
+        </div>
+
         <div v-if="otherLeagues.length > 0">
           <h3 class="text-secondary text-[10px] mb-3 uppercase tracking-[0.2em] font-black opacity-50">Other Leagues</h3>
           <div class="grid grid-cols-1 gap-3">
-            <LeagueCard 
-              v-for="league in otherLeagues" 
-              :key="`other-${league.id}`" 
-              :league="league" 
-              :is-member="false" 
+            <LeagueCard
+              v-for="league in otherLeagues"
+              :key="`other-${league.id}`"
+              :league="league"
+              :is-member="false"
             />
           </div>
         </div>
@@ -103,7 +115,7 @@
     </section>
 
     <ClientOnly>
-      <GhinModal :is-open="showGhinModal" :player="authStore.userProfile" @close="showGhinModal = false" />
+      <LazyGhinModal :is-open="showGhinModal" :player="authStore.userProfile" @close="showGhinModal = false" />
     </ClientOnly>
   </div>
 </template>
@@ -111,10 +123,12 @@
 <script setup>
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { getLocalIsoDate } from '~/utils/leagueActions'
+import { computed, ref, onMounted } from 'vue'
 
 const authStore = useAuthStore()
 const dataStore = useData()
+const todayIso = getLocalIsoDate()
 
 // UI State
 const showGhinModal = ref(false)
@@ -122,23 +136,23 @@ const isMounted = ref(false)
 const carouselIndex = ref(0)
 
 // Computed Data
+
+// Joined leagues with an event happening today -- shown in the LeagueLogoCard carousel
 const myLeagues = computed(() => {
   if (!isMounted.value || !authStore.isInitialized || !authStore.isLoggedIn) return [];
-  
-  const userLeagues = dataStore.leagues.filter(l => 
-    authStore.userProfile?.leagues?.includes(l.id)
-  );
 
-  return userLeagues.sort((a, b) => {
-    if (!a.nextRound && !b.nextRound) return 0;
-    if (!a.nextRound) return 1;
-    if (!b.nextRound) return -1;
-    
-    const dateA = a.nextRound.toMillis ? a.nextRound.toMillis() : new Date(a.nextRound).getTime();
-    const dateB = b.nextRound.toMillis ? b.nextRound.toMillis() : new Date(b.nextRound).getTime();
-    
-    return dateA - dateB;
-  });
+  return dataStore.leagues.filter(l =>
+    authStore.userProfile?.leagues?.includes(l.id) && l.nextRound?.iso === todayIso
+  );
+});
+
+// Joined leagues without an event today -- shown as LeagueCard, below the carousel
+const myOtherLeagues = computed(() => {
+  if (!isMounted.value || !authStore.isInitialized || !authStore.isLoggedIn) return [];
+
+  return dataStore.leagues.filter(l =>
+    authStore.userProfile?.leagues?.includes(l.id) && l.nextRound?.iso !== todayIso
+  );
 });
 
 const otherLeagues = computed(() => {
@@ -162,12 +176,7 @@ const prevLeague = () => {
 
 // Lifecycle Hooks
 onMounted(() => {
-  isMounted.value = true 
-  dataStore.startLiveListener()
-})
-
-onUnmounted(() => {
-  dataStore.stopLiveListener()
+  isMounted.value = true
 })
 </script>
 

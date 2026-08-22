@@ -90,6 +90,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+import { isEventFinished } from '~/utils/leagueActions'
 
 const props = defineProps({
   event: { type: Object, required: true },
@@ -110,10 +111,7 @@ const eventMonth = computed(() => props.event.iso ? new Date(props.event.iso + '
 const eventDay = computed(() => props.event.iso ? new Date(props.event.iso + 'T12:00:00').getDate() : '-')
 const getInitials = (s) => s ? s.split(' ').map(w => w[0]).join('').toUpperCase() : ''
 
-const isFinished = computed(() => {
-  const s = (props.event.status || '').toLowerCase().replace(/^mdi-/, 'mdi:')
-  return ['complete', 'mdi:check-bold', 'rain', 'handicap', 'practice'].includes(s)
-})
+const isFinished = computed(() => isEventFinished(props.event.status))
 
 const isClickable = computed(() => {
   if (props.isAdminMode) return true 
@@ -140,12 +138,12 @@ const eventIconClass = computed(() => {
 const statusUI = computed(() => {
   const { status, iso } = props.event
   if (!status) return iso < props.todayIso ? { icon: 'mdi:check-circle-outline', color: 'text-slate-400' } : null
-  const s = status.toLowerCase().replace(/^mdi-/, 'mdi:')
-  if (['complete', 'mdi:check-bold'].includes(s)) return { icon: 'mdi:check-circle', color: 'text-emerald-500' }
-  if (['practice', 'mdi:alpha-p-circle-outline'].includes(s)) return { icon: 'mdi:flag-triangle', color: 'text-blue-500' }
-  if (['rain', 'mdi:weather-pouring', 'mdi:cancel'].includes(s)) return { icon: 'mdi:weather-pouring', color: 'text-slate-400' }
+  const s = status.toLowerCase()
+  if (s === 'complete') return { icon: 'mdi:check-circle', color: 'text-emerald-500' }
+  if (s === 'practice') return { icon: 'mdi:flag-triangle', color: 'text-blue-500' }
+  if (s === 'rain') return { icon: 'mdi:weather-pouring', color: 'text-slate-400' }
   if (s === 'handicap') return { icon: 'mdi:calculator', color: 'text-amber-500' }
-  return s.startsWith('mdi:') ? { icon: s, color: 'text-slate-400' } : (iso < props.todayIso ? { icon: 'mdi:check-circle-outline', color: 'text-slate-400' } : null)
+  return iso < props.todayIso ? { icon: 'mdi:check-circle-outline', color: 'text-slate-400' } : null
 })
 
 // --- RSVP Helpers ---

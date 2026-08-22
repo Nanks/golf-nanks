@@ -43,6 +43,15 @@
                   {{ isAppManaged ? 'HCP' : 'CH' }}: {{ formatPlayerHcp(p.index) }}
                 </span>
               </div>
+
+              <button
+                v-if="isAdmin"
+                @click="openChangeTeeModal(p)"
+                class="flex items-center gap-1 text-stone-400 hover:text-emerald-500 dark:text-stone-500 dark:hover:text-emerald-400 active:scale-90 transition-colors"
+              >
+                <span class="text-[9px] uppercase font-bold tracking-wide">{{ p.tees }}</span>
+                <Icon name="mdi:pencil-circle" class="size-4" />
+              </button>
             </div>
 
             <div class="flex w-full px-1 py-1.5 gap-[3px] justify-between">
@@ -59,7 +68,7 @@
                   </div>
                   
                   <button 
-                    @click="openKeypad(h, p.id)"
+                    @click="openKeypad(h)"
                     :class="getScoreClass(p, h)"
                     class="absolute inset-0 w-full h-full rounded font-black text-[22px] transition-all active:scale-75 flex flex-col items-center justify-center border-2 pb-[1px] z-10"
                   >
@@ -99,24 +108,32 @@
         </div>
       </div>
       <ClientOnly>
-        <PlayerPicker 
+        <LazyPlayerPicker
           v-model:isOpen="showPlayerPicker"
-          :selectedPlayers="round.players || []" 
-          mode="setup" 
+          :selectedPlayers="round.players || []"
+          mode="setup"
           @toggle="handlePlayerToggle"
           :leagueId="round.leagueId"
           :roundTeesId="round.teesId"
         />
 
-        <ScoreKeypad 
-          v-model:isOpen="keypad.isOpen" 
-          :hole="keypad.hole" 
-          :initialPlayerId="keypad.activePlayerId"
-          :round="round" 
-          :pStats="pStats" 
-          @save="saveHoleScores" 
+        <LazyScoreKeypad
+          v-model:isOpen="keypad.isOpen"
+          :hole="keypad.hole"
+          :round="round"
+          :pStats="pStats"
+          @save="saveHoleScores"
         />
-        
+
+        <LazyCourseTeesModal
+          :is-open="changeTeeModal.isOpen"
+          :selected-course="round.course"
+          :selected-tee="changeTeeModal.player?.tees"
+          :league-tees-type="changeTeeModal.player?.tee_type || 'mens'"
+          @close="changeTeeModal.isOpen = false"
+          @pick="handleTeeChange"
+        />
+
       </ClientOnly>
   
     </template>
@@ -133,7 +150,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { doc, onSnapshot, updateDoc, writeBatch, collection, serverTimestamp } from "firebase/firestore";
-import { calcPops, calcGames } from '~/utils/gameLogic';
+import { calcPops, calcGames, calcCourseHandicap, getTeePar } from '~/utils/gameLogic';
 // import { calcUSGACourseHandicap } from '~/utils/handicap';
 import { useData, useAuthStore, useUIStore } from '#imports';
 
@@ -142,12 +159,14 @@ const route = useRoute();
 const router = useRouter();
 const dataStore = useData();
 const ui = useUIStore();
+const authStore = useAuthStore();
 
 // --- STATE VARIABLES (This is what went missing!) ---
 const round = ref(null);
 const activeNine = ref('front');
-const keypad = ref({ isOpen: false, hole: 1, activePlayerId: null });
+const keypad = ref({ isOpen: false, hole: 1 });
 const showPlayerPicker = ref(false);
+const changeTeeModal = ref({ isOpen: false, player: null });
 
 // --- LEAGUE & DATA LOOKUPS ---
 const currentLeague = computed(() => {
@@ -157,6 +176,10 @@ const currentLeague = computed(() => {
 
 const isAppManaged = computed(() => {
   return currentLeague.value?.appHandicap === true;
+});
+
+const isAdmin = computed(() => {
+  return currentLeague.value ? authStore.isAdminForLeague(currentLeague.value) : authStore.isSuperAdmin;
 });
 
 const showBirds = computed(() => {
@@ -338,9 +361,39 @@ const handlePlayerToggle = async (p) => {
   }
 };
 
-const openKeypad = (hole, pid) => {
+const openChangeTeeModal = (player) => {
+  changeTeeModal.value = { isOpen: true, player };
+};
+
+const handleTeeChange = async (picked) => {
+  const player = changeTeeModal.value.player;
+  changeTeeModal.value.isOpen = false;
+  if (!player || !picked?.teesId) return;
+
+  ui.setLoading(true, "Updating Tee...");
+  try {
+    const tees = round.value.courseSnapshot?.tees || {};
+    const teeData = Array.isArray(tees) ? tees.find(t => t.id === picked.teesId) : tees[picked.teesId];
+
+    // App-managed leagues use a fixed league handicap regardless of tee;
+    // only a raw GHIN-based course handicap actually depends on the tee played.
+    let newIndex = player.index;
+    if (!isAppManaged.value && teeData) {
+      newIndex = calcCourseHandicap(player.ghin ?? 0, Number(teeData.slope) || 113, Number(teeData.rating) || 72, getTeePar(teeData));
+    }
+
+    const updatedPlayers = round.value.players.map(p =>
+      p.id === player.id ? { ...p, teesId: picked.teesId, tees: teeData?.name || picked.tees, index: newIndex } : p
+    );
+
+    await updateDoc(doc($db, "live_rounds", route.params.id), { players: updatedPlayers });
+  } finally {
+    ui.setLoading(false);
+  }
+};
+
+const openKeypad = (hole) => {
   keypad.value.hole = hole;
-  keypad.value.activePlayerId = pid;
   keypad.value.isOpen = true;
 };
 

@@ -47,9 +47,12 @@
         <Icon name="mdi:shield-crown-outline" class="size-4" />
       </div>
 
-      <!-- <h3 class="text-lg font-black text-primary uppercase text-center tracking-tight mb-2 w-full truncate px-4">
+      <h3
+        class="text-lg font-black text-primary uppercase text-center tracking-tight mb-2 w-full truncate px-4"
+        :style="themeEndColor ? { color: themeEndColor } : {}"
+      >
         {{ league.shortName || league.name }}
-      </h3> -->
+      </h3>
 
       <div v-if="activeRoundId || nextRoundData" class="w-full">
         <div 
@@ -89,10 +92,10 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useData } from '~/stores/data'
-import { getLocalIsoDate } from '~/utils/leagueActions'
+import { getLocalIsoDate, isEventFinished } from '~/utils/leagueActions'
 
 const props = defineProps({
   league: { type: Object, required: true },
@@ -104,34 +107,10 @@ const dataStore = useData()
 const todayIso = getLocalIsoDate()
 
 // --- LOGO DETECTION ---
-const lId = props.league.id || ''
-const isSmss = computed(() => lId === 'KqyvWn81FCGEhsRx4tfI')
-const isVegas = computed(() => lId === 'I7LCsEb1va49YU1lkRmu')
-const isSsc = computed(() => lId === 'vcx75B9fY6uqgAuNo0rL')
-const isT4g = computed(() => lId === 'XFPsVFZpDcEovzod5oJ0')
+const { isSmss, isVegas, isSsc, isT4g, themeEndColor } = useLeagueLogo(() => props.league)
 
-// --- STATE ---
-const activeRoundId = ref(null)
-
-// --- ACTIVE ROUND WATCHER ---
-watch(
-  [() => dataStore.liveRounds, () => authStore.isInitialized],
-  ([rounds, ready]) => {
-    if (!ready || !rounds.length) {
-      activeRoundId.value = null
-      return
-    }
-    const myId = authStore.userProfile?.id
-    const found = rounds.find(r => {
-      const isLeague = r.leagueId === props.league.id
-      const isDate = r.iso === todayIso
-      const isMe = r.players?.some(p => String(p.id) === String(myId))
-      return isLeague && isDate && isMe
-    })
-    activeRoundId.value = found?.id || null
-  },
-  { immediate: true, deep: true }
-)
+// --- ACTIVE ROUND ---
+const activeRoundId = computed(() => dataStore.activeRoundIdForLeague(props.league.id))
 
 // --- FETCH ON MOUNT ---
 onMounted(async () => {
@@ -148,7 +127,7 @@ const nextRoundData = computed(() => {
   if (storeEvent) return storeEvent
   
   // 2. Fallback to static league data if the store hasn't populated yet
-  if (props.league.nextRound && props.league.nextRound.status !== 'complete') {
+  if (props.league.nextRound && !isEventFinished(props.league.nextRound.status)) {
     return props.league.nextRound
   }
   
