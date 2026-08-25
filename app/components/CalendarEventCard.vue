@@ -70,12 +70,16 @@
       </template>
 
       <template v-else-if="isAdminMode">
-        <div class="flex gap-3 text-[10px] font-black uppercase tracking-widest">
+        <button
+          @click.stop="$emit('view-rsvps', event)"
+          class="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest active:opacity-60 transition-opacity"
+        >
           <span class="text-emerald-600 dark:text-emerald-500">{{ countIn }} In</span>
           <span class="text-red-600 dark:text-red-500">{{ countOut }} Out</span>
           <span class="text-slate-400">{{ countUnanswered }} Unanswered</span>
-        </div>
-        <button 
+          <Icon name="mdi:chevron-right" class="size-3.5 text-slate-300 dark:text-slate-600" />
+        </button>
+        <button
           v-if="countUnanswered > 0"
           @click.stop="$emit('nudge', event)" 
           class="bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-all shadow-sm"
@@ -102,7 +106,7 @@ const props = defineProps({
   totalLeaguePlayers: { type: Number, default: 0 }
 })
 
-defineEmits(['card-click', 'edit', 'delete', 'rsvp', 'nudge'])
+defineEmits(['card-click', 'edit', 'delete', 'rsvp', 'nudge', 'view-rsvps'])
 
 const authStore = useAuthStore()
 

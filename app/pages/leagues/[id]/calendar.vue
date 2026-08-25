@@ -88,6 +88,7 @@
             @delete="promptDelete"
             @rsvp="updateRSVP(leagueEvent, $event)"
             @nudge="nudgePlayers"
+            @view-rsvps="rsvpEvent = leagueEvent"
           />
         </template>
       </div>
@@ -100,6 +101,7 @@
 
     <ClientOnly>
       <LazyCalendarEventModal :is-open="isModalOpen" :event="activeEvent" :league="leagueData" @close="isModalOpen = false" @save="handleSaveEvent" />
+      <LazyRsvpListModal :is-open="!!rsvpEvent" :event="rsvpEvent" :players="leaguePlayers" @close="rsvpEvent = null" @nudge="nudgePlayers" />
     </ClientOnly>
   </div>
 </template>
@@ -127,7 +129,8 @@ const events = ref([])
 const isAdminMode = ref(false)
 const isModalOpen = ref(false)
 const activeEvent = ref(null)
-const totalLeaguePlayers = ref(0)
+const leaguePlayers = ref([])
+const rsvpEvent = ref(null)
 let currentUnsub = null
 
 const todayIso = getLocalIsoDate()
@@ -145,6 +148,7 @@ const myActiveRoundId = computed(() => {
   const found = dataStore.liveRounds.find(r => r.leagueId === leagueId && r.iso === todayIso && r.players?.some(p => String(p.id) === String(myId)))
   return found?.id || null
 })
+const totalLeaguePlayers = computed(() => leaguePlayers.value.length)
 
 // --- DATA FETCHING ---
 const loadEventsForYear = (year) => {
@@ -154,14 +158,14 @@ const loadEventsForYear = (year) => {
   currentUnsub = onSnapshot(q, (snap) => { events.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) })
 }
 
-const fetchLeaguePlayerCount = async () => {
+const fetchLeaguePlayers = async () => {
   if (!leagueId) return
   try {
     const q = query(collection($db, 'players'), where('leagues', 'array-contains', leagueId))
     const snap = await getDocs(q)
-    totalLeaguePlayers.value = snap.size
+    leaguePlayers.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
   } catch (err) {
-    console.error("Failed to get player count:", err)
+    console.error("Failed to get league players:", err)
   }
 }
 
@@ -293,7 +297,7 @@ watch([events, () => authStore.userProfile?.id], handleDeepLinkRsvp, { immediate
 onMounted(() => {
   if (leagueId) {
     loadEventsForYear(selectedYear.value)
-    fetchLeaguePlayerCount()
+    fetchLeaguePlayers()
     dataStore.startLiveListener({ leagueId })
   }
 })
