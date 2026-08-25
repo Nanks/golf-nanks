@@ -107,7 +107,7 @@
 </template>
 
 <script setup>
-import { collection, query, where, orderBy, onSnapshot, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore"
+import { collection, query, where, onSnapshot, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore"
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { getLocalIsoDate, isEventFinished } from '~/utils/leagueActions'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
@@ -151,11 +151,20 @@ const myActiveRoundId = computed(() => {
 const totalLeaguePlayers = computed(() => leaguePlayers.value.length)
 
 // --- DATA FETCHING ---
+// Single where('leagueId','==',...) equality filter, with the year range and
+// sort done client-side -- combining it with a where/orderBy on iso would
+// need a composite index. This league's yearly event volume is small enough
+// that filtering/sorting the whole set in JS is trivially cheap.
 const loadEventsForYear = (year) => {
   if (!leagueId) return
   if (currentUnsub) currentUnsub()
-  const q = query(collection($db, "leagues", leagueId, "calendar"), where("iso", ">=", `${year}-01-01`), where("iso", "<=", `${year}-12-31`), orderBy("iso", "asc"))
-  currentUnsub = onSnapshot(q, (snap) => { events.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) })
+  const q = query(collection($db, "events"), where("leagueId", "==", leagueId))
+  currentUnsub = onSnapshot(q, (snap) => {
+    events.value = snap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(e => e.iso >= `${year}-01-01` && e.iso <= `${year}-12-31`)
+      .sort((a, b) => a.iso.localeCompare(b.iso))
+  })
 }
 
 const fetchLeaguePlayers = async () => {
@@ -174,7 +183,7 @@ const updateRSVP = async (leagueEvent, status) => {
   if (!authStore.userProfile?.id) return;
   const playerId = authStore.userProfile.id;
   try {
-    const eventRef = doc($db, `leagues/${leagueId}/calendar`, leagueEvent.id);
+    const eventRef = doc($db, "events", leagueEvent.id);
     await updateDoc(eventRef, { [`rsvps.${playerId}`]: status });
     
     // Explicitly format the status text
@@ -262,8 +271,11 @@ const handleSaveEvent = async (data) => {
       const confirmed = await ask("Complete Event?", "This will archive the round.", { confirmText: 'Complete', confirmBtnClass: 'bg-emerald-600' });
       if (!confirmed) return;
     }
-    const ref = activeEvent.value?.id ? doc($db, "leagues", leagueId, "calendar", activeEvent.value.id) : collection($db, "leagues", leagueId, "calendar")
-    activeEvent.value?.id ? await updateDoc(ref, { ...data, lastUpdated: new Date().toISOString() }) : await addDoc(ref, { ...data, lastUpdated: new Date().toISOString() })
+    if (activeEvent.value?.id) {
+      await updateDoc(doc($db, "events", activeEvent.value.id), { ...data, lastUpdated: new Date().toISOString() })
+    } else {
+      await addDoc(collection($db, "events"), { ...data, leagueId, lastUpdated: new Date().toISOString() })
+    }
     isModalOpen.value = false
     await dataStore.refreshLeagueCalendar(leagueId)
   } finally { ui.setLoading(false) }
@@ -274,7 +286,7 @@ const promptDelete = async (leagueEvent) => {
   if (!confirmed) return;
   ui.setLoading(true, "Deleting...");
   try { 
-    await deleteDoc(doc($db, "leagues", leagueId, "calendar", leagueEvent.id));
+    await deleteDoc(doc($db, "events", leagueEvent.id));
     await dataStore.refreshLeagueCalendar(leagueId)
   } finally { ui.setLoading(false); }
 };

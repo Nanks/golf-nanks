@@ -1,32 +1,10 @@
 // https://nuxt.com
 import { defineNuxtConfig } from 'nuxt/config'
 import { readFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import tailwindcss from "@tailwindcss/vite";
 
 const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf-8'))
-
-// A human-readable build number derived from git at build time, so the
-// version shown in the app always matches an exact deployed commit with no
-// manual bump. `git rev-list --count HEAD` is the number of commits reachable
-// from HEAD -- a small, monotonically-increasing integer ("Build #187") that
-// reads far better than a raw hash while still ticking up every commit.
-// That count is only meaningful against a full clone though -- a shallow
-// clone (some CI/build environments fetch only the latest commit or two)
-// would report "1" or "2" on every single deploy, which is worse than
-// useless. Detect that case and fall back to the short SHA instead, which
-// stays correct at any clone depth; fall back further to the package.json
-// version if git isn't available in the build environment at all.
-function getBuildId() {
-  try {
-    const isShallow = execSync('git rev-parse --is-shallow-repository').toString().trim() === 'true'
-    if (isShallow) return execSync('git rev-parse --short HEAD').toString().trim()
-    return execSync('git rev-list --count HEAD').toString().trim()
-  } catch {
-    return pkg.version
-  }
-}
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-04-18',
@@ -35,9 +13,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // Shown in the navbar menu so users can report what they're running
-      // when troubleshooting. buildId is the exact commit deployed;
-      // buildTime pinpoints when, in case the same commit gets rebuilt.
-      buildId: getBuildId(),
+      // when troubleshooting. appVersion is package.json's version -- bump
+      // it by hand for each notable release. buildTime pinpoints when this
+      // build actually happened, in case the same version gets rebuilt.
+      appVersion: pkg.version,
       buildTime: new Date().toISOString(),
       firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,
       firebaseAuthDomain: process.env.NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN,

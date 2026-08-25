@@ -117,7 +117,7 @@
 </template>
 
 <script setup>
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 const route = useRoute(); // <-- Add this line
 const { id, game } = route.params; 
 const { $db } = useNuxtApp();
@@ -154,11 +154,18 @@ const fetchStandings = async () => {
   loading.value = true;
 
   try {
-    const calRef = collection($db, "leagues", id, "calendar");
-    const q = query(calRef, where("year", "==", selectedYear.value)); 
+    // Single where('leagueId','==',...) equality filter, with the year
+    // filter done client-side -- combining two equality filters on
+    // different fields needs a composite index, and this league's event
+    // volume is small enough that filtering the whole set in JS is
+    // trivially cheap.
+    const q = query(collection($db, "events"), where("leagueId", "==", id));
     const snap = await getDocs(q);
-    
-    const completedWeeks = snap.docs.filter(d => d.data().status === 'complete');
+
+    const completedWeeks = snap.docs.filter(d => {
+      const data = d.data();
+      return data.status === 'complete' && String(data.year) === String(selectedYear.value);
+    });
     totalPossibleWeeks.value = completedWeeks.length; // Now accessible to template
     
     const playerMap = {};

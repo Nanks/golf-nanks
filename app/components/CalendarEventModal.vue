@@ -88,7 +88,7 @@
               <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
               <button @click="localEvent.status = null" class="text-[9px] font-black text-slate-400 uppercase hover:text-red-500 transition-colors">Clear</button>
             </div>
-            <div class="grid grid-cols-5 gap-1.5">
+            <div class="grid grid-cols-3 gap-1.5">
               <button 
                 v-for="s in statusOptions" :key="s.value" 
                 @click="localEvent.status = s.value"
@@ -180,11 +180,12 @@ const localEvent = ref({
 });
 
 const statusOptions = [
-  { label: 'Live', value: null, icon: 'mdi:golf' }, 
+  { label: 'Live', value: null, icon: 'mdi:golf' },
   { label: 'Complete', value: 'complete', icon: 'mdi:check-bold' },
   { label: 'Practice', value: 'practice', icon: 'mdi:alpha-p-circle-outline' },
   { label: 'Hcp', value: 'handicap', icon: 'mdi:calculator' },
-  { label: 'Rain', value: 'rain', icon: 'mdi:weather-pouring' }
+  { label: 'Rain', value: 'rain', icon: 'mdi:weather-pouring' },
+  { label: 'Canceled', value: 'canceled', icon: 'mdi:cancel' }
 ];
 
 const gameOptions = [

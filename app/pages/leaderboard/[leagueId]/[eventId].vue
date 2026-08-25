@@ -253,6 +253,7 @@ import { useData } from '~/stores/data';
 import { useUIStore } from '~/stores/ui';
 import { useAuthStore } from '~/stores/auth';
 import { useConfirm } from '~/composables/useConfirm';
+import { useToast } from '~/composables/useToast';
 import { useLeaderboardData } from '~/composables/useLeaderboardData';
 import { getTieBreakerValue, calcCourseHandicap, getTeePar, createPlayerSnapshot } from '~/utils/gameLogic';
 
@@ -265,6 +266,7 @@ const dataStore = useData();
 const uiStore = useUIStore();
 const authStore = useAuthStore();
 const { ask } = useConfirm();
+const toast = useToast();
 
 const { leagueId, eventId } = route.params;
 
@@ -446,6 +448,7 @@ const handleHistoryTeeChange = async (payload) => {
     await initLeaderboard(leagueData.value?.yearly_games);
   } catch (err) {
     console.error("Tee change failed:", err);
+    toast.add("Failed to update tee -- please try again.", 'error');
   } finally {
     uiStore.setLoading(false);
   }
@@ -499,6 +502,7 @@ const handleScoresSave = async (scores) => {
     await initLeaderboard(leagueData.value?.yearly_games);
   } catch (err) {
     console.error("Save failed:", err);
+    toast.add("Failed to save scores -- please try again.", 'error');
   } finally {
     uiStore.setLoading(false);
   }
@@ -528,7 +532,7 @@ const addPlayerRound = async (player, teeId, teeName, scores) => {
 // pairings covering everyone currently on it.
 const clearStalePairings = async () => {
   if (!hasBlindBestBall.value || !eventDetails.value?.bbb_pairings?.length) return;
-  await updateDoc(doc($db, "leagues", leagueId, "calendar", eventId), { bbb_pairings: [] });
+  await updateDoc(doc($db, "events", eventId), { bbb_pairings: [] });
 };
 
 const resetPairings = async () => {
@@ -541,8 +545,11 @@ const resetPairings = async () => {
   isManageOpen.value = false;
   uiStore.setLoading(true, "Resetting Pairings...");
   try {
-    await updateDoc(doc($db, "leagues", leagueId, "calendar", eventId), { bbb_pairings: [] });
+    await updateDoc(doc($db, "events", eventId), { bbb_pairings: [] });
     await initLeaderboard(leagueData.value?.yearly_games);
+  } catch (err) {
+    console.error("Reset pairings failed:", err);
+    toast.add("Failed to reset pairings -- please try again.", 'error');
   } finally {
     uiStore.setLoading(false);
   }
@@ -599,6 +606,9 @@ const chooseGroupForAdd = async (group) => {
   try {
     await appendToLiveRound(group, groupPicker.value.pendingSnapshot, groupPicker.value.pendingScores);
     await initLeaderboard(leagueData.value?.yearly_games);
+  } catch (err) {
+    console.error("Add player failed:", err);
+    toast.add("Failed to add player -- please try again.", 'error');
   } finally {
     uiStore.setLoading(false);
   }
@@ -674,6 +684,7 @@ const promptRemovePlayer = async (row) => {
     await initLeaderboard(leagueData.value?.yearly_games);
   } catch (err) {
     console.error("Remove failed:", err);
+    toast.add("Failed to remove player -- please try again.", 'error');
   } finally {
     uiStore.setLoading(false);
   }
@@ -722,18 +733,29 @@ const completeEvent = async () => {
     // on (it moves each player's live_rounds entry into players/{id}/rounds
     // and deletes the live_rounds doc). Previously this only mutated the
     // local eventDetails ref, so nothing was ever persisted or archived.
-    await updateDoc(doc($db, "leagues", leagueId, "calendar", eventId), { status: 'complete' });
+    await updateDoc(doc($db, "events", eventId), { status: 'complete' });
   } catch (err) {
     console.error("Failed to lock event:", err);
+    toast.add("Failed to lock event -- please try again.", 'error');
     uiStore.setLoading(false);
     return;
   }
 
   uiStore.setLoading(true, "Archiving Rounds...");
-  await waitForArchival();
-
-  await initLeaderboard(leagueData.value?.yearly_games);
-  uiStore.setLoading(false);
+  try {
+    await waitForArchival();
+    await initLeaderboard(leagueData.value?.yearly_games);
+  } catch (err) {
+    // The event is already locked at this point (the write above succeeded)
+    // -- archival itself runs server-side regardless, but re-fetching the
+    // leaderboard here can still fail (permission hiccup, network blip). Say
+    // so rather than leaving the admin looking at a stale/empty board with
+    // no explanation, and guarantee the loading overlay clears either way.
+    console.error("Failed to refresh leaderboard after locking:", err);
+    toast.add("Event locked, but the leaderboard couldn't be refreshed -- reload to see results.", 'error');
+  } finally {
+    uiStore.setLoading(false);
+  }
 };
 
 // The cloud function runs server-side after our write above, on its own
@@ -786,9 +808,14 @@ const playersAlreadyOnBoard = computed(() => processedPlayers.value.map(p => {
 }));
 
 // --- LIFECYCLE ---
-onMounted(() => {
+onMounted(async () => {
   if (leagueData.value) {
-    initLeaderboard(leagueData.value.yearly_games);
+    try {
+      await initLeaderboard(leagueData.value.yearly_games);
+    } catch (err) {
+      console.error("Failed to load leaderboard:", err);
+      toast.add("Failed to load the leaderboard -- please try reloading.", 'error');
+    }
   }
 });
 </script>

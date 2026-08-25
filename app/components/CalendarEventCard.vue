@@ -147,6 +147,7 @@ const statusUI = computed(() => {
   if (s === 'practice') return { icon: 'mdi:flag-triangle', color: 'text-blue-500' }
   if (s === 'rain') return { icon: 'mdi:weather-pouring', color: 'text-slate-400' }
   if (s === 'handicap') return { icon: 'mdi:calculator', color: 'text-amber-500' }
+  if (s === 'canceled') return { icon: 'mdi:cancel', color: 'text-red-400' }
   return iso < props.todayIso ? { icon: 'mdi:check-circle-outline', color: 'text-slate-400' } : null
 })
 

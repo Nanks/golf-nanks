@@ -47,10 +47,15 @@ export const useHandicap = () => {
         });
       }
 
-      // Pad out to 10 slots with a GHIN-3 placeholder differential where history is short
+      // Pad out to 6 slots with a GHIN-3 placeholder differential where
+      // history is short (0 real rounds -> 6 placeholders, 1 real round -> 5
+      // placeholders, ... 5 real rounds -> 1 placeholder). Once a player has
+      // 6+ real rounds, no padding at all -- realAudits already caps at the
+      // last 10 played (see mostRecentRounds above), so the best-4 average
+      // below draws from up to 10 real rounds at that point.
       const placeholderDiff = Number((Number(currentGhin) - 3).toFixed(3));
       const finalAudit = [...realAudits];
-      while (finalAudit.length < 10) {
+      while (finalAudit.length < 6) {
         finalAudit.push({
           adjustedGross: null,
           courseRating: null,
@@ -70,8 +75,15 @@ export const useHandicap = () => {
 
       return { hcp, audit: finalAudit };
     } catch (err) {
+      // A genuinely new player with no rounds yet never reaches this catch
+      // -- that's the normal padded-with-placeholder return path above.
+      // This only fires on a real failure (permission denied, offline,
+      // etc.), so it must not silently fabricate a plausible-looking
+      // handicap -- that already caused one production bug where a query
+      // failure was indistinguishable from a legitimately low handicap.
+      // Let callers decide how to surface it instead.
       console.error("HANDICAP ERROR:", err);
-      return { hcp: Number((Number(currentGhin) - 3).toFixed(3)), audit: [] };
+      throw err;
     }
   };
 

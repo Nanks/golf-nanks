@@ -113,7 +113,7 @@
             </div>
 
             <p class="text-center text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest pt-2">
-              Build {{ buildId }} &bull; {{ buildTimeLabel }}
+              v{{ appVersion }} &bull; {{ buildTimeLabel }}
             </p>
 
             </div>
@@ -138,7 +138,7 @@ const toast = useToast()
 const colorMode = useColorMode()
 const runtimeConfig = useRuntimeConfig()
 
-const buildId = runtimeConfig.public.buildId
+const appVersion = runtimeConfig.public.appVersion
 const buildTimeLabel = new Date(runtimeConfig.public.buildTime).toLocaleString('en-US', {
   month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
 })

@@ -134,11 +134,13 @@ import { useNuxtApp } from '#imports';
 import { useAuthStore } from '~/stores/auth';
 import { useData } from '~/stores/data';
 import { useHandicap } from '~/composables/useHandicap';
+import { useToast } from '~/composables/useToast';
 import { calcPops, calcAdjustedGross, calcDifferential } from '~/utils/gameLogic';
 
 const { $db } = useNuxtApp();
 const authStore = useAuthStore();
 const dataStore = useData();
+const toast = useToast();
 const { calculateLeagueHandicap } = useHandicap();
 
 // Default to SSC if present, but the dropdown can select any league
@@ -221,9 +223,9 @@ const runPreview = async () => {
     const playerId = selectedPlayerId.value;
     const player = roster.value.find(p => p.id === playerId);
 
-    // Pre-fetch this league's calendar as iso -> { id, status }, used to
+    // Pre-fetch this league's events as iso -> { id, status }, used to
     // resolve event status for rounds that belong to this league.
-    const calSnap = await getDocs(collection($db, 'leagues', selectedLeagueId.value, 'calendar'));
+    const calSnap = await getDocs(query(collection($db, 'events'), where('leagueId', '==', selectedLeagueId.value)));
     const calendarByIso = new Map();
     calSnap.docs.forEach(d => {
       const data = d.data();
@@ -247,7 +249,7 @@ const runPreview = async () => {
     const resolveEventStatus = async (round) => {
       if (round.eventId) {
         if (!eventDocCache.has(round.eventId)) {
-          const eventSnap = await getDoc(doc($db, 'leagues', selectedLeagueId.value, 'calendar', round.eventId));
+          const eventSnap = await getDoc(doc($db, 'events', round.eventId));
           eventDocCache.set(round.eventId, eventSnap.exists() ? (eventSnap.data().status || null) : null);
         }
         return eventDocCache.get(round.eventId);
@@ -270,6 +272,9 @@ const runPreview = async () => {
     allRounds.value = enrichedRounds;
 
     result.value = await calculateLeagueHandicap(playerId, selectedLeagueId.value, player?.ghin || 0);
+  } catch (err) {
+    console.error("Handicap preview failed:", err);
+    toast.add("Failed to calculate handicap -- see console for details.", 'error');
   } finally {
     loading.value = false;
   }

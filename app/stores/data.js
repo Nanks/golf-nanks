@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { collection, collectionGroup, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy, limit } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, getDocs, doc, deleteDoc, orderBy } from 'firebase/firestore'
 import { ref, computed } from 'vue'
 import { getLocalIsoDate, isEventFinished } from '~/utils/leagueActions'
 import { useAuthStore } from '~/stores/auth' // <-- ADDED IMPORT
@@ -14,6 +14,10 @@ export const useData = defineStore('data', () => {
   const courses = ref([])
   const isHydrated = ref(false)
   const loading = ref(false)
+  // Set when the initial league/course fetch fails, so app.vue can surface
+  // it -- otherwise a failed hydration and "there just aren't any leagues
+  // yet" look identical to the user (both render an empty home page).
+  const hydrationError = ref(null)
   const calendarUnsub = ref(null)
   
   const upcomingEvents = ref({}) 
@@ -22,6 +26,7 @@ export const useData = defineStore('data', () => {
   const hydrateStore = async () => {
     if (isHydrated.value || loading.value) return
     loading.value = true
+    hydrationError.value = null
 
     try {
       const [leaguesSnap, coursesSnap] = await Promise.all([
@@ -30,17 +35,21 @@ export const useData = defineStore('data', () => {
       ])
 
       const today = getLocalIsoDate()
-      
+
+      // A single where('leagueId','==',...) equality filter, with the iso
+      // range/sort done client-side, rather than combining it with a
+      // where/orderBy on iso -- that combination needs a composite index,
+      // and this app's per-league event volume is tiny enough that fetching
+      // everything and filtering in JS is trivially cheap. Same pattern as
+      // the useHandicap.js fix for the same class of issue.
       const leaguePromises = leaguesSnap.docs.map(async (lDoc) => {
         const league = { id: lDoc.id, ...lDoc.data() }
-        const calQ = query(
-          collection($db, 'leagues', lDoc.id, 'calendar'), 
-          where('iso', '>=', today), 
-          orderBy('iso', 'asc'), 
-          limit(1)
-        )
-        const calSnap = await getDocs(calQ)
-        league.nextRound = !calSnap.empty ? { id: calSnap.docs[0].id, ...calSnap.docs[0].data() } : null
+        const calSnap = await getDocs(query(collection($db, 'events'), where('leagueId', '==', lDoc.id)))
+        const upcoming = calSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(e => e.iso >= today)
+          .sort((a, b) => a.iso.localeCompare(b.iso))
+        league.nextRound = upcoming[0] || null
         return league
       })
 
@@ -66,23 +75,26 @@ export const useData = defineStore('data', () => {
       if (import.meta.client) startCalendarListener()
     } catch (err) {
       console.error("Hydration Error:", err)
+      hydrationError.value = err
     } finally {
       loading.value = false
     }
   }
 
-  // One listener across every league's calendar, rather than one per league --
+  // One listener across every league's events, rather than one per league --
   // calendar writes are rare, so the standing cost is low, and this avoids
-  // juggling N separate subscriptions/unsubs.
+  // juggling N separate subscriptions/unsubs. Range + orderBy on the same
+  // field (iso) needs no composite index, unlike the per-league queries
+  // above which add a leagueId equality filter.
   const startCalendarListener = () => {
     stopCalendarListener()
     const today = getLocalIsoDate()
-    const q = query(collectionGroup($db, 'calendar'), where('iso', '>=', today), orderBy('iso', 'asc'))
+    const q = query(collection($db, 'events'), where('iso', '>=', today), orderBy('iso', 'asc'))
 
     calendarUnsub.value = onSnapshot(q, (snapshot) => {
       const nextByLeague = new Map()
       snapshot.docs.forEach(d => {
-        const leagueId = d.ref.parent.parent?.id
+        const leagueId = d.data().leagueId
         if (!leagueId || nextByLeague.has(leagueId)) return
         nextByLeague.set(leagueId, { id: d.id, ...d.data() })
       })
@@ -105,15 +117,12 @@ export const useData = defineStore('data', () => {
 
     try {
       const today = getLocalIsoDate()
-      const qRef = query(
-        collection($db, "leagues", leagueId, "calendar"),
-        where("iso", ">=", today),
-        orderBy("iso", "asc"),
-        limit(3)
-      )
-      
-      const snap = await getDocs(qRef)
-      upcomingEvents.value[leagueId] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      const snap = await getDocs(query(collection($db, 'events'), where('leagueId', '==', leagueId)))
+      upcomingEvents.value[leagueId] = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(e => e.iso >= today)
+        .sort((a, b) => a.iso.localeCompare(b.iso))
+        .slice(0, 3)
     } catch (error) {
       console.error(`Failed to fetch upcoming events for league ${leagueId}:`, error)
     }
@@ -133,14 +142,12 @@ export const useData = defineStore('data', () => {
       await fetchUpcomingEvents(leagueId, true)
 
       const today = getLocalIsoDate();
-      const calQ = query(
-        collection($db, 'leagues', leagueId, 'calendar'),
-        where('iso', '>=', today),
-        orderBy('iso', 'asc'),
-        limit(1)
-      );
-      const calSnap = await getDocs(calQ);
-      const nextRound = !calSnap.empty ? { id: calSnap.docs[0].id, ...calSnap.docs[0].data() } : null;
+      const calSnap = await getDocs(query(collection($db, 'events'), where('leagueId', '==', leagueId)));
+      const upcoming = calSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(e => e.iso >= today)
+        .sort((a, b) => a.iso.localeCompare(b.iso));
+      const nextRound = upcoming[0] || null;
 
       const idx = leagues.value.findIndex(l => l.id === leagueId);
       if (idx > -1) {
@@ -231,7 +238,7 @@ export const useData = defineStore('data', () => {
   })
 
   return {
-    liveRounds, leagues, courses, isHydrated, loading, upcomingEvents, activeLiveRound,
+    liveRounds, leagues, courses, isHydrated, loading, hydrationError, upcomingEvents, activeLiveRound,
     hydrateStore, startLiveListener, stopLiveListener, resumeListener,
     deleteLiveRound, refreshLeagueCalendar, fetchUpcomingEvents, getNextActiveEvent,
     activeRoundIdForLeague, startCalendarListener, stopCalendarListener

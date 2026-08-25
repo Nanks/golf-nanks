@@ -8,7 +8,17 @@ import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 declare let self: ServiceWorkerGlobalScope;
 
 // --- 1. WORKBOX SETUP ---
-self.skipWaiting();
+// registerType: 'prompt' (nuxt.config.ts) + PwaUpdater.vue are meant to hold
+// a newly-installed worker in the "waiting" state and only activate it once
+// the user taps "Refresh Now" -- that button calls $pwa.updateServiceWorker(),
+// which posts { type: 'SKIP_WAITING' } to this worker. An unconditional
+// self.skipWaiting() here defeats that entirely: the new worker activates
+// (and, via clientsClaim() below, takes over every open tab) the moment it
+// installs, regardless of what the user chose -- including mid-round, while
+// someone's actively entering scores. Only skip waiting when actually asked.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
 clientsClaim();
 cleanupOutdatedCaches();
 

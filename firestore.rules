@@ -43,6 +43,15 @@ service cloud.firestore {
              afterRsvps.diff(beforeRsvps).affectedKeys().size() == 1;
     }
 
+    // 3b. Legacy bad status values (mdi:* icon names stored as `status`, at
+    // one point) needed a one-off migration tool to clean up. Constrain any
+    // write that touches `status` to the canonical set so that can't recur;
+    // null/absent (a still-live, unscored event) is also valid.
+    function isValidEventStatus() {
+      let status = request.resource.data.get('status', null);
+      return status == null || status in ['complete', 'rain', 'handicap', 'practice', 'canceled'];
+    }
+
     // 4. Is the caller already linked to this player record?
     function isOwnPlayerDoc() {
       return request.auth != null &&
@@ -102,9 +111,28 @@ service cloud.firestore {
       // Creating/deleting events stays admin-only. Updates are admin-only
       // UNLESS the write is a member RSVPing for themselves -- that's
       // narrowly allowed via isOwnRsvpUpdate() so any league member can
-      // RSVP without needing broader write access to the event.
-      allow create, delete: if isLeagueAdmin(path[1]);
-      allow update: if isLeagueAdmin(path[1]) || isOwnRsvpUpdate();
+      // RSVP without needing broader write access to the event. Admin
+      // writes are additionally constrained to a valid `status` value;
+      // isOwnRsvpUpdate() doesn't need the same check since it already only
+      // allows touching the `rsvps` field.
+      allow create: if isLeagueAdmin(path[1]) && isValidEventStatus();
+      allow delete: if isLeagueAdmin(path[1]);
+      allow update: if (isLeagueAdmin(path[1]) && isValidEventStatus()) || isOwnRsvpUpdate();
+    }
+
+    // Events (new, top-level) -- destination of the leagues/*/calendar -> events
+    // migration in migrate.vue. Mirrors the `calendar` rule above 1:1, just
+    // keyed by a `leagueId` field on the document instead of a path segment,
+    // since this collection isn't nested under `leagues` and doesn't need
+    // the {path=**} wildcard form (no collection-group query is ever run
+    // against it). Temporarily widened to any authenticated user during the
+    // migration itself (Test account isn't a real league admin); reverted
+    // to admin-only now that the migration is done.
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if isLeagueAdmin(request.resource.data.leagueId) && isValidEventStatus();
+      allow delete: if isLeagueAdmin(resource.data.leagueId);
+      allow update: if (isLeagueAdmin(resource.data.leagueId) && isValidEventStatus()) || isOwnRsvpUpdate();
     }
 
     // 2. COURSES & TEES (shared across leagues, not league-scoped)
@@ -151,12 +179,14 @@ service cloud.firestore {
 
     // 5. HISTORICAL ROUNDS
     // Lives at players/{playerId}/rounds/{roundId}, written as a top-level
-    // wildcard match for the same reason as `calendar` above: collection
-    // group queries (useLeaderboardData.js's history fetch, migrate.vue's
-    // lookup tool both use collectionGroup('rounds')) need the {path=**}
-    // form to be authorized at all. path[1] recovers the playerId (path ==
-    // ["players", playerId] for every doc here, since rounds never lives
-    // anywhere else in this schema).
+    // wildcard match because collection group queries (useLeaderboardData.js's
+    // history fetch, migrate.vue's lookup tool both use
+    // collectionGroup('rounds')) need the {path=**} form to be authorized at
+    // all -- a rule scoped to one specific parent path doesn't apply to a
+    // query spanning all parents (this is the same subtlety `events` used to
+    // hit before it moved off the old `calendar` subcollection). path[1]
+    // recovers the playerId (path == ["players", playerId] for every doc
+    // here, since rounds never lives anywhere else in this schema).
     match /{path=**}/rounds/{roundId} {
       allow read: if true;
       // archiveLeagueRound (cloud function) writes these via the Admin SDK,

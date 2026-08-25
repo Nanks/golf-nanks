@@ -84,14 +84,18 @@ export const useLeaderboardData = (leagueId, eventId, isAppManaged, isPreviewing
 
       processLeaderboard(flatHistoryPlayers);
     } catch (err) {
+      // Let the caller (initLeaderboard, and the page beyond that) decide
+      // how to surface this -- swallowing it here used to leave the board
+      // silently empty/stale with no indication anything went wrong.
       console.error("History Fetch Error:", err);
+      throw err;
     }
   };
 
   const initLeaderboard = async (leagueGames = []) => {
     uiStore.setLoading(true, "Syncing...");
     try {
-      const eventSnap = await getDoc(doc($db, "leagues", leagueId, "calendar", eventId));
+      const eventSnap = await getDoc(doc($db, "events", eventId));
       eventDetails.value = eventSnap.exists() ? { id: eventSnap.id, ...eventSnap.data() } : null;
 
       if (!eventDetails.value) return;

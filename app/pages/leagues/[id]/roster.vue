@@ -190,15 +190,18 @@ const fetchRoster = async () => {
 const handleTogglePlayer = async (player) => {
   const isRemoving = roster.value.some(p => p.id === player.id);
   ui.setLoading(true, isRemoving ? "Removing..." : "Syncing Roster...");
-  
+
   try {
     const playerRef = doc($db, "players", player.id);
     const updates = {
       leagues: isRemoving ? arrayRemove(route.params.id) : arrayUnion(route.params.id)
     };
 
-    if (!isRemoving && league.value?.cadence === 'yearly') {
-      const { hcp, audit } = await getYearlyInitData(player.id, player.ghin || 0);
+    // Seed an initial league handicap for app-managed leagues -- with no
+    // rounds yet, calculateLeagueHandicap naturally returns the GHIN-3
+    // placeholder padded out to 6 slots, same as every other recalculation.
+    if (!isRemoving && league.value?.appHandicap === true) {
+      const { hcp, audit } = await calculateLeagueHandicap(player.id, route.params.id, player.ghin || 0);
       updates[`leagueHandicaps.${route.params.id}`] = hcp;
       updates[`leagueAudits.${route.params.id}`] = audit;
     }
@@ -206,6 +209,9 @@ const handleTogglePlayer = async (player) => {
     await updateDoc(playerRef, updates);
     await fetchRoster();
     toast.add(isRemoving ? "Player removed" : "Player added", 'info');
+  } catch (err) {
+    console.error("Toggle player failed:", err);
+    toast.add({ title: 'Error', description: 'Failed to update roster.', color: 'red' });
   } finally {
     ui.setLoading(false);
   }
@@ -269,8 +275,12 @@ const finalizePlayerCreation = async (data) => {
       leagueAudits: {}
     };
 
-    if (league.value?.cadence === 'yearly') {
-      const { hcp, audit } = await getYearlyInitData("temp-id", newPlayer.ghin);
+    // Seed an initial league handicap for app-managed leagues -- "temp-id"
+    // has no rounds subcollection (the real player doc doesn't exist yet),
+    // so calculateLeagueHandicap naturally returns the GHIN-3 placeholder
+    // padded out to 6 slots, same as every other recalculation.
+    if (league.value?.appHandicap === true) {
+      const { hcp, audit } = await calculateLeagueHandicap("temp-id", route.params.id, newPlayer.ghin);
       newPlayer.leagueHandicaps[route.params.id] = hcp;
       newPlayer.leagueAudits[route.params.id] = audit;
     }
@@ -356,19 +366,6 @@ const openEditModal = (p) => {
 const onPlayerEdited = async () => {
   isEditModalOpen.value = false;
   await fetchRoster();
-};
-
-// --- Local Utilities ---
-const getYearlyInitData = async (playerId, ghin) => {
-  const initialHcp = Number((Number(ghin) - 3).toFixed(3));
-  const initialAudit = [{
-    iso: 'INIT',
-    diff: initialHcp,
-    score: 0,
-    isPlaceholder: true,
-    isBest: true
-  }];
-  return { hcp: initialHcp, audit: initialAudit };
 };
 
 const isPlayerAdmin = (p) => p.admin === 'super' || p.admin === league.value?.type;

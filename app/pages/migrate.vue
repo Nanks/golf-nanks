@@ -346,6 +346,75 @@
 
     </div>
 
+    <!-- ============================================================ -->
+    <!-- Calendar -> Events Migration                                  -->
+    <!-- ============================================================ -->
+    <div class="card-base p-8 flex flex-col items-center text-center gap-6 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl bg-white dark:bg-slate-900">
+
+      <div class="space-y-2">
+        <h2 class="text-xl font-black text-primary">Calendar &rarr; Events Migration</h2>
+        <p class="text-secondary text-sm">leagues/*/calendar &rarr; top-level events collection</p>
+      </div>
+
+      <div v-if="eventsMigration.state === 'idle'" class="bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-500 p-4 rounded-xl text-xs max-w-md border border-amber-200 dark:border-amber-800/50 text-left">
+        Copies every league's <code>calendar</code> sub-collection docs into a new top-level
+        <code>events</code> collection, preserving the exact same doc id and stamping a
+        <code>leagueId</code> field onto each. Non-destructive (the original
+        <code>leagues/*/calendar</code> docs are never touched or deleted) and safe to run
+        more than once (each doc is upserted with <code>merge: true</code>, keyed by its
+        existing id) -- re-run it to pick up anything added or edited since the last run.
+      </div>
+
+      <div v-if="eventsMigration.state === 'running'" class="flex flex-col items-center gap-4 py-4">
+        <Icon name="mdi:loading" class="size-10 text-emerald-500 animate-spin" />
+        <p class="text-emerald-600 font-black tracking-widest text-xs uppercase animate-pulse">
+          Migrated {{ eventsMigration.migrated }} events across {{ eventsMigration.leaguesScanned }} leagues...
+        </p>
+      </div>
+
+      <div v-if="eventsMigration.state === 'complete'" class="flex flex-col items-center gap-4 bg-emerald-50 dark:bg-emerald-950/20 w-full p-6 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
+        <Icon name="mdi:check-circle" class="size-12 text-emerald-500" />
+
+        <div class="grid grid-cols-2 gap-8 w-full max-w-xs mt-2">
+          <div class="flex flex-col items-center">
+            <span class="text-4xl font-black text-emerald-600 tabular-nums italic">{{ eventsMigration.migrated }}</span>
+            <span class="text-[10px] font-black uppercase text-emerald-800/50 dark:text-emerald-200/50 tracking-widest mt-1">Events Migrated</span>
+          </div>
+
+          <div class="flex flex-col items-center border-l border-emerald-200 dark:border-emerald-800/50">
+            <span class="text-4xl font-black text-slate-500 tabular-nums italic">{{ eventsMigration.leaguesScanned }}</span>
+            <span class="text-[10px] font-black uppercase text-slate-500/50 tracking-widest mt-1">Leagues Scanned</span>
+          </div>
+        </div>
+
+        <div v-if="eventsMigration.errors.length > 0" class="w-full bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-xl p-4 text-left space-y-2">
+          <p class="text-[10px] font-black uppercase text-red-600 dark:text-red-400 tracking-widest">
+            {{ eventsMigration.errors.length }} League{{ eventsMigration.errors.length === 1 ? '' : 's' }} Failed
+          </p>
+          <div v-for="err in eventsMigration.errors" :key="err.leagueId" class="text-[11px] font-mono text-red-700 dark:text-red-400">
+            {{ err.leagueName }} ({{ err.leagueId }}): <span class="font-black">{{ err.message }}</span>
+          </div>
+        </div>
+      </div>
+
+      <button
+        v-if="eventsMigration.state === 'idle'"
+        @click="runEventsMigration"
+        class="mt-4 px-8 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-sm shadow-lg shadow-emerald-900/20 active:scale-95 transition-all w-full sm:w-auto"
+      >
+        Begin Migration
+      </button>
+
+      <button
+        v-if="eventsMigration.state === 'complete'"
+        @click="eventsMigration.state = 'idle'"
+        class="mt-4 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all"
+      >
+        Reset
+      </button>
+
+    </div>
+
   </div>
 </template>
 
@@ -463,7 +532,7 @@ const LEGACY_STATUS_MAP = {
   'mdi:weather-pouring': 'rain',
 };
 
-const CANONICAL_STATUSES = new Set(['complete', 'rain', 'handicap', 'practice']);
+const CANONICAL_STATUSES = new Set(['complete', 'rain', 'handicap', 'practice', 'canceled']);
 
 // Returns { value, changed, unrecognized } -- never mutates in place, and never
 // guesses: anything not explicitly known is left alone and flagged.
@@ -800,6 +869,79 @@ const runEventLookup = async () => {
     console.error("Event lookup failed:", error);
     alert("An error occurred. Check the console for details.");
     eventLookup.value.state = 'idle';
+  }
+};
+
+// ============================================================
+// Calendar -> Events Migration
+// ============================================================
+const eventsMigration = ref({
+  state: 'idle', // idle, running, complete
+  leaguesScanned: 0,
+  migrated: 0,
+  errors: [] // [{ leagueId, leagueName, message }]
+});
+
+const runEventsMigration = async () => {
+  eventsMigration.value.state = 'running';
+  eventsMigration.value.leaguesScanned = 0;
+  eventsMigration.value.migrated = 0;
+  eventsMigration.value.errors = [];
+
+  try {
+    const leaguesSnap = await getDocs(collection($db, 'leagues'));
+
+    // One batch (and one try/catch) per league rather than one combined
+    // batch across all leagues -- Firestore batches are all-or-nothing, so
+    // a single league the caller isn't an admin on (e.g. a test/inactive
+    // league) would otherwise silently take down every other league's
+    // writes bundled into the same batch, with no indication which one was
+    // actually the problem.
+    for (const leagueDoc of leaguesSnap.docs) {
+      try {
+        const calSnap = await getDocs(collection($db, 'leagues', leagueDoc.id, 'calendar'));
+
+        let batch = writeBatch($db);
+        let batchCount = 0;
+
+        for (const eventDoc of calSnap.docs) {
+          // Same doc id preserved -- live_rounds.eventId and players/*/rounds.eventId
+          // already reference these ids, so nothing else needs to change. merge:true
+          // makes this safe to re-run (re-syncs any edits since the last run).
+          const eventRef = doc($db, 'events', eventDoc.id);
+          batch.set(eventRef, { ...eventDoc.data(), leagueId: leagueDoc.id }, { merge: true });
+          batchCount++;
+
+          if (batchCount === 500) {
+            await batch.commit();
+            batch = writeBatch($db);
+            batchCount = 0;
+          }
+        }
+
+        if (batchCount > 0) {
+          await batch.commit();
+        }
+
+        eventsMigration.value.migrated += calSnap.docs.length;
+      } catch (leagueError) {
+        console.error(`Events migration failed for league ${leagueDoc.id}:`, leagueError);
+        eventsMigration.value.errors.push({
+          leagueId: leagueDoc.id,
+          leagueName: leagueDoc.data()?.shortName || leagueDoc.data()?.name || leagueDoc.id,
+          message: leagueError?.message || String(leagueError)
+        });
+      }
+
+      eventsMigration.value.leaguesScanned++;
+    }
+
+    eventsMigration.value.state = 'complete';
+
+  } catch (error) {
+    console.error("Events migration failed:", error);
+    alert("An error occurred. Check the console for details.");
+    eventsMigration.value.state = 'idle';
   }
 };
 </script>

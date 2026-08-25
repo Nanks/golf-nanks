@@ -28,19 +28,37 @@ const calcLeagueHandicap = (differentials, bestX = 4, lastY = 10) => {
 // ============================================================================
 // 1. ARCHIVE ROUND & UPDATE HANDICAPS
 // ============================================================================
-exports.archiveLeagueRound = onDocumentUpdated("leagues/{leagueId}/calendar/{eventId}", async (event) => {
+exports.archiveLeagueRound = onDocumentUpdated("events/{eventId}", async (event) => {
     const newValue = event.data.after.data();
     const previousValue = event.data.before.data();
 
     // Guard clause: Only run if status JUST transitioned to 'complete'
     if (previousValue.status === "complete" || newValue.status !== "complete") {
-        return null; 
+        return null;
     }
 
-    const leagueId = event.params.leagueId;
+    // events/{eventId} is a flat collection (no leagues/{leagueId} parent
+    // segment to read this from), so it comes from the document's own field
+    // instead -- stamped there by the calendar -> events migration.
+    const leagueId = newValue.leagueId;
     const eventId = event.params.eventId;
+
+    // Cloud Functions v2 triggers are at-least-once -- a redelivered event
+    // would re-run this entire archival, double-appending this round's
+    // differential into leagueAudits and silently corrupting the affected
+    // players' handicaps. Claim the event id before doing any work so a
+    // redelivery is a no-op. (The audits.push below is also guarded
+    // defensively against a duplicate roundId, in case of any other
+    // double-invocation path.)
+    try {
+        await db.doc(`_processedEvents/${event.id}`).create({ processedAt: FieldValue.serverTimestamp() });
+    } catch (lockErr) {
+        console.log(`Event ${event.id} already processed, skipping duplicate archival.`);
+        return null;
+    }
+
     const batch = db.batch();
-    
+
     const tokensToNotify = new Set();
     const invalidTokensToCleanup = [];
 
@@ -59,6 +77,20 @@ exports.archiveLeagueRound = onDocumentUpdated("leagues/{leagueId}/calendar/{eve
             console.log(`No live rounds found for event ${eventId}.`);
             return null;
         }
+
+        // Batch-read every player doc referenced across all groups up front
+        // (one getAll() call) instead of one get() per player inside the
+        // loop below.
+        const allPlayerIds = new Set();
+        for (const liveRoundDoc of liveRoundsQuery.docs) {
+            const roundData = liveRoundDoc.data();
+            if (Array.isArray(roundData.players)) {
+                roundData.players.forEach(p => { if (p.id) allPlayerIds.add(p.id); });
+            }
+        }
+        const playerRefs = Array.from(allPlayerIds).map(id => db.doc(`players/${id}`));
+        const playerSnaps = playerRefs.length > 0 ? await db.getAll(...playerRefs) : [];
+        const playerSnapById = new Map(playerSnaps.map(snap => [snap.id, snap]));
 
         for (const liveRoundDoc of liveRoundsQuery.docs) {
             const roundData = liveRoundDoc.data();
@@ -110,9 +142,9 @@ exports.archiveLeagueRound = onDocumentUpdated("leagues/{leagueId}/calendar/{eve
                     batch.set(playerRoundRef, historicalData);
 
                     const playerRef = db.doc(`players/${playerId}`);
-                    const playerSnap = await playerRef.get();
-                    
-                    if (playerSnap.exists) {
+                    const playerSnap = playerSnapById.get(playerId);
+
+                    if (playerSnap?.exists) {
                         const pData = playerSnap.data();
                         
                         if (Array.isArray(pData.fcmTokens)) {
@@ -152,15 +184,27 @@ exports.archiveLeagueRound = onDocumentUpdated("leagues/{leagueId}/calendar/{eve
                             };
 
                             let audits = pData.leagueAudits?.[leagueId] || [];
-                            audits.push(auditEntry);
-                            audits.sort((a, b) => new Date(a.date) - new Date(b.date));
-                            if (audits.length > 10) audits = audits.slice(-10);
+                            // Defensive dedup: if this round's differential is already
+                            // recorded (e.g. a redelivered/retried invocation slipping
+                            // past the event-level lock above), don't append it again.
+                            if (!audits.some(a => a.roundId === roundId)) {
+                                audits.push(auditEntry);
+                                audits.sort((a, b) => new Date(a.date) - new Date(b.date));
+                                if (audits.length > 10) audits = audits.slice(-10);
+                            }
 
+                            // Pad the calc-only (not stored) diffs list up to 6 slots with
+                            // a GHIN-3 placeholder where history is short -- 0 real rounds
+                            // -> 6 placeholders, 1 real round -> 5 placeholders, ... 5 real
+                            // rounds -> 1 placeholder. 6+ real rounds -> no padding at all,
+                            // drawing from up to the last 10 (audits is already capped
+                            // above). Must match app/composables/useHandicap.js's client-
+                            // side calculator exactly.
                             let diffsForCalc = audits.map(a => a.differential);
-                            
-                            if (diffsForCalc.length < 4) {
+
+                            if (diffsForCalc.length < 6) {
                                 const paddingValue = Number(((player.ghin || player.index || 0) - 3).toFixed(3));
-                                const needed = 4 - diffsForCalc.length;
+                                const needed = 6 - diffsForCalc.length;
                                 for (let i = 0; i < needed; i++) {
                                     diffsForCalc.push(paddingValue);
                                 }
@@ -235,9 +279,12 @@ exports.archiveLeagueRound = onDocumentUpdated("leagues/{leagueId}/calendar/{eve
 // ============================================================================
 // 2. NOTIFY NEW LEAGUE EVENT
 // ============================================================================
-exports.notifyNewLeagueEvent = onDocumentCreated("leagues/{leagueId}/calendar/{eventId}", async (event) => {
+exports.notifyNewLeagueEvent = onDocumentCreated("events/{eventId}", async (event) => {
     const newEvent = event.data.data();
-    const leagueId = event.params.leagueId;
+    // events/{eventId} is a flat collection -- leagueId comes from the
+    // document's own field (stamped there by the calendar -> events
+    // migration), not a path segment.
+    const leagueId = newEvent?.leagueId;
     const eventId = event.params.eventId;
 
     if (!newEvent || !leagueId) return null;
@@ -335,7 +382,7 @@ exports.nudgeUnansweredPlayers = onCall(async (request) => {
     }
 
     try {
-        const eventSnap = await db.doc(`leagues/${leagueId}/calendar/${eventId}`).get();
+        const eventSnap = await db.doc(`events/${eventId}`).get();
         if (!eventSnap.exists) {
             throw new HttpsError('not-found', 'Calendar event not found.');
         }
