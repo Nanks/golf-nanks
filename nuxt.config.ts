@@ -1,13 +1,34 @@
 // https://nuxt.com
 import { defineNuxtConfig } from 'nuxt/config'
+import { readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import tailwindcss from "@tailwindcss/vite";
 
+const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf-8'))
+
+// The git SHA at build time, so the version shown in the app always matches
+// an exact deployed commit with no manual bump. Falls back to the
+// package.json version if git isn't available in the build environment.
+function getBuildId() {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim()
+  } catch {
+    return pkg.version
+  }
+}
+
 export default defineNuxtConfig({
-  compatibilityDate: '2026-04-18', 
+  compatibilityDate: '2026-04-18',
   future: { compatibilityVersion: 4 },
 
   runtimeConfig: {
     public: {
+      // Shown in the navbar menu so users can report what they're running
+      // when troubleshooting. buildId is the exact commit deployed;
+      // buildTime pinpoints when, in case the same commit gets rebuilt.
+      buildId: getBuildId(),
+      buildTime: new Date().toISOString(),
       firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,
       firebaseAuthDomain: process.env.NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
       firebaseProjectId: process.env.NUXT_PUBLIC_FIREBASE_PROJECT_ID,
