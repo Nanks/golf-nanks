@@ -257,7 +257,15 @@ export const runLeaguePass = (players, eventDetails) => {
       id: p.id,
       name: p.name,
       gross: p.scores?.[i] || 0,
-      net: p.games?.net?.[i] ?? 99 
+      // Actual net score for this hole (gross adjusted for handicap
+      // pops/allowance), not net-relative-to-par -- p.games.net[i] is
+      // already net-to-par, so adding the hole's par back out recovers the
+      // real net stroke count. This also happens to be the more correct
+      // basis for a skins winner in a mixed-tee league, where players can
+      // be on tees with different pars for the same hole number: comparing
+      // net-to-par would let a par difference between tees swing who wins,
+      // whereas actual net strokes is tee-difficulty-neutral.
+      net: (p.games?.net?.[i] ?? 99) + (p.games?.pars?.[i] ?? 0)
     })).filter(s => s.gross > 0);
 
     if (holeScores.length < numPlayers || numPlayers === 0) continue;
@@ -387,18 +395,22 @@ export const runLeaguePass = (players, eventDetails) => {
   };
 
   const winMap = {};
+  // abbr is the compact on-card badge label (G/N/D + score + hole, e.g.
+  // "N3·14") -- category is a stable key for filtering (PlayerCard's
+  // shouldShowBadge) instead of parsing the label text, which broke the
+  // moment the label stopped starting with the full game name.
   const categories = [
-    { key: 'grossSkins', label: 'Gross', color: 'bg-amber-500/10 text-amber-600' },
-    { key: 'netSkins', label: 'Net', color: 'bg-emerald-500/10 text-emerald-600' },
-    { key: 'deuces', label: 'Deuce', color: 'bg-blue-500/10 text-blue-600' }
+    { key: 'grossSkins', abbr: 'G', color: 'bg-amber-500/10 text-amber-600' },
+    { key: 'netSkins', abbr: 'N', color: 'bg-emerald-500/10 text-emerald-600' },
+    { key: 'deuces', abbr: 'D', color: 'bg-blue-500/10 text-blue-600' }
   ];
 
-  categories.forEach(({ key, label, color }) => {
+  categories.forEach(({ key, abbr, color }) => {
     (finalWinnersLog[key] || []).forEach(win => {
       if (!winMap[win.id]) {
         winMap[win.id] = { individualBadges: [], totalMoney: 0 };
       }
-      winMap[win.id].individualBadges.push({ label: `${label} ${win.score} (${win.hole})`, color });
+      winMap[win.id].individualBadges.push({ label: `${abbr}${win.score}·${win.hole}`, category: key, color });
       winMap[win.id].totalMoney += (win.money || 0);
     });
   });

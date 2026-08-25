@@ -71,6 +71,9 @@
       <div class="px-3">
         <div class="relative">
 
+          <LeaderboardSkinsDeucesList v-if="activeTab === 'Skins'" :holes="holeByHoleSkins" />
+
+          <template v-else>
           <div v-if="activeTab === 'Blind Best Ball' && activeDisplayList.length === 0"
                class="card-base p-8 flex flex-col items-center justify-center text-center gap-4 border-dashed border-2 mt-4">
             <Icon name="mdi:poker-chip" class="size-12 text-stone-300 dark:text-stone-700" />
@@ -112,6 +115,7 @@
 
             </template>
           </TransitionGroup>
+          </template>
         </div>
       </div>
     </template>
@@ -380,6 +384,27 @@ const buildPlayerList = () => {
 
 const activeDisplayList = computed(() => {
   return activeTab.value === 'Blind Best Ball' ? buildTeamList() : buildPlayerList();
+});
+
+// Skins tab: a per-hole breakdown rather than a ranked player list --
+// winnersLog's grossSkins/netSkins are already single-winner-or-nothing per
+// hole (ties are excluded upstream in runLeaguePass), deuces can have
+// multiple winners on the same hole.
+const holeByHoleSkins = computed(() => {
+  const totalHoles = eventDetails.value?.holes || 18;
+  const gross = winnersLog.value?.grossSkins || [];
+  const net = winnersLog.value?.netSkins || [];
+  const deuces = winnersLog.value?.deuces || [];
+
+  return Array.from({ length: totalHoles }, (_, i) => {
+    const hole = i + 1;
+    return {
+      hole,
+      gross: gross.find(w => w.hole === hole) || null,
+      net: net.find(w => w.hole === hole) || null,
+      deuces: deuces.filter(w => w.hole === hole)
+    };
+  });
 });
 
 const getRank = (index) => {

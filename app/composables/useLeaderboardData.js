@@ -101,9 +101,11 @@ export const useLeaderboardData = (leagueId, eventId, isAppManaged, isPreviewing
       if (!eventDetails.value) return;
 
       const allPossibleGames = [...new Set([...leagueGames, ...(eventDetails.value.game || [])])];
+      const hasSkinsOrDeuces = ['Gross Skins', 'Net Skins', 'Deuce Pot'].some(g => allPossibleGames.includes(g));
       availableTabs.value = [
         'Net Score',
-        ...allPossibleGames.filter(g => ['Modified Chicago', 'Chicago Points', 'Blind BestBall', 'Blind Best Ball', 'birds', 'deuces'].includes(g))
+        ...allPossibleGames.filter(g => ['Modified Chicago', 'Chicago Points', 'Blind BestBall', 'Blind Best Ball', 'birds', 'deuces'].includes(g)),
+        ...(hasSkinsOrDeuces ? ['Skins'] : [])
       ];
 
       if (isLive.value) {

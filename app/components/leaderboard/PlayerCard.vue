@@ -16,17 +16,17 @@
         <span>THRU: <span class="text-stone-900 dark:text-stone-100">{{ thruText }}</span></span>
         <span>GROSS: <span class="text-stone-900 dark:text-stone-100">{{ grossText }}</span></span>
       </div>
-      <span v-if="row.winStats?.totalMoney > 0" class="text-primary text-sm text-emerald-600 font-black italic">
-        ${{ row.winStats.totalMoney.toFixed(2) }}
-      </span>
     </div>
 
-    <div v-if="row.winStats?.individualBadges?.length > 0" class="flex gap-1 overflow-x-auto no-scrollbar pt-1.5">
+    <div v-if="row.winStats?.individualBadges?.length > 0 || row.winStats?.totalMoney > 0" class="flex flex-wrap items-center gap-1 pt-1.5">
       <template v-for="(badge, bIdx) in row.winStats.individualBadges" :key="bIdx">
-        <span v-if="shouldShowBadge(badge.label)" :class="badge.color" class="badge whitespace-nowrap shrink-0">
+        <span v-if="shouldShowBadge(badge)" :class="badge.color" class="badge text-[9px] px-1.5">
           {{ badge.label }}
         </span>
       </template>
+      <span v-if="row.winStats?.totalMoney > 0" class="text-primary text-sm text-emerald-600 font-black italic ml-auto shrink-0">
+        ${{ row.winStats.totalMoney.toFixed(2) }}
+      </span>
     </div>
   </div>
 </template>
@@ -52,12 +52,11 @@ const grossText = computed(() => {
   return gross === 0 ? 'E' : (gross > 0 ? `+${gross}` : gross);
 });
 
-const shouldShowBadge = (label) => {
+const shouldShowBadge = (badge) => {
   if (!props.eventGames.length) return false;
-  const lowerLabel = label.toLowerCase();
-  if (lowerLabel.startsWith('gross')) return props.eventGames.includes('Gross Skins');
-  if (lowerLabel.startsWith('net')) return props.eventGames.includes('Net Skins');
-  if (lowerLabel.startsWith('deuce')) return props.eventGames.includes('Deuce Pot');
+  if (badge.category === 'grossSkins') return props.eventGames.includes('Gross Skins');
+  if (badge.category === 'netSkins') return props.eventGames.includes('Net Skins');
+  if (badge.category === 'deuces') return props.eventGames.includes('Deuce Pot');
   return true;
 };
 </script>
