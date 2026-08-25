@@ -151,7 +151,7 @@
               <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-1 shrink-0"></div>
               <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
                 <h3 class="text-xl font-black text-slate-800 dark:text-white uppercase italic tracking-tight">Manage Rounds</h3>
-                <button @click="isManageOpen = false" class="p-2 -mr-2 text-slate-400">
+                <button @click="isManageOpen = false" class="modal-close-btn">
                   <Icon name="mdi:close" class="size-5" />
                 </button>
               </div>

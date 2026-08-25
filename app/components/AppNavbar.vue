@@ -6,24 +6,35 @@
         Golf <span class="text-emerald-500">Nanks</span>
       </NuxtLink>
 
-      <div class="relative z-[70]">
-        <button 
-          v-if="isMounted" 
-          @click="isMenuOpen = !isMenuOpen" 
-          class="p-2 transition-all active:scale-90 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl text-slate-900 dark:text-white"
-        >
-          <Icon :name="isMenuOpen ? 'mdi:close' : 'mdi:menu'" class="size-8" />
-        </button>
+      <button
+        v-if="isMounted"
+        @click="isMenuOpen = !isMenuOpen"
+        class="p-2 transition-all active:scale-90 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl text-slate-900 dark:text-white"
+      >
+        <Icon :name="isMenuOpen ? 'mdi:close' : 'mdi:menu'" class="size-8" />
+      </button>
 
-        <Transition name="slide-fade">
-          <div v-if="isMenuOpen" class="absolute top-16 right-0 w-80 bg-white dark:bg-slate-900 border-2 border-slate-900 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-[60] space-y-3">
-            
-            <div v-if="authStore.isLoggedIn && authStore.userProfile" class="space-y-3">
-              <div class="px-4 py-3 bg-slate-900 rounded-xl border-l-4 border-emerald-500 shadow-lg">
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">Authenticated As</p>
-                <p class="text-xl text-white truncate text-primary italic uppercase !leading-tight">
+      <Teleport to="body">
+        <Transition name="sheet">
+          <div v-if="isMenuOpen" class="fixed inset-0 z-[100] flex items-end sm:items-start sm:justify-end p-0 sm:p-4 sm:pt-20 bg-slate-900/60 backdrop-blur-sm">
+            <div @click="isMenuOpen = false" class="absolute inset-0"></div>
+
+            <div class="sheet-panel relative bg-white dark:bg-slate-900 w-full sm:w-80 rounded-t-[2rem] sm:rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 sm:p-6 space-y-3 max-h-[85vh] overflow-y-auto no-scrollbar">
+
+              <div class="flex justify-end mb-1">
+                <button @click="isMenuOpen = false" class="modal-close-btn">
+                  <Icon name="mdi:close" class="size-5" />
+                </button>
+              </div>
+
+              <div v-if="authStore.isLoggedIn && authStore.userProfile" class="space-y-3">
+              <div class="card-base p-5 flex items-center gap-4">
+                <div class="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <Icon name="mdi:account" class="size-6 text-emerald-500" />
+                </div>
+                <h1 class="text-primary text-xl font-bold uppercase tracking-tight truncate">
                   {{ authStore.userProfile.fname }} {{ authStore.userProfile.lname }}
-                </p>
+                </h1>
               </div>
 
               <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
@@ -60,11 +71,11 @@
             </div>
 
             <div v-else class="space-y-3">
-              <div class="px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl border-l-4 border-slate-400 dark:border-slate-600 shadow-sm">
-                <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-1">Welcome</p>
-                <p class="text-xl text-slate-800 dark:text-white truncate text-primary italic uppercase !leading-tight">
-                  Guest User
-                </p>
+              <div class="card-base p-5 flex items-center gap-4">
+                <div class="size-11 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                  <Icon name="mdi:account-outline" class="size-6 text-slate-500" />
+                </div>
+                <h1 class="text-primary text-xl font-bold uppercase tracking-tight">Guest User</h1>
               </div>
 
               <button @click="handleNav('/login')" class="menu-btn group">
@@ -77,15 +88,15 @@
 
             <div class="p-1 bg-slate-100 dark:bg-slate-800 rounded-xl flex relative h-14 items-center border border-slate-200 dark:border-slate-700 my-4">
               <div 
-                class="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-slate-900 dark:bg-emerald-500 rounded-lg shadow-md transition-all duration-300 ease-out z-0"
+                class="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-emerald-500 rounded-lg shadow-md transition-all duration-300 ease-out z-0"
                 :class="isDark ? 'left-[calc(50%+2px)]' : 'left-1'"
               ></div>
               
-              <button @click="colorMode.preference = 'light'" class="pill-btn" :class="{ 'text-white font-black': !isDark, 'text-slate-500': isDark }">
+              <button @click="colorMode.preference = 'light'" class="pill-btn" :class="{ 'text-slate-700 font-black': !isDark, 'text-slate-500': isDark }">
                 <Icon name="mdi:white-balance-sunny" class="size-5" />
                 <span>Light</span>
               </button>
-              <button @click="colorMode.preference = 'dark'" class="pill-btn" :class="{ 'text-white font-black': isDark, 'text-slate-500': !isDark }">
+              <button @click="colorMode.preference = 'dark'" class="pill-btn" :class="{ 'text-slate-700 font-black': isDark, 'text-slate-500': !isDark }">
                 <Icon name="mdi:weather-night" class="size-5" />
                 <span>Dark</span>
               </button>
@@ -101,15 +112,16 @@
               </button>
             </div>
 
+            </div>
           </div>
         </Transition>
-      </div>
+      </Teleport>
     </div>
   </nav>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue' // Explicitly included to prevent cache issues
+import { ref, computed, watch, onMounted } from 'vue' // Explicitly included to prevent cache issues
 import { useAuthStore } from '~/stores/auth'
 import { useUIStore } from '~/stores/ui'
 import { useToast } from '~/composables/useToast'
@@ -181,22 +193,31 @@ const toggleNotifications = async () => {
   }
 }
 
-onMounted(async () => { 
-  isMounted.value = true 
-  
-  // Safe check for the Notification API (prevents SSR crash)
-  if ('Notification' in window && Notification.permission === 'granted') {
+onMounted(() => {
+  isMounted.value = true
+})
+
+// authStore.userProfile loads asynchronously (a Firestore listener resolving
+// after Firebase Auth rehydrates), so checking it once in onMounted can run
+// before it's populated -- on a cold app start this always read as "not
+// enabled" even though the underlying push subscription was fine. Watching
+// instead re-runs the check once the profile actually arrives.
+watch(
+  () => authStore.userProfile,
+  async (profile) => {
+    if (!profile || !('Notification' in window) || Notification.permission !== 'granted') return
     try {
       // Silently verify if the token exists in the user profile
       const token = await $fcm.requestToken()
-      if (token && authStore.userProfile?.fcmTokens?.includes(token)) {
+      if (token && profile.fcmTokens?.includes(token)) {
         hasNotificationsEnabled.value = true
       }
     } catch (error) {
       console.log("Could not verify token state silently.")
     }
-  }
-})
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
@@ -211,14 +232,21 @@ onMounted(async () => {
 }
 
 .pill-btn {
-  @apply flex-1 flex items-center justify-center gap-2 h-full text-[10px] uppercase tracking-widest z-10 transition-all duration-300;
+  @apply flex-1 flex items-center justify-center gap-2 h-full text-sm uppercase tracking-widest z-10 transition-all duration-300;
 }
 
-.slide-fade-enter-active { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-.slide-fade-leave-active { transition: all 0.2s cubic-bezier(0.7, 0, 0.84, 0); }
-.slide-fade-enter-from, .slide-fade-leave-to { 
-  transform: translateY(-20px) scale(0.95); 
-  opacity: 0; 
-  filter: blur(4px);
+.sheet-enter-active { transition: opacity 0.3s ease; }
+.sheet-leave-active { transition: opacity 0.2s ease; }
+.sheet-enter-from, .sheet-leave-to { opacity: 0; }
+
+.sheet-enter-active .sheet-panel { transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+.sheet-leave-active .sheet-panel { transition: transform 0.2s cubic-bezier(0.7, 0, 0.84, 0); }
+.sheet-enter-from .sheet-panel, .sheet-leave-to .sheet-panel {
+  transform: translateY(100%);
+}
+@media (min-width: 640px) {
+  .sheet-enter-from .sheet-panel, .sheet-leave-to .sheet-panel {
+    transform: translateY(-12px) scale(0.97);
+  }
 }
 </style>

@@ -20,8 +20,8 @@
               Select Course
             </h4>
           </div>
-          <button @click="$emit('close')" class="p-2 bg-slate-50 dark:bg-slate-800 rounded-full text-slate-400">
-            <Icon name="mdi:close" class="size-4" />
+          <button @click="$emit('close')" class="modal-close-btn">
+            <Icon name="mdi:close" class="size-5" />
           </button>
         </div>
 

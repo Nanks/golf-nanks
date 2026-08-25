@@ -22,8 +22,8 @@
               <span class="text-xs font-black text-stone-400 uppercase">HCP: {{ isReady ? formatHcp(team.p2.index) : '0' }}</span>
             </div>
           </div>
-          <button @click="$emit('close')" class="text-stone-400 dark:text-stone-500 active:text-stone-300">
-            <Icon name="mdi:close-circle" class="size-6" />
+          <button @click="$emit('close')" class="modal-close-btn shrink-0">
+            <Icon name="mdi:close" class="size-5" />
           </button>
         </div>
 

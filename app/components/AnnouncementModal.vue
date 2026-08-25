@@ -13,7 +13,7 @@
             </div>
             <h2 class="text-xl font-black italic uppercase text-blue-700 dark:text-blue-500 tracking-tight">Broadcast Message</h2>
           </div>
-          <button @click="$emit('close')" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 active:scale-90 transition-all rounded-full bg-slate-100 dark:bg-slate-800">
+          <button @click="$emit('close')" class="modal-close-btn">
             <Icon name="mdi:close" class="size-5" />
           </button>
         </div>

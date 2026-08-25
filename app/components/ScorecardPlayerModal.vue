@@ -21,8 +21,8 @@
               </button>
             </p>
           </div>
-          <button @click="$emit('close')" class="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors">
-            <Icon name="mdi:close-circle" class="size-7" />
+          <button @click="$emit('close')" class="modal-close-btn shrink-0">
+            <Icon name="mdi:close" class="size-5" />
           </button>
         </div>
 

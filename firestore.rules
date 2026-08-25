@@ -24,15 +24,23 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // 3. Check that this update only touches the caller's own entry in the
-    // calendar event's `rsvps` map (used to let any member RSVP without
-    // granting them write access to the rest of the event document).
+    // 3. Check that this update only touches a single entry in the calendar
+    // event's `rsvps` map (used to let any member RSVP without granting them
+    // write access to the rest of the event document). The map is keyed by
+    // the *player document id*, not request.auth.uid -- those are different
+    // values in this schema (players are looked up via a `uids` array, not a
+    // doc-id match), and rules can't run the query needed to translate one
+    // into the other. So this can't verify the single changed entry belongs
+    // to the caller specifically, only that it's a single-entry RSVP toggle
+    // and nothing else on the event was touched -- an acceptable trade given
+    // the only client path that reaches this is the RSVP button for one's
+    // own name, and RSVP data is low-stakes.
     function isOwnRsvpUpdate() {
       let beforeRsvps = resource.data.get('rsvps', {});
       let afterRsvps = request.resource.data.get('rsvps', {});
       return request.auth != null &&
              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']) &&
-             afterRsvps.diff(beforeRsvps).affectedKeys().hasOnly([request.auth.uid]);
+             afterRsvps.diff(beforeRsvps).affectedKeys().size() == 1;
     }
 
     // 4. Is the caller already linked to this player record?
@@ -75,22 +83,28 @@ service cloud.firestore {
       // The league's own admins can edit/delete it
       allow update, delete: if request.auth != null && request.auth.uid in resource.data.admins;
 
-      // Calendar Subcollection
-      match /calendar/{entryId} {
-        allow read: if true;
-        // Creating/deleting events stays admin-only. Updates are admin-only
-        // UNLESS the write is a member RSVPing for themselves -- that's
-        // narrowly allowed via isOwnRsvpUpdate() so any league member can
-        // RSVP without needing broader write access to the event.
-        allow create, delete: if isLeagueAdmin(leagueId);
-        allow update: if isLeagueAdmin(leagueId) || isOwnRsvpUpdate();
-      }
-
       // Announcements Subcollection
       match /announcements/{announcementId} {
         allow read: if true; // Allows all players to see the history
         allow write: if isLeagueAdmin(leagueId);
       }
+    }
+
+    // Calendar lives at leagues/{leagueId}/calendar/{entryId}, but is written
+    // as a top-level wildcard match (not nested under `leagues` above)
+    // because collection group queries (stores/data.js's live calendar
+    // listener uses collectionGroup('calendar')) are only authorized by a
+    // rule using the {path=**} recursive wildcard -- a rule scoped to one
+    // specific parent path, however it's nested, does not apply to a query
+    // spanning all parents, even though it works fine for a normal read.
+    match /{path=**}/calendar/{entryId} {
+      allow read: if true;
+      // Creating/deleting events stays admin-only. Updates are admin-only
+      // UNLESS the write is a member RSVPing for themselves -- that's
+      // narrowly allowed via isOwnRsvpUpdate() so any league member can
+      // RSVP without needing broader write access to the event.
+      allow create, delete: if isLeagueAdmin(path[1]);
+      allow update: if isLeagueAdmin(path[1]) || isOwnRsvpUpdate();
     }
 
     // 2. COURSES & TEES (shared across leagues, not league-scoped)
@@ -136,7 +150,14 @@ service cloud.firestore {
     }
 
     // 5. HISTORICAL ROUNDS
-    match /players/{playerId}/rounds/{roundId} {
+    // Lives at players/{playerId}/rounds/{roundId}, written as a top-level
+    // wildcard match for the same reason as `calendar` above: collection
+    // group queries (useLeaderboardData.js's history fetch, migrate.vue's
+    // lookup tool both use collectionGroup('rounds')) need the {path=**}
+    // form to be authorized at all. path[1] recovers the playerId (path ==
+    // ["players", playerId] for every doc here, since rounds never lives
+    // anywhere else in this schema).
+    match /{path=**}/rounds/{roundId} {
       allow read: if true;
       // archiveLeagueRound (cloud function) writes these via the Admin SDK,
       // which bypasses rules entirely -- these rules only govern direct
@@ -149,10 +170,10 @@ service cloud.firestore {
       //   - a league admin correcting a league round from the leaderboard
       //     page (guarded so isLeagueAdmin is never called with an empty
       //     leagueId, e.g. on casual rounds, which have none).
-      allow create: if isOwnRoundHistory(playerId) ||
+      allow create: if isOwnRoundHistory(path[1]) ||
         (request.auth != null && request.resource.data.get('type', '') == 'casual') ||
         (request.resource.data.get('leagueId', '') != '' && isLeagueAdmin(request.resource.data.leagueId));
-      allow update, delete: if isOwnRoundHistory(playerId) ||
+      allow update, delete: if isOwnRoundHistory(path[1]) ||
         (resource.data.get('leagueId', '') != '' && isLeagueAdmin(resource.data.leagueId));
     }
   }

@@ -87,7 +87,7 @@
                   Played: <span class="text-emerald-500">{{ selectedDetails.playedCount }}</span> / {{ totalPossibleWeeks }}
                 </p>
               </div>
-              <button @click="selectedDetails = null" class="text-slate-400 p-1 active:scale-90">
+              <button @click="selectedDetails = null" class="modal-close-btn">
                 <Icon name="mdi:close" class="size-5" />
               </button>
             </div>

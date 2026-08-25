@@ -11,8 +11,8 @@
               <h3 class="text-xl font-black text-stone-800 dark:text-white uppercase tracking-tight italic">
                 {{ isEditMode ? 'Edit Player' : 'New Player' }}
               </h3>
-              <button @click="$emit('close')" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors">
-                <Icon name="mdi:close-circle" class="size-6" />
+              <button @click="$emit('close')" class="modal-close-btn">
+                <Icon name="mdi:close" class="size-5" />
               </button>
             </div>
             

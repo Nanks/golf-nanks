@@ -17,8 +17,8 @@
               Handicap Audit <span class="text-slate-400 lowercase font-medium">(best 4)</span>
             </p>
           </div>
-          <button @click="$emit('close')" class="p-2 -mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
-            <Icon name="mdi:close" class="size-6" />
+          <button @click="$emit('close')" class="modal-close-btn shrink-0">
+            <Icon name="mdi:close" class="size-5" />
           </button>
         </div>
 

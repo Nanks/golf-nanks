@@ -9,7 +9,7 @@
           <h3 class="text-xl sm:text-2xl font-black text-slate-800 dark:text-white uppercase italic tracking-tighter">
             {{ isEditing ? 'Manage' : 'Add' }} Event
           </h3>
-          <button @click="$emit('close')" class="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-slate-400 active:scale-95 transition-transform">
+          <button @click="$emit('close')" class="modal-close-btn">
             <Icon name="mdi:close" class="size-5" />
           </button>
         </div>

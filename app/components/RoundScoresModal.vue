@@ -12,8 +12,8 @@
               </h3>
               <p class="text-[10px] font-black uppercase text-emerald-500 tracking-widest mt-1">Score Entry</p>
             </div>
-            <button @click="$emit('close')" class="p-2 -mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
-              <Icon name="mdi:close" class="size-6" />
+            <button @click="$emit('close')" class="modal-close-btn shrink-0">
+              <Icon name="mdi:close" class="size-5" />
             </button>
           </div>
 

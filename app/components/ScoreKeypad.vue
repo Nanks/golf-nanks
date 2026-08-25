@@ -13,7 +13,7 @@
               </p>
               <h4 class="text-xl font-black text-slate-800 dark:text-white uppercase italic leading-none">Score Entry</h4>
             </div>
-            <button @click="$emit('update:isOpen', false)" class="size-10 flex items-center justify-center bg-white dark:bg-slate-800 text-slate-400 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-transform">
+            <button @click="$emit('update:isOpen', false)" class="modal-close-btn">
               <Icon name="mdi:close" class="size-5" />
             </button>
           </div>
