@@ -186,11 +186,16 @@ exports.archiveLeagueRound = onDocumentUpdated("leagues/{leagueId}/calendar/{eve
         
         if (tokenArray.length > 0) {
             const message = {
-                notification: {
+                // Data-only: a `notification` field on the payload makes the
+                // browser auto-display it in the background *in addition to*
+                // our own showNotification() call below (sw.ts), which is
+                // what was causing every push to show up twice on-device.
+                data: {
+                    type: 'round_finalized',
                     title: `${leagueName} Round Finalized! ⛳`,
-                    body: `The leaderboard for ${newValue.course || 'the latest round'} is locked. Tap to view the final results.`
+                    body: `The leaderboard for ${newValue.course || 'the latest round'} is locked. Tap to view the final results.`,
+                    url: `/leagues/${leagueId}/calendar`
                 },
-                data: { url: `/leagues/${leagueId}/calendar` },
                 tokens: tokenArray
             };
 
@@ -233,8 +238,19 @@ exports.archiveLeagueRound = onDocumentUpdated("leagues/{leagueId}/calendar/{eve
 exports.notifyNewLeagueEvent = onDocumentCreated("leagues/{leagueId}/calendar/{eventId}", async (event) => {
     const newEvent = event.data.data();
     const leagueId = event.params.leagueId;
-    
+    const eventId = event.params.eventId;
+
     if (!newEvent || !leagueId) return null;
+
+    // Cloud Functions v2 triggers are at-least-once -- the same event.id can
+    // be redelivered and re-run this function. Claim it via a create-only
+    // write (fails if already claimed) so a redelivery sends nothing twice.
+    try {
+        await db.doc(`_processedEvents/${event.id}`).create({ processedAt: FieldValue.serverTimestamp() });
+    } catch (lockErr) {
+        console.log(`Event ${event.id} already processed, skipping duplicate notify.`);
+        return null;
+    }
 
     try {
         const leagueSnap = await db.doc(`leagues/${leagueId}`).get();
@@ -266,11 +282,14 @@ exports.notifyNewLeagueEvent = onDocumentCreated("leagues/{leagueId}/calendar/{e
         });
 
         const message = {
-            notification: {
+            data: {
+                type: 'new_event',
                 title: `New ${leagueName} Event Added! 📅`,
-                body: `A round at ${newEvent.course} has been scheduled for ${eventDate}.`
+                body: `A round at ${newEvent.course} has been scheduled for ${eventDate}.`,
+                url: `/leagues/${leagueId}/calendar`,
+                leagueId,
+                eventId
             },
-            data: { url: `/leagues/${leagueId}/calendar` },
             tokens: tokenArray
         };
 
@@ -358,11 +377,14 @@ exports.nudgeUnansweredPlayers = onCall(async (request) => {
         });
 
         const message = {
-            notification: {
+            data: {
+                type: 'rsvp_nudge',
                 title: `RSVP Needed: ${leagueName} ⛳`,
-                body: `We are finalizing the roster for ${eventData.course || 'upcoming event'} on ${eventDate}. Let us know if you are playing!`
+                body: `We are finalizing the roster for ${eventData.course || 'upcoming event'} on ${eventDate}. Let us know if you are playing!`,
+                url: `/leagues/${leagueId}/calendar`,
+                leagueId,
+                eventId
             },
-            data: { url: `/leagues/${leagueId}/calendar` },
             tokens: tokenArray
         };
 
@@ -437,14 +459,12 @@ exports.broadcastAnnouncement = onDocumentCreated("leagues/{leagueId}/announceme
 
         // 4. Build the message payload using the admin's exact input
         const message = {
-            notification: {
-                title: announcement.title,
-                body: announcement.body
-            },
             data: {
+                type: 'announcement',
+                title: announcement.title,
+                body: announcement.body,
                 // Route them back to the menu or wherever you want them to land
-                url: `/leagues/${leagueId}/menu`,
-                type: 'announcement'
+                url: `/leagues/${leagueId}/menu`
             },
             tokens: tokenArray
         };

@@ -113,6 +113,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 const { $db } = useNuxtApp()
 const route = useRoute()
+const router = useRouter()
 const ui = useUIStore()
 const authStore = useAuthStore()
 const dataStore = useData()
@@ -274,11 +275,26 @@ const promptDelete = async (leagueEvent) => {
   } finally { ui.setLoading(false); }
 };
 
-onMounted(() => { 
+// Tapping an In/Out button on a push notification lands here with
+// ?rsvp=in|out&eventId=... (see sw.ts's notificationclick handler). Apply it
+// once the matching event has loaded and the player is known, then clear the
+// query params so it doesn't re-fire on refresh/back-nav.
+const handleDeepLinkRsvp = async () => {
+  const { rsvp, eventId } = route.query
+  if (!rsvp || !eventId || !authStore.userProfile?.id) return
+  const target = events.value.find(e => e.id === eventId)
+  if (!target) return
+  await updateRSVP(target, rsvp)
+  const { rsvp: _r, eventId: _e, ...rest } = route.query
+  router.replace({ query: rest })
+}
+watch([events, () => authStore.userProfile?.id], handleDeepLinkRsvp, { immediate: true })
+
+onMounted(() => {
   if (leagueId) {
     loadEventsForYear(selectedYear.value)
     fetchLeaguePlayerCount()
-    dataStore.startLiveListener({ leagueId }) 
+    dataStore.startLiveListener({ leagueId })
   }
 })
 

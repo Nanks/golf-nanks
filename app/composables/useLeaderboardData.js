@@ -125,19 +125,12 @@ export const useLeaderboardData = (leagueId, eventId, isAppManaged, isPreviewing
     if (isLive.value) dataStore.startLiveListener({ myRoundsOnly: true });
   });
 
-  // UI trigger to finalize the event
-  const lockEventAndProcess = () => {
-    if (eventDetails.value) eventDetails.value.status = 'complete';
-    processLeaderboard(normalizeLiveRounds(dataStore.liveRounds));
-  };
-
   return {
     eventDetails,
     roundsSource,
     winnersLog,
     availableTabs,
     isLive,
-    initLeaderboard,
-    lockEventAndProcess
+    initLeaderboard
   };
 };

@@ -246,7 +246,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { doc, updateDoc, addDoc, deleteDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useData } from '~/stores/data';
@@ -296,8 +296,7 @@ const {
   winnersLog,
   availableTabs,
   isLive,
-  initLeaderboard,
-  lockEventAndProcess
+  initLeaderboard
 } = useLeaderboardData(leagueId, eventId, isAppManaged, isPreviewingPairings);
 
 // --- LIST BUILDERS ---
@@ -705,7 +704,7 @@ const openTeamModal = (pairing) => {
 };
 
 const completeEvent = async () => {
-  const confirmed = await ask("Complete Event?", "Pairings and results will be permanently set for this round.", {
+  const confirmed = await ask("Complete Event?", "Pairings and results will be permanently set for this round, and live rounds will be archived.", {
     confirmText: "Complete",
     icon: "mdi:lock-check",
     iconBg: "bg-emerald-50 dark:bg-emerald-950/30",
@@ -717,12 +716,53 @@ const completeEvent = async () => {
   uiStore.setLoading(true, "Locking Event...");
   isPreviewingPairings.value = false;
 
-  lockEventAndProcess();
-
-  // Give the UI a beat to catch up and clear the loader
-  setTimeout(() => {
+  try {
+    // This is what actually needs to happen: flip the calendar event's real
+    // status, which is what the archiveLeagueRound cloud function triggers
+    // on (it moves each player's live_rounds entry into players/{id}/rounds
+    // and deletes the live_rounds doc). Previously this only mutated the
+    // local eventDetails ref, so nothing was ever persisted or archived.
+    await updateDoc(doc($db, "leagues", leagueId, "calendar", eventId), { status: 'complete' });
+  } catch (err) {
+    console.error("Failed to lock event:", err);
     uiStore.setLoading(false);
-  }, 300);
+    return;
+  }
+
+  uiStore.setLoading(true, "Archiving Rounds...");
+  await waitForArchival();
+
+  await initLeaderboard(leagueData.value?.yearly_games);
+  uiStore.setLoading(false);
+};
+
+// The cloud function runs server-side after our write above, on its own
+// schedule -- there's no direct callback for "it's done." But it deletes
+// each live_rounds doc for this event as part of the same batch that
+// archives it, and we already have a live listener on dataStore.liveRounds,
+// so watching those docs disappear is a reliable, event-driven signal that
+// archival has actually finished (rather than guessing with a fixed delay).
+const waitForArchival = () => {
+  return new Promise((resolve) => {
+    const stillLive = () => dataStore.liveRounds.some(r => r.eventId === eventId);
+    if (!stillLive()) {
+      resolve();
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      stopWatching();
+      resolve();
+    }, 15000);
+
+    const stopWatching = watch(() => dataStore.liveRounds, () => {
+      if (!stillLive()) {
+        clearTimeout(timeoutId);
+        stopWatching();
+        resolve();
+      }
+    }, { deep: true });
+  });
 };
 
 const getShortDate = (d) => {

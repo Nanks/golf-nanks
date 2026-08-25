@@ -12,12 +12,14 @@ export default defineNuxtPlugin(() => {
   const messaging = getMessaging(app)
 
   // --- Handle Foreground Messages ---
+  // Messages are sent data-only (see functions/index.js) so title/body live
+  // under payload.data rather than payload.notification.
   onMessage(messaging, (payload) => {
     const announcementStore = useAnnouncementStore()
-    
+
     announcementStore.push({
-      title: payload.notification?.title || 'League Alert',
-      body: payload.notification?.body || '',
+      title: payload.data?.title || 'League Alert',
+      body: payload.data?.body || '',
       type: (payload.data?.priority as any) || 'info',
       url: payload.data?.url
     })

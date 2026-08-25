@@ -1,0 +1,159 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ====================================================
+    // HELPER FUNCTIONS
+    // ====================================================
+
+    // 1. Check if the user is listed in the league's 'admins' array
+    function isLeagueAdmin(leagueId) {
+      // Fetches the specific league document to check its 'admins' array
+      let leagueDoc = get(/databases/$(database)/documents/leagues/$(leagueId));
+      return request.auth != null &&
+             request.auth.uid in leagueDoc.data.admins;
+    }
+
+    // 2. App-wide admin, for the handful of actions that aren't scoped to a
+    // single league (courses/tees, managing any player record) and so can't
+    // be checked via isLeagueAdmin. Presence of a doc at admins/{uid} (any
+    // fields, or none) grants this -- add/remove access by adding/removing
+    // that document, no code change or redeploy needed.
+    function isAppAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // 3. Check that this update only touches the caller's own entry in the
+    // calendar event's `rsvps` map (used to let any member RSVP without
+    // granting them write access to the rest of the event document).
+    function isOwnRsvpUpdate() {
+      let beforeRsvps = resource.data.get('rsvps', {});
+      let afterRsvps = request.resource.data.get('rsvps', {});
+      return request.auth != null &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']) &&
+             afterRsvps.diff(beforeRsvps).affectedKeys().hasOnly([request.auth.uid]);
+    }
+
+    // 4. Is the caller already linked to this player record?
+    function isOwnPlayerDoc() {
+      return request.auth != null &&
+             request.auth.uid in resource.data.get('uids', []);
+    }
+
+    // 4b. Is the caller linked to the player this rounds-history doc belongs
+    // to (players/{playerId}/rounds/{roundId})?
+    function isOwnRoundHistory(playerId) {
+      let playerDoc = get(/databases/$(database)/documents/players/$(playerId));
+      return request.auth != null &&
+             request.auth.uid in playerDoc.data.get('uids', []);
+    }
+
+    // 5. The one-time login-linking write: adds the caller's own uid (and
+    // lastLogin) to a player record they don't already control, and nothing
+    // else. Narrower than "any authenticated user can write any player,"
+    // which is what this replaces.
+    function isLinkingOwnAccount() {
+      return request.auth != null &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uids', 'lastLogin']) &&
+             request.auth.uid in request.resource.data.get('uids', []) &&
+             !(request.auth.uid in resource.data.get('uids', []));
+    }
+
+    // ====================================================
+    // COLLECTION RULES
+    // ====================================================
+
+    // 1. LEAGUES & CALENDAR
+    match /leagues/{leagueId} {
+      allow read: if true;
+
+      // New leagues are always created out-of-band (console/admin SDK,
+      // which bypasses rules entirely) -- never through the client.
+      allow create: if false;
+
+      // The league's own admins can edit/delete it
+      allow update, delete: if request.auth != null && request.auth.uid in resource.data.admins;
+
+      // Calendar Subcollection
+      match /calendar/{entryId} {
+        allow read: if true;
+        // Creating/deleting events stays admin-only. Updates are admin-only
+        // UNLESS the write is a member RSVPing for themselves -- that's
+        // narrowly allowed via isOwnRsvpUpdate() so any league member can
+        // RSVP without needing broader write access to the event.
+        allow create, delete: if isLeagueAdmin(leagueId);
+        allow update: if isLeagueAdmin(leagueId) || isOwnRsvpUpdate();
+      }
+
+      // Announcements Subcollection
+      match /announcements/{announcementId} {
+        allow read: if true; // Allows all players to see the history
+        allow write: if isLeagueAdmin(leagueId);
+      }
+    }
+
+    // 2. COURSES & TEES (shared across leagues, not league-scoped)
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isAppAdmin();
+
+      match /tees/{teeId} {
+        allow read: if true;
+        allow write: if isAppAdmin();
+      }
+    }
+
+    // 3. PLAYERS
+    match /players/{playerId} {
+      allow read: if true;
+      // Creating a new player record (roster add / manual create) --
+      // low risk since there's no existing data to tamper with.
+      allow create: if request.auth != null;
+      // Editing an existing player: the player themselves (once linked via
+      // uids), the login-linking write, or an app admin (roster/handicap
+      // management can't be scoped to "admin of this player's leagues" --
+      // players aren't nested under leagues, so there's no single leagueId
+      // to check against).
+      allow update: if isOwnPlayerDoc() || isLinkingOwnAccount() || isAppAdmin();
+      allow delete: if isAppAdmin();
+    }
+
+    // 4. LIVE ROUNDS
+    match /live_rounds/{roundId} {
+      allow read: if true;
+      // A player starting their own round, or a league admin managing a
+      // round on behalf of players (add/edit/remove from the leaderboard).
+      // Casual rounds have leagueId == '' -- guarded so isLeagueAdmin is
+      // never called with an empty id (playerIds already covers casual
+      // rounds for every real write path, but this keeps it safe either way).
+      allow create: if request.auth != null &&
+        (request.auth.uid in request.resource.data.get('playerIds', []) ||
+         (request.resource.data.get('leagueId', '') != '' && isLeagueAdmin(request.resource.data.leagueId)));
+      allow update, delete: if request.auth != null &&
+        (request.auth.uid in resource.data.get('playerIds', []) ||
+         (resource.data.get('leagueId', '') != '' && isLeagueAdmin(resource.data.leagueId)));
+    }
+
+    // 5. HISTORICAL ROUNDS
+    match /players/{playerId}/rounds/{roundId} {
+      allow read: if true;
+      // archiveLeagueRound (cloud function) writes these via the Admin SDK,
+      // which bypasses rules entirely -- these rules only govern direct
+      // client writes:
+      //   - finishCasualRound writes one doc per player in the group in a
+      //     single batch, so it can't be "only the player this doc belongs
+      //     to" -- any authenticated user may create a doc explicitly typed
+      //     'casual'.
+      //   - a player creating/fixing their own history (isOwnRoundHistory).
+      //   - a league admin correcting a league round from the leaderboard
+      //     page (guarded so isLeagueAdmin is never called with an empty
+      //     leagueId, e.g. on casual rounds, which have none).
+      allow create: if isOwnRoundHistory(playerId) ||
+        (request.auth != null && request.resource.data.get('type', '') == 'casual') ||
+        (request.resource.data.get('leagueId', '') != '' && isLeagueAdmin(request.resource.data.leagueId));
+      allow update, delete: if isOwnRoundHistory(playerId) ||
+        (resource.data.get('leagueId', '') != '' && isLeagueAdmin(resource.data.leagueId));
+    }
+  }
+}
