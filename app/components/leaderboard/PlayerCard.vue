@@ -20,7 +20,7 @@
 
     <div v-if="row.winStats?.individualBadges?.length > 0 || row.winStats?.totalMoney > 0" class="flex flex-wrap items-center gap-1 pt-1.5">
       <template v-for="(badge, bIdx) in row.winStats.individualBadges" :key="bIdx">
-        <span v-if="shouldShowBadge(badge)" :class="badge.color" class="badge text-[9px] px-1.5">
+        <span v-if="shouldShowBadge(badge)" :class="badge.color" class="badge text-[11px] px-1.5">
           {{ badge.label }}
         </span>
       </template>
