@@ -31,11 +31,11 @@
                 Cancel
               </button>
               
-              <button 
+              <button
                 @click="handleSave"
-                :disabled="loading"
+                :disabled="loading || !canEditThisPlayer"
                 class="flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all active:scale-95
-                       text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 
+                       text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30
                        shadow-[inset_0_0_12px_rgba(16,185,129,0.15)] hover:bg-emerald-500/20 backdrop-blur-sm
                        disabled:opacity-50 disabled:text-slate-500 disabled:bg-slate-500/10 disabled:border-slate-500/20 disabled:shadow-none"
               >
@@ -51,14 +51,18 @@
 
 <script setup>
 import { doc, updateDoc } from 'firebase/firestore';
+import { useAuthStore } from '~/stores/auth';
+import { useData } from '~/stores/data';
 
 const props = defineProps({
   isOpen: Boolean,
-  player: Object // Expects { id, fname, lname, ghin }
+  player: Object // Expects { id, fname, lname, ghin, leagues }
 });
 
 const emit = defineEmits(['close', 'updated']);
 const { $db } = useNuxtApp();
+const authStore = useAuthStore();
+const dataStore = useData();
 const loading = ref(false);
 const localGhin = ref(props.player?.ghin || '');
 
@@ -67,16 +71,33 @@ watch(() => props.player, (newVal) => {
   if (newVal) localGhin.value = newVal.ghin;
 }, { immediate: true });
 
+// This modal is shared by index.vue (editing your own GHIN) and roster.vue
+// (an admin editing a roster player's GHIN) -- both callers already gate
+// which players show an edit affordance, but that's just hiding a button,
+// not enforcement. Firestore rules for the players collection are
+// deliberately permissive (any authenticated user), so this check is the
+// actual authorization: your own record, an admin of any league this
+// player belongs to, or the super admin.
+const canEditThisPlayer = computed(() => {
+  if (!props.player?.id) return false;
+  if (authStore.userProfile?.id === props.player.id) return true;
+  if (authStore.isSuperAdmin) return true;
+  return (props.player.leagues || []).some(leagueId => {
+    const league = dataStore.leagues.find(l => l.id === leagueId);
+    return league && authStore.isAdminForLeague(league);
+  });
+});
+
 const handleSave = async () => {
-  if (!props.player?.id) return;
-  
+  if (!props.player?.id || !canEditThisPlayer.value) return;
+
   loading.value = true;
   try {
     const playerRef = doc($db, "players", props.player.id);
     await updateDoc(playerRef, {
       ghin: parseFloat(localGhin.value)
     });
-    
+
     emit('updated', parseFloat(localGhin.value));
     close();
   } catch (error) {

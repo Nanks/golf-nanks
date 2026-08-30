@@ -181,11 +181,15 @@ const fetchLeaguePlayers = async () => {
 // --- RSVP & ACTIONS ---
 const updateRSVP = async (leagueEvent, status) => {
   if (!authStore.userProfile?.id) return;
-  const playerId = authStore.userProfile.id;
   try {
-    const eventRef = doc($db, "events", leagueEvent.id);
-    await updateDoc(eventRef, { [`rsvps.${playerId}`]: status });
-    
+    // Routed through a Cloud Function rather than a direct Firestore write --
+    // players have no write access to the events collection at all now. The
+    // function looks up the caller's own player doc server-side (a query
+    // rules can't do) instead of trusting a client-supplied player id.
+    const functions = getFunctions();
+    const submitRsvpFn = httpsCallable(functions, 'submitRsvp');
+    await submitRsvpFn({ eventId: leagueEvent.id, status });
+
     // Explicitly format the status text
     const displayStatus = status === 'in' ? 'IN' : 'OUT';
     toast.add(`Marked as ${displayStatus}`, 'success');
@@ -258,6 +262,16 @@ const prevYear = () => { selectedYear.value = Math.max(selectedYear.value - 1, 2
 const openAddModal = () => { activeEvent.value = null; isModalOpen.value = true }
 const openEditModal = (leagueEvent) => { activeEvent.value = { ...leagueEvent }; isModalOpen.value = true }
 
+// Single where('leagueId','==',...) equality filter, checked client-side for
+// the exact date -- combining it with a where on iso would need a composite
+// index, and this league's event volume is trivial to scan in JS. Excludes
+// the event currently being edited (if any) so editing an event's other
+// fields without changing its date doesn't flag itself as a duplicate.
+const hasDuplicateEventOnDate = async (iso, excludeId) => {
+  const snap = await getDocs(query(collection($db, 'events'), where('leagueId', '==', leagueId)))
+  return snap.docs.some(d => d.id !== excludeId && d.data().iso === iso)
+}
+
 const handleSaveEvent = async (data) => {
   // Guards against a double-tap on Save creating two calendar event docs for
   // the same intended event (each would independently, correctly trigger the
@@ -267,6 +281,10 @@ const handleSaveEvent = async (data) => {
   if (ui.isGlobalLoading) return;
   ui.setLoading(true, "Saving...")
   try {
+    if (await hasDuplicateEventOnDate(data.iso, activeEvent.value?.id)) {
+      toast.add(`This league already has an event on ${data.iso}.`, 'error');
+      return;
+    }
     if (data.status === 'complete' && activeEvent.value?.status !== 'complete') {
       const confirmed = await ask("Complete Event?", "This will archive the round.", { confirmText: 'Complete', confirmBtnClass: 'bg-emerald-600' });
       if (!confirmed) return;

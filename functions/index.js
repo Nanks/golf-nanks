@@ -463,7 +463,57 @@ exports.nudgeUnansweredPlayers = onCall(async (request) => {
 });
 
 // ============================================================================
-// 4. BROADCAST LEAGUE ANNOUNCEMENTS
+// 4. SUBMIT RSVP (CALLABLE)
+// ============================================================================
+// Runs as the caller's own identity server-side, which can do what Firestore
+// rules structurally can't: find the player doc whose `uids` array actually
+// contains this auth uid (a query, not a get-by-id), rather than trusting a
+// player id the client sends. This is the only path that can write an RSVP
+// -- players have no direct write access to the events collection at all.
+exports.submitRsvp = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'You must be logged in to RSVP.');
+    }
+
+    const { eventId, status } = request.data;
+    if (!eventId || !['in', 'out'].includes(status)) {
+        throw new HttpsError('invalid-argument', 'Missing eventId or invalid status.');
+    }
+
+    try {
+        const playerQuery = await db.collection('players')
+            .where('uids', 'array-contains', request.auth.uid)
+            .limit(1)
+            .get();
+
+        if (playerQuery.empty) {
+            throw new HttpsError('not-found', 'No player record is linked to this account.');
+        }
+        const playerDoc = playerQuery.docs[0];
+
+        const eventRef = db.doc(`events/${eventId}`);
+        const eventSnap = await eventRef.get();
+        if (!eventSnap.exists) {
+            throw new HttpsError('not-found', 'Event not found.');
+        }
+
+        const playerLeagues = playerDoc.data().leagues || [];
+        if (!playerLeagues.includes(eventSnap.data().leagueId)) {
+            throw new HttpsError('permission-denied', 'You are not a member of this league.');
+        }
+
+        await eventRef.update({ [`rsvps.${playerDoc.id}`]: status });
+
+        return { success: true };
+    } catch (error) {
+        if (error instanceof HttpsError) throw error;
+        console.error("Error submitting RSVP:", error);
+        throw new HttpsError('internal', 'Failed to submit RSVP.', error);
+    }
+});
+
+// ============================================================================
+// 5. BROADCAST LEAGUE ANNOUNCEMENTS
 // ============================================================================
 exports.broadcastAnnouncement = onDocumentCreated("leagues/{leagueId}/announcements/{announcementId}", async (event) => {
     // 1. Grab the newly created announcement data
