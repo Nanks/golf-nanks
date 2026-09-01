@@ -115,7 +115,7 @@
           <div class="h-px flex-1 bg-slate-200 dark:bg-slate-800 ml-4"></div>
         </div>
 
-        <div 
+        <div
           @click="isAnnouncementModalOpen = true"
           class="card-interactive flex items-center justify-between p-5 border-2 border-dashed !border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 transition-all group"
         >
@@ -136,7 +136,7 @@
     <ClientOnly>
       <LazyAnnouncementModal
         v-if="isAdmin"
-        :is-open="isAnnouncementModalOpen" 
+        :is-open="isAnnouncementModalOpen"
         @close="isAnnouncementModalOpen = false"
         @send="handleSendAnnouncement"
       />
@@ -224,4 +224,6 @@ const handleSendAnnouncement = async (payload) => {
     uiStore.setLoading(false)
   }
 }
+
+
 </script>

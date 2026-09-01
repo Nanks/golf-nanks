@@ -149,11 +149,12 @@ export function useRoundSetup() {
       // 3. Delegate handicap math to the shared utility
       const playerSnapshots = players.value.map(p => {
         return createPlayerSnapshot(
-          p, 
-          p.teeId, 
-          selectedCourse.value, 
-          isAppManaged.value, 
-          leagueId.value
+          p,
+          p.teeId,
+          selectedCourse.value,
+          isAppManaged.value,
+          leagueId.value,
+          courseSnapshot.holes
         )
       })
 

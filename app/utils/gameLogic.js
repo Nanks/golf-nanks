@@ -493,17 +493,20 @@ export const getDefaultTeeId = (player, course, isLeague, currentLeague, schedul
 /**
  * Creates the official Player Snapshot for a live_rounds document.
  */
-export const createPlayerSnapshot = (player, teeId, course, isAppManaged, leagueId) => {
+export const createPlayerSnapshot = (player, teeId, course, isAppManaged, leagueId, holes = 18) => {
   const tees = course.tees || {}
   const teeData = Array.isArray(tees) ? tees.find(t => t.id === teeId) : tees[teeId]
   const teePar = getTeePar(teeData)
-  
+
   let finalIndex = 0
   let finalCourseHcp = 0
 
   if (isAppManaged) {
     const rawLeagueHcp = player.leagueHandicaps?.[leagueId] ?? ((player.ghin ?? 0) - 3)
-    finalIndex = parseFloat(rawLeagueHcp)
+    // Cap at 36 for an 18-hole round, 18 for a 9-hole round -- only caps the
+    // upper end, a scratch/plus player's low or negative handicap is untouched.
+    const maxHandicap = holes === 9 ? 18 : 36
+    finalIndex = Math.min(parseFloat(rawLeagueHcp), maxHandicap)
     finalCourseHcp = parseFloat(finalIndex.toFixed(3))
   } else {
     finalIndex = player.ghin ?? 0

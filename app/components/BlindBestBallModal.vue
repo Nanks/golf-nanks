@@ -36,8 +36,8 @@
               </span>
             </div>
 
-            <div class="flex gap-1 px-0.5">
-              <div v-for="h in getNineHoles(nine)" :key="h" class="flex-1 flex flex-col items-center gap-1">
+            <div class="flex gap-1 px-0.5 overflow-x-auto no-scrollbar">
+              <div v-for="h in getNineHoles(nine)" :key="h" class="flex-1 min-w-[44px] flex flex-col items-center gap-1">
                 <span class="text-[10px] font-black uppercase text-stone-400">#{{ h }}</span>
                 
                 <div class="flex flex-col items-center w-full transition-opacity duration-300" :class="isP1Used(h) ? 'opacity-100' : 'opacity-30 grayscale'">

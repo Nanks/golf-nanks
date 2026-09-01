@@ -14,7 +14,8 @@
     <AppNavbar />
 
     <ClientOnly>
-      <GlobalAnnouncements /> 
+      <GlobalAnnouncements />
+      <UrgentAlertModal />
       <AppToast />
       <AppConfirm />
       <AppLoading :active="ui.isGlobalLoading" :message="ui.loadingMessage" />

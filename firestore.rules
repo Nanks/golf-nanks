@@ -59,6 +59,13 @@ service cloud.firestore {
       allow delete: if isLeagueAdmin(resource.data.leagueId);
     }
 
+    // Urgent alerts 
+    match /alerts/{alertId} {
+      allow read: if true;
+      allow create: if isLeagueAdmin(request.resource.data.leagueId);
+      allow delete: if isLeagueAdmin(resource.data.leagueId) || isAppAdmin();
+    }
+
     // 2. COURSES & TEES (shared across leagues, not league-scoped)
     match /courses/{courseId} {
       allow read: if true;

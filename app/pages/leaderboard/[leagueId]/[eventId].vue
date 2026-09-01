@@ -17,6 +17,15 @@
           <ClientOnly>
             <div class="flex items-center gap-2">
               <button
+                v-if="isAdmin && isLive"
+                @click="isSendAlertModalOpen = true"
+                title="Send Alert"
+                class="flex items-center justify-center p-1.5 rounded-lg transition-all active:scale-95 shadow-sm text-red-600 dark:text-red-500 bg-red-500/10 border border-red-500/30"
+              >
+                <Icon name="mdi:alert-decagram-outline" class="size-4" />
+              </button>
+
+              <button
                 v-if="isAdmin"
                 @click="isManageOpen = true"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm text-amber-700 dark:text-amber-500 bg-amber-500/10 border border-amber-500/30"
@@ -144,6 +153,13 @@
         :event="eventDetails"
         :is-app-managed="isAppManaged"
         @close="isTeamModalOpen = false"
+      />
+
+      <LazySendAlertModal
+        v-if="isAdmin"
+        :is-open="isSendAlertModalOpen"
+        @close="isSendAlertModalOpen = false"
+        @send="handleSendAlert"
       />
 
       <!-- Admin: manage rounds panel -->
@@ -284,6 +300,7 @@ const isPreviewingPairings = ref(false);
 
 // --- ADMIN ROUND MANAGEMENT STATE ---
 const isManageOpen = ref(false);
+const isSendAlertModalOpen = ref(false);
 const isPlayerPickerOpen = ref(false);
 const addFlow = ref({ teeModalOpen: false, pendingPlayer: null });
 const scoresModal = ref({ isOpen: false, mode: null, player: null, pendingTeeId: null, pendingTeeName: null });
@@ -538,7 +555,7 @@ const addPlayerRound = async (player, teeId, teeName, scores) => {
   const teeData = course?.tees?.[teeId];
   if (!course || !teeData) throw new Error("Could not find tee data for the selected tee");
 
-  const snapshot = createPlayerSnapshot(player, teeId, course, isAppManaged.value, leagueId);
+  const snapshot = createPlayerSnapshot(player, teeId, course, isAppManaged.value, leagueId, eventDetails.value?.holes || 18);
 
   if (isLive.value) {
     await addPlayerToLiveRound(course, snapshot, teeData, scores);
@@ -737,6 +754,29 @@ const openTeamModal = (pairing) => {
   };
 
   isTeamModalOpen.value = true;
+};
+
+const handleSendAlert = async ({ message, severity }) => {
+  uiStore.setLoading(true, "Sending Alert...");
+  try {
+    await addDoc(collection($db, "alerts"), {
+      eventId,
+      leagueId,
+      message,
+      severity,
+      postedBy: authStore.userProfile.id,
+      postedByName: `${authStore.userProfile.fname} ${authStore.userProfile.lname}`,
+      postedAt: serverTimestamp()
+    });
+
+    toast.add("Alert sent!", "success");
+    isSendAlertModalOpen.value = false;
+  } catch (error) {
+    console.error("Failed to send alert:", error);
+    toast.add("Failed to send alert", "error");
+  } finally {
+    uiStore.setLoading(false);
+  }
 };
 
 const completeEvent = async () => {
