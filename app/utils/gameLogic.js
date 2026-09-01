@@ -331,11 +331,50 @@ export const runLeaguePass = (players, eventDetails) => {
         if (p1 && p2) pairings.push(getPairingData(p1, p2));
       });
     } else {
-      // THE RESTORED RANDOM SHUFFLE LOGIC
-      const getSeededValue = (str) => {
+      // Seeded Fisher-Yates shuffle. The previous approach (sort players by
+      // hash(playerId + iso)) looked randomized but wasn't: iso is always
+      // exactly 10 characters ("YYYY-MM-DD"), and for this style of
+      // polynomial rolling hash that makes hash(id + iso) reduce to
+      // hash(id)*K + C, where K and C are the *same* fixed constants for
+      // every player on every event (K depends only on iso's length, which
+      // never changes; C is an additive offset that cancels out entirely
+      // when comparing two players' values). So the date had essentially no
+      // effect on sort order -- the same set of players produced the same
+      // pairings week after week. A real seeded PRNG driving Fisher-Yates
+      // doesn't have that degenerate-to-a-constant problem: each swap
+      // genuinely depends on the seed and how far the shuffle has already
+      // progressed.
+      const stringToSeed = (str) => {
         let hash = 0;
         for (let i = 0; i < str.length; i++) hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
         return hash;
+      };
+
+      // mulberry32 -- small, fast, well-distributed seeded PRNG.
+      const mulberry32 = (seed) => {
+        let state = seed | 0;
+        return () => {
+          state = state + 0x6D2B79F5 | 0;
+          let t = Math.imul(state ^ state >>> 15, 1 | state);
+          t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+          return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+      };
+
+      // eventDetails.id (the event's own doc id) is unconditionally unique
+      // per event, unlike iso which is only unique per league-day -- falls
+      // back to iso if id is somehow missing. Salted differently per group
+      // (M/W) so the men's and women's shuffles don't advance the same PRNG
+      // sequence in lockstep.
+      const seedBase = eventDetails?.id || eventDetails?.iso || '';
+      const seededShuffle = (group, salt) => {
+        const rand = mulberry32(stringToSeed(seedBase + salt));
+        const result = [...group];
+        for (let i = result.length - 1; i > 0; i--) {
+          const j = Math.floor(rand() * (i + 1));
+          [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
       };
 
       // Bucket by ladies vs. everyone else (mens, senior, or unset) rather than
@@ -347,12 +386,8 @@ export const runLeaguePass = (players, eventDetails) => {
       const women = players.filter(isLadies);
       const men = players.filter(p => !isLadies(p));
 
-      const shuffleGroup = (group) => [...group].sort((a, b) => {
-        return getSeededValue(a.id + (eventDetails?.iso || '')) - getSeededValue(b.id + (eventDetails?.iso || ''));
-      });
-
-      const shuffledMen = shuffleGroup(men);
-      const shuffledWomen = shuffleGroup(women);
+      const shuffledMen = seededShuffle(men, 'M');
+      const shuffledWomen = seededShuffle(women, 'W');
 
       const maxPairs = Math.max(shuffledMen.length, shuffledWomen.length);
       const leftovers = [];
